@@ -871,13 +871,15 @@
     grid-column: 1 / -1;
   }
 
-  .pos-table {
+  .pos-table,
+  .dry-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 8px;
   }
 
-  .pos-table th {
+  .pos-table th,
+  .dry-table th {
     font-size: 8px;
     letter-spacing: 3px;
     text-transform: uppercase;
@@ -887,18 +889,21 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .pos-table td {
+  .pos-table td,
+  .dry-table td {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     font-size: 11px;
     vertical-align: middle;
   }
 
-  .pos-table tr:hover td {
+  .pos-table tr:hover td,
+  .dry-table tr:hover td {
     background: var(--bg3);
   }
 
-  .pos-pill {
+  .pos-pill,
+  .dry-pill {
     display: inline-block;
     padding: 3px 8px;
     border-radius: 3px;
@@ -909,9 +914,75 @@
     font-size: 12px;
   }
 
-  .pos-pill.long  { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
-  .pos-pill.short { background: rgba(255,59,92,0.1);  color: var(--red);   border: 1px solid rgba(255,59,92,0.3); }
-  .pos-pill.none  { background: rgba(88,96,105,0.1);  color: var(--muted); border: 1px solid rgba(88,96,105,0.3); }
+  .pos-pill.long,
+  .dry-pill.long {
+    background: rgba(0,255,136,0.1);
+    color: var(--green);
+    border: 1px solid rgba(0,255,136,0.3);
+  }
+
+  .pos-pill.short,
+  .dry-pill.short {
+    background: rgba(255,59,92,0.1);
+    color: var(--red);
+    border: 1px solid rgba(255,59,92,0.3);
+  }
+
+  .pos-pill.none,
+  .dry-pill.none {
+    background: rgba(88,96,105,0.1);
+    color: var(--muted);
+    border: 1px solid rgba(88,96,105,0.3);
+  }
+
+  .pos-pill.win {
+    background: rgba(0,255,136,0.15);
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+
+  .dry-pill.lose {
+    background: rgba(255,59,92,0.15);
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+
+  .dry-run-panel {
+    grid-column: 1 / -1;
+  }
+
+  .dry-run-summary {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .dry-stat {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 16px;
+  }
+
+  .dry-stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .dry-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+  }
+
+  .dry-stat-value.green { color: var(--green); }
+  .dry-stat-value.red   { color: var(--red); }
+  .dry-stat-value.yellow { color: var(--yellow); }
 
   .pos-value { font-family: 'Space Mono', monospace; font-weight: 700; }
   .pos-value.green { color: var(--green); }
@@ -1190,6 +1261,43 @@
     </div>
   </div>
 
+  <!-- DRY RUN PANEL -->
+  <div class="panel dry-run-panel">
+    <div class="panel-title">🎮 Dry Run Simulator</div>
+    <div class="dry-run-summary">
+      <div class="dry-stat">
+        <div class="dry-stat-label">Balance</div>
+        <div class="dry-stat-value yellow" id="dr-balance">$100</div>
+      </div>
+      <div class="dry-stat">
+        <div class="dry-stat-label">Margin</div>
+        <div class="dry-stat-value" id="dr-margin">$5</div>
+      </div>
+      <div class="dry-stat">
+        <div class="dry-stat-label">Leverage</div>
+        <div class="dry-stat-value" id="dr-lev">150x</div>
+      </div>
+      <div class="dry-stat">
+        <div class="dry-stat-label">Win</div>
+        <div class="dry-stat-value green" id="dr-wins">0</div>
+      </div>
+      <div class="dry-stat">
+        <div class="dry-stat-label">Loss</div>
+        <div class="dry-stat-value red" id="dr-loss">0</div>
+      </div>
+      <div class="dry-stat">
+        <div class="dry-stat-label">Total PnL</div>
+        <div class="dry-stat-value yellow" id="dr-pnl">$0</div>
+      </div>
+    </div>
+    <div id="dry-trades-container">
+      <div class="empty-state">
+        <div class="icon">🎯</div>
+        <div>No dry run trades yet. Enable dry run mode.</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 
 <!-- ── SIMULATE BAR ──────────────────────────────────── -->
@@ -1203,6 +1311,19 @@
   <button class="sim-btn" id="sim-btn" onclick="simulate()">▶ SIMULATE</button>
   <span class="sim-label" style="margin-left:12px">📡 Source:</span>
   <code style="font-size:10px;color:var(--cyan);background:var(--bg3);padding:4px 8px;border-radius:3px;border:1px solid var(--border)">BingX · <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">15m</span></code>
+</div>
+
+<!-- ── DRY RUN PANEL ──────────────────────────────────── -->
+<div class="simulate-panel" id="dry-panel">
+  <span class="sim-label">🎮 Dry Run</span>
+  <button class="sim-btn" id="dry-toggle" onclick="toggleDryRun()">▶ ENABLE</button>
+  <span id="dry-status" style="font-size:9px;color:var(--muted)">OFF</span>
+  <span style="font-size:9px;color:var(--muted);margin-left:16px">
+    Balance: <span id="dry-balance" style="color:var(--yellow)">$100</span> |
+    Margin: <span id="dry-margin" style="color:var(--yellow)">$5</span> |
+    Lev: <span id="dry-lev" style="color:var(--yellow)">150x</span> |
+    TP: <span id="dry-tp" style="color:var(--green)">100%</span>
+  </span>
 </div>
 
 <!-- ── LOG CONSOLE ──────────────────────────────────── -->
@@ -1243,7 +1364,10 @@ function connect() {
       if (msg.type === 'signal')      renderSignal(msg.data);
       if (msg.type === 'history')     renderHistory(msg.data);
       if (msg.type === 'market_data') renderMarketData(msg.data);
-      if (msg.type === 'positions')  renderPositions(msg.data);
+      if (msg.type === 'positions')   renderPositions(msg.data);
+      if (msg.type === 'dry_trade')   renderDryTrade(msg.data);
+      if (msg.type === 'dry_history') renderDryHistory(msg.data);
+      if (msg.type === 'dry_trades')  renderDryTrades(msg.data);
     } catch (err) {
       log('err', 'Parse error: ' + err.message);
     }
@@ -1516,7 +1640,125 @@ function renderPositions(data) {
   log('ok', 'Positions updated from BingX');
 }
 
-// ── Simulate ───────────────────────────────────────────────
+// ── Dry Run Functions ─────────────────────────────────────
+let dryRunEnabled = false;
+let dryTrades = [];
+
+function toggleDryRun() {
+  fetch(API_URL + '/dryrun', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'toggle' }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      dryRunEnabled = d.dryRunActive;
+      document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
+      document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
+      document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
+    });
+}
+
+function fetchDryStatus() {
+  fetch(API_URL + '/dryrun', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'status' }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      dryRunEnabled = d.active;
+      document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
+      document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
+      document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
+      document.getElementById('dry-balance').textContent = '$' + d.balance;
+      document.getElementById('dry-margin').textContent = '$' + d.margin;
+      document.getElementById('dry-lev').textContent = d.leverage + 'x';
+      document.getElementById('dry-tp').textContent = d.tpPct;
+      document.getElementById('dr-balance').textContent = '$' + d.balance;
+      document.getElementById('dr-margin').textContent = '$' + d.margin;
+      document.getElementById('dr-lev').textContent = d.leverage + 'x';
+      if (d.openTrades) renderDryTrades(d.openTrades);
+    });
+}
+
+function renderDryTrades(trades) {
+  dryTrades = trades || [];
+  const container = document.getElementById('dry-trades-container');
+  if (!trades || trades.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🎯</div>
+        <div>No dry run trades open</div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = trades.map(t => `
+    <tr>
+      <td><span class="dry-pill ${t.side.toLowerCase()}">${t.side}</span></td>
+      <td style="color:var(--yellow)">${t.entry}</td>
+      <td style="color:var(--green)">${t.tp}</td>
+      <td style="color:var(--red)">${t.sl}</td>
+      <td>${t.positionValue}</td>
+      <td>${t.rr}x</td>
+      <td style="color:${parseFloat(t.pnlIfWin) >= 0 ? 'var(--green)' : 'var(--red)'}">+${t.pnlIfWin} / ${t.pnlIfLose}</td>
+      <td><button onclick="closeDryTrade(${t.id}, 'WIN')" style="background:var(--green);color:#000;border:none;padding:4px 8px;border-radius:3px;cursor:pointer">WIN</button>
+          <button onclick="closeDryTrade(${t.id}, 'LOSE')" style="background:var(--red);color:#000;border:none;padding:4px 8px;border-radius:3px;cursor:pointer">LOSE</button></td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <table class="dry-table">
+      <thead>
+        <tr>
+          <th>Side</th>
+          <th>Entry</th>
+          <th>TP</th>
+          <th>SL</th>
+          <th>Pos Value</th>
+          <th>R:R</th>
+          <th>PnL ±</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderDryTrade(trade) {
+  if (!dryTrades.find(t => t.id === trade.id)) {
+    dryTrades.push(trade);
+  }
+  renderDryTrades(dryTrades);
+}
+
+function renderDryHistory(history) {
+  if (!history || !history.length) return;
+  let wins = 0, losses = 0, totalPnl = 0;
+  history.forEach(t => {
+    if (t.result === 'WIN') { wins++; totalPnl += parseFloat(t.pnl); }
+    else { losses++; totalPnl += parseFloat(t.pnl); }
+  });
+  document.getElementById('dr-wins').textContent = wins;
+  document.getElementById('dr-loss').textContent = losses;
+  document.getElementById('dr-pnl').textContent = '$' + totalPnl.toFixed(2);
+  document.getElementById('dr-pnl').className = 'dry-stat-value ' + (totalPnl >= 0 ? 'green' : 'red');
+}
+
+function closeDryTrade(id, result) {
+  fetch(API_URL + '/dryrun', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'close', tradeId: id, result }),
+  })
+    .then(r => r.json())
+    .then(() => fetchDryStatus());
+}
+
+// ── Helpers ────────────────────────────────────────────────
 async function simulate() {
   const btn   = document.getElementById('sim-btn');
   const price = document.getElementById('sim-price').value;

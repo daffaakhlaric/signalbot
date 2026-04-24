@@ -67,6 +67,8 @@ wss.on("connection", (ws) => {
   if (latestSignal)  ws.send(JSON.stringify({ type: "signal", data: latestSignal }));
   if (signalHistory.length) ws.send(JSON.stringify({ type: "history", data: signalHistory }));
   if (latestPositions) ws.send(JSON.stringify({ type: "positions", data: latestPositions }));
+  if (dryTrades.length) ws.send(JSON.stringify({ type: "dry_trades", data: dryTrades }));
+  if (dryTradesHistory.length) ws.send(JSON.stringify({ type: "dry_history", data: dryTradesHistory }));
 });
 
 // ── HTTP helper with timeout + friendly error messages ────────
@@ -207,6 +209,141 @@ async function fetchBingXPositions() {
 
   if (json.code !== 0) throw new Error(`BingX positions error ${json.code}: ${json.msg}`);
   return json.data;
+}
+
+// ── BingX Place Order ─────────────────────────────────────
+// Docs: https://bingx-api.github.io/docs/#/swapV2/trade-api.html
+async function placeBingXOrder(side, entryZone, tp, sl) {
+  if (!BINGX_API_KEY || !BINGX_API_SECRET) return null;
+  const ts = Date.now().toString();
+  const binSymbol = SYMBOL.replace("-", "");
+  const recvWindow = "10000";
+
+  const entry = side === "LONG" ? entryZone[1] : entryZone[0];
+  const closePrice = side === "LONG" ? tp[0] : tp[0];
+  const quantity = 0.001; // BTC amount, adjust as needed
+
+  const params = `symbol=${binSymbol}&side=${side}&positionSide=${side === "LONG" ? "LONG" : "SHORT"}&orderType=LIMIT&quantity=${quantity}&price=${entry}&takeProfitRate=${tp[0]}&stopLossRate=${sl}&timestamp=${ts}&recvWindow=${recvWindow}`;
+  const crypto = require("node:crypto");
+  const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(params).digest("hex");
+  const url = `${BINGX_BASE}/openApi/swap/v2/trade/order?${params}&signature=${sign}`;
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15000);
+  let json;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "User-Agent": "Mozilla/5.0 btc-sniper-bot/1.0",
+        "X-BX-APIKEY": BINGX_API_KEY,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    json = await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+
+  if (json.code !== 0) throw new Error(`BingX order error ${json.code}: ${json.msg}`);
+  return json.data;
+}
+
+// ── Dry Run Simulator ────────────────────────────────────
+let dryRunActive = false;
+const DRY_BALANCE = 100;
+const DRY_MARGIN = 5;
+const DRY_LEVERAGE = 150;
+const DRY_TP_PCT = 1.0; // 100% take profit (double)
+
+let dryTrades = [];
+let dryTradesHistory = [];
+
+function simulateDryTrade(signal, payload) {
+  if (!dryRunActive) return;
+  if (signal.decision_now !== "LONG" && signal.decision_now !== "SHORT") return;
+
+  const side = signal.decision_now;
+  const entry =
+    signal?.sniper_long?.entry_zone?.[1] ||
+    signal?.sniper_short?.entry_zone?.[0];
+  const tp = signal?.sniper_long?.tp?.[0] || signal?.sniper_short?.tp?.[0];
+  const sl = signal?.sniper_long?.sl || signal?.sniper_short?.sl;
+
+  if (!entry || !tp || !sl) {
+    console.log("⚠️  Dry run: missing entry/tp/sl");
+    return;
+  }
+
+  const positionValue = DRY_MARGIN * DRY_LEVERAGE;
+  const riskPct = Math.abs(entry - sl) / entry;
+  const tpPct = Math.abs(tp - entry) / entry;
+  const pnlIfWin = positionValue * tpPct;
+  const pnlIfLose = positionValue * riskPct;
+  const rr = tpPct / riskPct;
+
+  const trade = {
+    id: Date.now(),
+    side,
+    entry,
+    tp,
+    sl,
+    positionValue,
+    margin: DRY_MARGIN,
+    leverage: DRY_LEVERAGE,
+    riskPct: (riskPct * 100).toFixed(3) + "%",
+    tpPct: (tpPct * 100).toFixed(2) + "%",
+    rr: rr.toFixed(2),
+    pnlIfWin: pnlIfWin.toFixed(2),
+    pnlIfLose: pnlIfLose.toFixed(2),
+    balance: DRY_BALANCE,
+    result: "OPEN",
+    timestamp: new Date().toISOString(),
+    pair: payload.pair,
+    price: payload.close,
+    signal_reason: signal.reason,
+  };
+
+  dryTrades.push(trade);
+  console.log(`\n🎯 DRY RUN TRADE OPENED`);
+  console.log(`   Side: ${side} | Entry: ${entry} | TP: ${tp} | SL: ${sl}`);
+  console.log(`   Position: $${positionValue} | Margin: $${DRY_MARGIN} | Lev: ${DRY_LEVERAGE}x`);
+  console.log(`   Risk: ${trade.riskPct} | Reward: ${trade.tpPct} | R:R: ${rr}`);
+  console.log(`   If WIN: +$${pnlIfWin.toFixed(2)} | If LOSE: -$${pnlIfLose.toFixed(2)}`);
+  console.log(`   Balance before: $${DRY_BALANCE}`);
+
+  broadcast({ type: "dry_trade", data: trade });
+}
+
+function closeDryTrade(tradeId, result) {
+  const idx = dryTrades.findIndex(t => t.id === tradeId);
+  if (idx === -1) return;
+
+  const trade = dryTrades[idx];
+  const tp = trade.tp;
+  const sl = trade.sl;
+  const entry = trade.entry;
+  const side = trade.side;
+  const tpPct = Math.abs(tp - entry) / entry;
+  const riskPct = Math.abs(entry - sl) / entry;
+  const pnl = result === "WIN"
+    ? trade.positionValue * tpPct
+    : -trade.positionValue * riskPct;
+
+  trade.result = result;
+  trade.pnl = pnl.toFixed(2);
+  trade.closedAt = new Date().toISOString();
+  trade.balanceAfter = (DRY_BALANCE + pnl).toFixed(2);
+
+  console.log(`\n🎯 DRY RUN TRADE ${result}`);
+  console.log(`   PnL: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)} | Balance after: $${trade.balanceAfter}`);
+
+  dryTradesHistory.unshift(trade);
+  dryTrades.splice(idx, 1);
+  broadcast({ type: "dry_trade", data: trade });
+  broadcast({ type: "dry_history", data: dryTradesHistory });
 }
 
 // ── BingX positions state ────────────────────────────────
@@ -625,6 +762,19 @@ async function tick() {
 
     broadcast({ type: "signal",  data: signal });
     broadcast({ type: "history", data: signalHistory });
+
+    simulateDryTrade(signal, payload);
+
+    // Fetch BingX positions
+    try {
+      const positions = await fetchBingXPositions();
+      if (positions) {
+        latestPositions = positions;
+        broadcast({ type: "positions", data: latestPositions });
+      }
+    } catch (e) {
+      console.warn("⚠️  Positions fetch failed:", e.message);
+    }
   } catch (err) {
     console.error(`\n❌ Tick error: ${err.message}`);
   }
@@ -750,6 +900,31 @@ app.get("/positions", async (req, res) => {
     res.json({ success: true, data: positions });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /dryrun — toggle dry run mode ────────────────────
+app.post("/dryrun", (req, res) => {
+  const { action, tradeId, result } = req.body;
+  if (action === "toggle") {
+    dryRunActive = !dryRunActive;
+    console.log(`🎮 Dry run ${dryRunActive ? "ACTIVATED" : "DEACTIVATED"}`);
+    res.json({ success: true, dryRunActive });
+  } else if (action === "close" && tradeId && result) {
+    closeDryTrade(tradeId, result);
+    res.json({ success: true });
+  } else if (action === "status") {
+    res.json({
+      active: dryRunActive,
+      balance: DRY_BALANCE,
+      margin: DRY_MARGIN,
+      leverage: DRY_LEVERAGE,
+      tpPct: DRY_TP_PCT * 100 + "%",
+      openTrades: dryTrades,
+      history: dryTradesHistory,
+    });
+  } else {
+    res.status(400).json({ error: "Invalid action" });
   }
 });
 
