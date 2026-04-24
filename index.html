@@ -984,6 +984,90 @@
   .dry-stat-value.red   { color: var(--red); }
   .dry-stat-value.yellow { color: var(--yellow); }
 
+  /* ── Sniper Recommendation ── */
+  .recommendation-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+
+  .rec-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .rec-direction {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 4px;
+  }
+
+  .rec-direction.SHORT { color: var(--red); }
+  .rec-direction.LONG  { color: var(--green); }
+  .rec-direction.NONE  { color: var(--muted); }
+
+  .rec-status {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .rec-status.WAIT  { background: rgba(255,215,0,0.1); color: var(--yellow); border: 1px solid var(--yellow); }
+  .rec-status.READY { background: rgba(0,212,255,0.1); color: var(--cyan); border: 1px solid var(--cyan); }
+  .rec-status.ACTIVE { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid var(--green); }
+
+  .rec-reason {
+    font-size: 10px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .rec-areas {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .rec-area {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+  }
+
+  .short-area { border-color: rgba(255,59,92,0.3); }
+  .long-area  { border-color: rgba(0,255,136,0.3); }
+
+  .rec-area-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .short-area .rec-area-label { color: var(--red); }
+  .long-area .rec-area-label  { color: var(--green); }
+
+  .rec-area-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 700;
+  }
+
   .pos-value { font-family: 'Space Mono', monospace; font-weight: 700; }
   .pos-value.green { color: var(--green); }
   .pos-value.red   { color: var(--red); }
@@ -1026,6 +1110,23 @@
     <div class="market-badges">
       <span class="badge default" id="badge-bias">BIAS</span>
       <span class="badge default" id="badge-condition">CONDITION</span>
+    </div>
+    <!-- SNIPER RECOMMENDATION -->
+    <div class="recommendation-panel" id="recommendation-panel" style="display:none">
+      <div class="rec-label">📌 SNIPER RECOMMENDATION</div>
+      <div class="rec-direction" id="rec-direction"></div>
+      <div class="rec-status" id="rec-status"></div>
+      <div class="rec-reason" id="rec-reason"></div>
+      <div class="rec-areas">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">SHORT ZONE</div>
+          <div class="rec-area-val" id="rec-short-zone">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">LONG ZONE</div>
+          <div class="rec-area-val" id="rec-long-zone">—</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1414,6 +1515,26 @@ function renderSignal(s) {
 
   // Live price
   if (s.price) document.getElementById('live-price').textContent = '$' + Number(s.price).toLocaleString();
+
+  // Sniper Recommendation
+  const rec = s.sniper_recommendation;
+  const recPanel = document.getElementById('recommendation-panel');
+  if (rec) {
+    recPanel.style.display = 'flex';
+    const dirEl = document.getElementById('rec-direction');
+    dirEl.textContent = rec.preferred || 'NONE';
+    dirEl.className = 'rec-direction ' + (rec.preferred || 'NONE');
+    const statusEl = document.getElementById('rec-status');
+    statusEl.textContent = (rec.status || 'WAIT').toUpperCase();
+    statusEl.className = 'rec-status ' + (rec.status || 'WAIT');
+    document.getElementById('rec-reason').textContent = rec.reason || '';
+    const shortZone = rec.trigger_area?.short;
+    const longZone = rec.trigger_area?.long;
+    document.getElementById('rec-short-zone').textContent = shortZone ? fmt(shortZone[0]) + ' – ' + fmt(shortZone[1]) : '—';
+    document.getElementById('rec-long-zone').textContent = longZone ? fmt(longZone[0]) + ' – ' + fmt(longZone[1]) : '—';
+  } else {
+    recPanel.style.display = 'none';
+  }
 
   // Long Safe
   if (s.long_safe) {

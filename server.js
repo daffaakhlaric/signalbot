@@ -632,7 +632,27 @@ Act like a sniper:
 
 * Wait for price at extremes
 * Avoid mid-range traps
-* Trade only high-probability setups`;
+* Trade only high-probability setups
+
+---
+
+## SNIPER RECOMMENDATION
+
+Always provide directional bias even if decision is SKIP.
+
+Rules:
+- If structure = LH or LL → preferred = "SHORT"
+- If structure = HH or HL → preferred = "LONG"
+- If neutral → preferred = "NONE"
+
+Status:
+- "WAIT" → price in mid-range, no entry now
+- "READY" → price near entry zone, valid entry possible
+- "ACTIVE" → valid entry now, execute trade
+
+Also include trigger_area:
+- short → sniper_short entry_zone
+- long → sniper_long entry_zone`;
 
   const userPrompt = `Analyze this BTCUSDT market data and generate trading signals:
 ${JSON.stringify(payload, null, 2)}
@@ -647,6 +667,12 @@ Return this exact JSON structure:
   "no_trade_zone": [price_low, price_high],
   "sniper_long": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
   "sniper_short": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
+  "sniper_recommendation": {
+    "preferred": "SHORT|LONG|NONE",
+    "reason": "why this direction",
+    "status": "WAIT|READY|ACTIVE",
+    "trigger_area": { "short": [sniper_short_entry_low, sniper_short_entry_high], "long": [sniper_long_entry_low, sniper_long_entry_high] }
+  },
   "decision_now": "LONG|SHORT|SKIP",
   "confidence": "high|medium|low",
   "reason": "clear explanation"
