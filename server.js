@@ -39,6 +39,8 @@ const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 const BINGX_BASE   = process.env.BINGX_BASE   || "https://open-api.bingx.com";
+const BINGX_API_KEY    = process.env.BINGX_API_KEY    || "";
+const BINGX_API_SECRET = process.env.BINGX_API_SECRET || "";
 const BINANCE_BASE = process.env.BINANCE_BASE || "https://fapi.binance.com";
 const BYBIT_BASE   = process.env.BYBIT_BASE   || "https://api.bybit.com";
 const OKX_BASE     = process.env.OKX_BASE     || "https://www.okx.com";
@@ -64,6 +66,7 @@ wss.on("connection", (ws) => {
   if (latestPayload) ws.send(JSON.stringify({ type: "market_data", data: latestPayload }));
   if (latestSignal)  ws.send(JSON.stringify({ type: "signal", data: latestSignal }));
   if (signalHistory.length) ws.send(JSON.stringify({ type: "history", data: signalHistory }));
+  if (latestPositions) ws.send(JSON.stringify({ type: "positions", data: latestPositions }));
 });
 
 // ── HTTP helper with timeout + friendly error messages ────────
@@ -172,6 +175,25 @@ const FETCHERS = {
   bybit:   fetchKlinesBybit,
   okx:     fetchKlinesOKX,
 };
+
+// ── BingX Positions ──────────────────────────────────────
+// Docs: https://bingx-api.github.io/docs/#/swapV2/account-api.html
+async function fetchBingXPositions() {
+  if (!BINGX_API_KEY || !BINGX_API_SECRET) return null;
+  const ts = Date.now();
+  const binSymbol = SYMBOL.replace("-", "");
+  const query = `symbol=${binSymbol}&timestamp=${ts}&recvWindow=10000`;
+  const msg = "GET\n/openApi/swap/v2/user/balance\n" + query;
+  const crypto = require("node:crypto");
+  const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(msg).digest("hex");
+  const url = `${BINGX_BASE}/openApi/swap/v2/user/balance?${query}&signature=${sign}`;
+  const json = await httpGet(url);
+  if (json.code !== 0) throw new Error(`BingX positions error ${json.code}: ${json.msg}`);
+  return json.data;
+}
+
+// ── BingX positions state ────────────────────────────────
+let latestPositions = null;
 
 // ── Dispatch: fixed source, or auto-fallback through the list ─
 async function fetchKlines(symbol, interval, limit = KLINE_LIMIT) {
@@ -589,6 +611,17 @@ async function tick() {
       console.log("⚠️  Invalid SHORT TP — skip");
     }
 
+    // Fetch BingX positions
+    try {
+      const positions = await fetchBingXPositions();
+      if (positions) {
+        latestPositions = positions;
+        broadcast({ type: "positions", data: latestPositions });
+      }
+    } catch (e) {
+      console.warn("⚠️  Positions fetch failed:", e.message);
+    }
+
     signal.timestamp = new Date().toISOString();
     signal.price = payload.close;
     signal.pair  = payload.pair;
@@ -714,8 +747,20 @@ app.get("/health", (req, res) => {
     last_bar_time: lastAnalyzedBarTime
       ? new Date(lastAnalyzedBarTime).toISOString()
       : null,
+    bingx_configured: !!(BINGX_API_KEY && BINGX_API_SECRET),
     timestamp: new Date().toISOString(),
   });
+});
+
+// ── GET /positions ───────────────────────────────────────
+app.get("/positions", async (req, res) => {
+  try {
+    const positions = await fetchBingXPositions();
+    latestPositions = positions;
+    res.json({ success: true, data: positions });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Start server & begin polling ──────────────────────────────

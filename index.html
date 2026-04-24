@@ -865,6 +865,58 @@
       max-height: 80px;
     }
   }
+
+  /* ── Positions Panel ── */
+  .positions-panel {
+    grid-column: 1 / -1;
+  }
+
+  .pos-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+
+  .pos-table th {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pos-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    vertical-align: middle;
+  }
+
+  .pos-table tr:hover td {
+    background: var(--bg3);
+  }
+
+  .pos-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+  }
+
+  .pos-pill.long  { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .pos-pill.short { background: rgba(255,59,92,0.1);  color: var(--red);   border: 1px solid rgba(255,59,92,0.3); }
+  .pos-pill.none  { background: rgba(88,96,105,0.1);  color: var(--muted); border: 1px solid rgba(88,96,105,0.3); }
+
+  .pos-value { font-family: 'Space Mono', monospace; font-weight: 700; }
+  .pos-value.green { color: var(--green); }
+  .pos-value.red   { color: var(--red); }
+  .pos-value.yellow { color: var(--yellow); }
 </style>
 </head>
 <body>
@@ -1127,6 +1179,17 @@
     </div>
   </div>
 
+  <!-- POSITIONS PANEL -->
+  <div class="panel positions-panel">
+    <div class="panel-title">My Positions (BingX)</div>
+    <div id="positions-container">
+      <div class="empty-state">
+        <div class="icon">📂</div>
+        <div>No positions data. Add BINGX_API_KEY to .env</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 
 <!-- ── SIMULATE BAR ──────────────────────────────────── -->
@@ -1180,6 +1243,7 @@ function connect() {
       if (msg.type === 'signal')      renderSignal(msg.data);
       if (msg.type === 'history')     renderHistory(msg.data);
       if (msg.type === 'market_data') renderMarketData(msg.data);
+      if (msg.type === 'positions')  renderPositions(msg.data);
     } catch (err) {
       log('err', 'Parse error: ' + err.message);
     }
@@ -1373,6 +1437,64 @@ function renderHistory(history) {
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+// ── Render Positions ─────────────────────────────────────
+function renderPositions(data) {
+  if (!data) return;
+  const container = document.getElementById('positions-container');
+
+  // data is the BingX balance/positions response
+  const assets = data?.assets;
+  const positions = data?.positions;
+
+  if (!assets || assets.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📂</div>
+        <div>No open positions</div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = assets.map(a => {
+    const pos = (positions || []).find(p => p.symbol === SYMBOL.replace("-", ""));
+    const side = pos?.side || 'none';
+    const size = pos?.size || 0;
+    const entry = pos?.entryPrice || 0;
+    const pnl = pos?.unrealizedProfit || 0;
+    const margin = pos?.margin || 0;
+
+    return `
+      <tr>
+        <td>${a.asset || 'BTC'}</td>
+        <td><span class="pos-pill ${side.toLowerCase()}">${side.toUpperCase()}</span></td>
+        <td class="pos-value yellow">${size}</td>
+        <td class="pos-value">${entry ? '$' + Number(entry).toLocaleString() : '—'}</td>
+        <td class="pos-value ${pnl >= 0 ? 'green' : 'red'}">${pnl ? (pnl >= 0 ? '+' : '') + Number(pnl).toFixed(2) : '—'}</td>
+        <td class="pos-value">${margin ? '$' + Number(margin).toFixed(2) : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="pos-table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Side</th>
+          <th>Size</th>
+          <th>Entry</th>
+          <th>PnL</th>
+          <th>Margin</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  log('ok', 'Positions updated from BingX');
 }
 
 // ── Simulate ───────────────────────────────────────────────
