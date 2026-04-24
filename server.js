@@ -180,12 +180,12 @@ const FETCHERS = {
 // Docs: https://bingx-api.github.io/docs/#/swapV2/account-api.html
 async function fetchBingXPositions() {
   if (!BINGX_API_KEY || !BINGX_API_SECRET) return null;
-  const ts = Date.now();
+  const ts = Date.now().toString();
   const binSymbol = SYMBOL.replace("-", "");
-  const query = `symbol=${binSymbol}&timestamp=${ts}&recvWindow=10000`;
-  const msg = "GET\n/openApi/swap/v2/user/balance\n" + query;
+  const recvWindow = "10000";
+  const query = `symbol=${binSymbol}&timestamp=${ts}&recvWindow=${recvWindow}`;
   const crypto = require("node:crypto");
-  const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(msg).digest("hex");
+  const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(query).digest("hex");
   const url = `${BINGX_BASE}/openApi/swap/v2/user/balance?${query}&signature=${sign}`;
 
   const controller = new AbortController();
