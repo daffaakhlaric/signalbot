@@ -317,6 +317,39 @@ function simulateDryTrade(signal, payload) {
   broadcast({ type: "dry_trade", data: trade });
 }
 
+// ── Auto-check dry trades against current price ───────────
+function checkDryTrades(currentPrice) {
+  if (!dryRunActive) return;
+  if (dryTrades.length === 0) return;
+
+  const toClose = [];
+
+  dryTrades.forEach(trade => {
+    const { side, entry, tp, sl } = trade;
+
+    let hitTP = false;
+    let hitSL = false;
+
+    if (side === "LONG") {
+      hitTP = currentPrice >= tp;
+      hitSL = currentPrice <= sl;
+    } else if (side === "SHORT") {
+      hitTP = currentPrice <= tp;
+      hitSL = currentPrice >= sl;
+    }
+
+    if (hitTP) {
+      console.log(`🎯 DRY RUN: TP hit for ${side}! Price ${currentPrice} >= ${tp}`);
+      toClose.push({ tradeId: trade.id, result: "WIN" });
+    } else if (hitSL) {
+      console.log(`🎯 DRY RUN: SL hit for ${side}! Price ${currentPrice} <= ${sl}`);
+      toClose.push({ tradeId: trade.id, result: "LOSE" });
+    }
+  });
+
+  toClose.forEach(({ tradeId, result }) => closeDryTrade(tradeId, result));
+}
+
 function closeDryTrade(tradeId, result) {
   const idx = dryTrades.findIndex(t => t.id === tradeId);
   if (idx === -1) return;
@@ -764,6 +797,7 @@ async function tick() {
     broadcast({ type: "history", data: signalHistory });
 
     simulateDryTrade(signal, payload);
+    checkDryTrades(payload.close);
 
     // Fetch BingX positions
     try {
