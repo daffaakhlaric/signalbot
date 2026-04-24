@@ -187,7 +187,24 @@ async function fetchBingXPositions() {
   const crypto = require("node:crypto");
   const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(msg).digest("hex");
   const url = `${BINGX_BASE}/openApi/swap/v2/user/balance?${query}&signature=${sign}`;
-  const json = await httpGet(url);
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15000);
+  let json;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 btc-sniper-bot/1.0",
+        "X-BX-APIKEY": BINGX_API_KEY,
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    json = await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+
   if (json.code !== 0) throw new Error(`BingX positions error ${json.code}: ${json.msg}`);
   return json.data;
 }
