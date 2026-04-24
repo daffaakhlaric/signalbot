@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC SNIPER — Signal Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080b0f;
+    --bg2:       #0d1117;
+    --bg3:       #111820;
+    --border:    #1e2d3d;
+    --border2:   #243447;
+    --text:      #c9d1d9;
+    --muted:     #586069;
+    --green:     #00ff88;
+    --green2:    #00cc6a;
+    --red:       #ff3b5c;
+    --red2:      #cc1f3a;
+    --yellow:    #ffd700;
+    --cyan:      #00d4ff;
+    --orange:    #ff8c00;
+    --purple:    #8b5cf6;
+    --glow-g:    0 0 20px rgba(0,255,136,0.3);
+    --glow-r:    0 0 20px rgba(255,59,92,0.3);
+    --glow-c:    0 0 20px rgba(0,212,255,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scanline overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--green), var(--cyan));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    color: #000;
+    font-weight: 900;
+    letter-spacing: 1px;
+  }
+
+  .logo-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-sub {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: -4px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .ws-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: all 0.3s;
+  }
+  .ws-dot.connected { background: var(--green); box-shadow: var(--glow-g); animation: pulse 2s infinite; }
+  .ws-dot.disconnected { background: var(--red); box-shadow: var(--glow-r); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .price-ticker {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--yellow);
+  }
+
+  .price-ticker span { font-size: 11px; color: var(--muted); margin-right: 4px; }
+
+  /* ── Main grid ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto;
+    gap: 1px;
+    background: var(--border);
+    min-height: calc(100vh - 65px);
+  }
+
+  .panel {
+    background: var(--bg2);
+    padding: 16px;
+    position: relative;
+  }
+
+  .panel-title {
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title::before {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 12px;
+    background: var(--cyan);
+    border-radius: 2px;
+  }
+
+  /* ── Decision Banner ── */
+  .decision-panel {
+    grid-column: 1 / -1;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .decision-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 8px;
+    transition: all 0.4s;
+    text-shadow: none;
+  }
+  .decision-badge.LONG  { color: var(--green);  text-shadow: var(--glow-g); }
+  .decision-badge.SHORT { color: var(--red);    text-shadow: var(--glow-r); }
+  .decision-badge.SKIP  { color: var(--muted); }
+  .decision-badge.wait  { color: var(--border2); }
+
+  .decision-meta {
+    flex: 1;
+    padding: 0 30px;
+  }
+
+  .decision-reason {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+    max-width: 500px;
+  }
+
+  .decision-time {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  .market-badges {
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  .badge.bullish   { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+  .badge.bearish   { border-color: var(--red);   color: var(--red);   background: rgba(255,59,92,0.08); }
+  .badge.neutral   { border-color: var(--muted); color: var(--muted); background: transparent; }
+  .badge.trend     { border-color: var(--cyan);   color: var(--cyan);   background: rgba(0,212,255,0.08); }
+  .badge.range     { border-color: var(--yellow); color: var(--yellow); background: rgba(255,215,0,0.08); }
+  .badge.impulse   { border-color: var(--orange); color: var(--orange); background: rgba(255,140,0,0.08); }
+  .badge.default   { border-color: var(--border2); color: var(--muted); }
+
+  /* ── Signal Cards ── */
+  .signal-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .signal-card {
+    background: var(--bg2);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .signal-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .signal-card.long-safe::before    { background: var(--green); }
+  .signal-card.short-safe::before   { background: var(--red); }
+  .signal-card.sniper-long::before  { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .signal-card.sniper-short::before { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+  .signal-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .signal-type {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+  }
+
+  .signal-card.long-safe .signal-type    { color: var(--green); }
+  .signal-card.short-safe .signal-type   { color: var(--red); }
+  .signal-card.sniper-long .signal-type  { color: var(--cyan); }
+  .signal-card.sniper-short .signal-type { color: var(--orange); }
+
+  .signal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .signal-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .signal-key {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .signal-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .signal-val.entry { color: var(--yellow); }
+  .signal-val.tp    { color: var(--green); }
+  .signal-val.sl    { color: var(--red); }
+  .signal-val.zone  { color: var(--cyan); font-size: 10px; }
+
+  .tp-list { display: flex; gap: 6px; flex-direction: column; align-items: flex-end; }
+  .tp-item { font-size: 10px; color: var(--green); }
+  .tp-item:last-child { color: var(--green2); opacity: 0.7; }
+
+  .trigger-text {
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ── Market Data Panel ── */
+  .market-panel {
+    grid-column: span 1;
+  }
+
+  .indicator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .indicator-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .indicator-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .indicator-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .indicator-value.green { color: var(--green); }
+  .indicator-value.red   { color: var(--red); }
+  .indicator-value.yellow { color: var(--yellow); }
+  .indicator-value.cyan  { color: var(--cyan); }
+
+  /* ── RSI Bar ── */
+  .rsi-bar-wrap {
+    margin-top: 12px;
+  }
+
+  .rsi-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .rsi-bar-bg {
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .rsi-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease, background 0.3s;
+  }
+
+  .rsi-zones {
+    position: relative;
+    height: 12px;
+    margin-top: 2px;
+  }
+
+  .rsi-zone-ob {
+    position: absolute;
+    right: 0;
+    width: 30%;
+    font-size: 8px;
+    color: var(--red);
+    opacity: 0.6;
+    text-align: right;
+    letter-spacing: 1px;
+  }
+
+  .rsi-zone-os {
+    position: absolute;
+    left: 0;
+    width: 30%;
+    font-size: 8px;
+    color: var(--green);
+    opacity: 0.6;
+    letter-spacing: 1px;
+  }
+
+  /* ── EMA Stack ── */
+  .ema-stack {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ema-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ema-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .ema-name {
+    font-size: 9px;
+    color: var(--muted);
+    width: 50px;
+    letter-spacing: 1px;
+  }
+
+  .ema-price {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .ema-delta {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .ema-delta.above { color: var(--green); }
+  .ema-delta.below { color: var(--red); }
+
+  /* ── No-Trade Zone ── */
+  .ntz-panel {
+    grid-column: span 1;
+  }
+
+  .ntz-visual {
+    margin-top: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ntz-bar {
+    height: 48px;
+    border-radius: 6px;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(255,215,0,0.05),
+      rgba(255,215,0,0.05) 4px,
+      transparent 4px,
+      transparent 10px
+    );
+    border: 1px solid rgba(255,215,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ntz-label { font-size: 9px; color: var(--yellow); letter-spacing: 3px; opacity: 0.8; }
+
+  .ntz-levels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+
+  .ntz-level {
+    text-align: center;
+  }
+
+  .ntz-level-label {
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  .ntz-level-price {
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    color: var(--yellow);
+    font-weight: 700;
+  }
+
+  /* ── S/R Zones ── */
+  .sr-panel {
+    grid-column: span 1;
+  }
+
+  .sr-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border: 1px solid transparent;
+  }
+
+  .sr-item.resistance {
+    background: rgba(255,59,92,0.06);
+    border-color: rgba(255,59,92,0.2);
+  }
+
+  .sr-item.support {
+    background: rgba(0,255,136,0.06);
+    border-color: rgba(0,255,136,0.2);
+  }
+
+  .sr-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .sr-item.resistance .sr-label { color: var(--red); }
+  .sr-item.support .sr-label    { color: var(--green); }
+
+  .sr-price {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .sr-structure {
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .sr-structure.HH, .sr-structure.HL { color: var(--green); background: rgba(0,255,136,0.1); }
+  .sr-structure.LH, .sr-structure.LL { color: var(--red); background: rgba(255,59,92,0.1); }
+
+  /* ── Signal History ── */
+  .history-panel {
+    grid-column: 1 / -1;
+  }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .history-table th {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    vertical-align: middle;
+  }
+
+  .history-table tr:hover td { background: var(--bg3); }
+
+  .decision-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 12px;
+  }
+
+  .decision-pill.LONG  { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .decision-pill.SHORT { background: rgba(255,59,92,0.1);  color: var(--red);   border: 1px solid rgba(255,59,92,0.3); }
+  .decision-pill.SKIP  { background: rgba(88,96,105,0.1);  color: var(--muted); border: 1px solid rgba(88,96,105,0.3); }
+
+  /* ── Simulate Button ── */
+  .simulate-panel {
+    grid-column: 1 / -1;
+    padding: 12px 24px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .sim-label { font-size: 9px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+
+  .sim-input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    width: 100px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .sim-input:focus { border-color: var(--cyan); }
+  .sim-input::placeholder { color: var(--muted); }
+
+  .sim-btn {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 6px 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .sim-btn:hover {
+    background: var(--green);
+    color: #000;
+    box-shadow: var(--glow-g);
+  }
+
+  .sim-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .sim-btn.loading {
+    animation: blink 0.6s infinite;
+  }
+
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ── Log console ── */
+  .log-panel {
+    grid-column: 1 / -1;
+    max-height: 120px;
+    overflow-y: auto;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+  }
+
+  .log-line {
+    font-size: 10px;
+    line-height: 1.6;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .log-line .ts    { color: var(--border2); }
+  .log-line .ok    { color: var(--green); }
+  .log-line .err   { color: var(--red); }
+  .log-line .info  { color: var(--cyan); }
+  .log-line .warn  { color: var(--yellow); }
+
+  /* ── Flash animation ── */
+  @keyframes flashGreen {
+    0%   { background: rgba(0,255,136,0.15); }
+    100% { background: transparent; }
+  }
+
+  @keyframes flashRed {
+    0%   { background: rgba(255,59,92,0.15); }
+    100% { background: transparent; }
+  }
+
+  .flash-green { animation: flashGreen 1s ease forwards; }
+  .flash-red   { animation: flashRed 1s ease forwards; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .empty-state .icon { font-size: 32px; margin-bottom: 10px; opacity: 0.3; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">BTC SNIPER</div>
+      <div class="logo-sub">Signal Dashboard · GPT-4o-mini</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="price-ticker">
+      <span>BTC/USDT</span>
+      <span id="live-price">——</span>
+    </div>
+    <div class="ws-status">
+      <div class="ws-dot" id="ws-dot"></div>
+      <span id="ws-label">CONNECTING</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── MAIN ────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- DECISION BANNER -->
+  <div class="decision-panel" id="decision-panel">
+    <div class="decision-badge wait" id="decision-badge">WAITING</div>
+    <div class="decision-meta">
+      <div class="decision-reason" id="decision-reason">Waiting for TradingView webhook signal...</div>
+      <div class="decision-time" id="decision-time">——</div>
+    </div>
+    <div class="market-badges">
+      <span class="badge default" id="badge-bias">BIAS</span>
+      <span class="badge default" id="badge-condition">CONDITION</span>
+    </div>
+  </div>
+
+  <!-- SIGNAL CARDS -->
+  <div class="signal-grid">
+
+    <!-- LONG SAFE -->
+    <div class="signal-card long-safe" id="card-long-safe">
+      <div class="signal-label">Safe Signal</div>
+      <div class="signal-type">✅ LONG SAFE</div>
+      <div class="signal-row">
+        <span class="signal-key">ENTRY</span>
+        <span class="signal-val entry" id="ls-entry">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TYPE</span>
+        <span class="signal-val" style="font-size:9px;color:var(--muted)" id="ls-type">reclaim breakout</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TP 1 / 2</span>
+        <div class="tp-list">
+          <span class="tp-item" id="ls-tp1">—</span>
+          <span class="tp-item" id="ls-tp2">—</span>
+        </div>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">STOP LOSS</span>
+        <span class="signal-val sl" id="ls-sl">—</span>
+      </div>
+    </div>
+
+    <!-- SHORT SAFE -->
+    <div class="signal-card short-safe" id="card-short-safe">
+      <div class="signal-label">Safe Signal</div>
+      <div class="signal-type">🔴 SHORT SAFE</div>
+      <div class="signal-row">
+        <span class="signal-key">ENTRY</span>
+        <span class="signal-val entry" id="ss-entry">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TYPE</span>
+        <span class="signal-val" style="font-size:9px;color:var(--muted)" id="ss-type">rejection</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TP 1 / 2</span>
+        <div class="tp-list">
+          <span class="tp-item" id="ss-tp1">—</span>
+          <span class="tp-item" id="ss-tp2">—</span>
+        </div>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">STOP LOSS</span>
+        <span class="signal-val sl" id="ss-sl">—</span>
+      </div>
+    </div>
+
+    <!-- SNIPER LONG -->
+    <div class="signal-card sniper-long" id="card-sniper-long">
+      <div class="signal-label">🎯 Sniper Aggressive</div>
+      <div class="signal-type">SNIPER LONG</div>
+      <div class="signal-row">
+        <span class="signal-key">ZONE</span>
+        <span class="signal-val zone" id="sl-zone">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TP 1 / 2</span>
+        <div class="tp-list">
+          <span class="tp-item" id="sl-tp1">—</span>
+          <span class="tp-item" id="sl-tp2">—</span>
+        </div>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">STOP LOSS</span>
+        <span class="signal-val sl" id="sl-sl">—</span>
+      </div>
+      <div class="trigger-text" id="sl-trigger">Waiting for trigger condition...</div>
+    </div>
+
+    <!-- SNIPER SHORT -->
+    <div class="signal-card sniper-short" id="card-sniper-short">
+      <div class="signal-label">🎯 Sniper Aggressive</div>
+      <div class="signal-type">SNIPER SHORT</div>
+      <div class="signal-row">
+        <span class="signal-key">ZONE</span>
+        <span class="signal-val zone" id="ss2-zone">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">TP 1 / 2</span>
+        <div class="tp-list">
+          <span class="tp-item" id="ss2-tp1">—</span>
+          <span class="tp-item" id="ss2-tp2">—</span>
+        </div>
+      </div>
+      <div class="signal-row">
+        <span class="signal-key">STOP LOSS</span>
+        <span class="signal-val sl" id="ss2-sl">—</span>
+      </div>
+      <div class="trigger-text" id="ss2-trigger">Waiting for trigger condition...</div>
+    </div>
+
+  </div><!-- /signal-grid -->
+
+  <!-- MARKET DATA PANEL -->
+  <div class="panel market-panel">
+    <div class="panel-title">Market Data</div>
+    <div class="indicator-grid">
+      <div class="indicator-item">
+        <div class="indicator-label">OPEN</div>
+        <div class="indicator-value yellow" id="m-open">——</div>
+      </div>
+      <div class="indicator-item">
+        <div class="indicator-label">CLOSE</div>
+        <div class="indicator-value yellow" id="m-close">——</div>
+      </div>
+      <div class="indicator-item">
+        <div class="indicator-label">HIGH</div>
+        <div class="indicator-value green" id="m-high">——</div>
+      </div>
+      <div class="indicator-item">
+        <div class="indicator-label">LOW</div>
+        <div class="indicator-value red" id="m-low">——</div>
+      </div>
+      <div class="indicator-item">
+        <div class="indicator-label">VOLUME</div>
+        <div class="indicator-value cyan" id="m-vol">——</div>
+      </div>
+      <div class="indicator-item">
+        <div class="indicator-label">TIMEFRAME</div>
+        <div class="indicator-value" id="m-tf">——</div>
+      </div>
+    </div>
+    <div class="rsi-bar-wrap">
+      <div class="rsi-bar-label">
+        <span>RSI (14)</span>
+        <span id="rsi-val">——</span>
+      </div>
+      <div class="rsi-bar-bg">
+        <div class="rsi-bar-fill" id="rsi-fill" style="width:50%;background:var(--cyan)"></div>
+      </div>
+      <div class="rsi-zones">
+        <span class="rsi-zone-os">OVERSOLD</span>
+        <span class="rsi-zone-ob">OVERBOUGHT</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMA PANEL -->
+  <div class="panel">
+    <div class="panel-title">EMA Levels</div>
+    <div class="ema-stack" id="ema-stack">
+      <div class="ema-row">
+        <div class="ema-dot" style="background:var(--yellow)"></div>
+        <div class="ema-name">EMA 20</div>
+        <div class="ema-price" id="ema20-price">——</div>
+        <div class="ema-delta" id="ema20-delta">—</div>
+      </div>
+      <div class="ema-row">
+        <div class="ema-dot" style="background:var(--orange)"></div>
+        <div class="ema-name">EMA 50</div>
+        <div class="ema-price" id="ema50-price">——</div>
+        <div class="ema-delta" id="ema50-delta">—</div>
+      </div>
+      <div class="ema-row">
+        <div class="ema-dot" style="background:var(--red)"></div>
+        <div class="ema-name">EMA 200</div>
+        <div class="ema-price" id="ema200-price">——</div>
+        <div class="ema-delta" id="ema200-delta">—</div>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="panel-title" style="margin-bottom:10px">Structure & Levels</div>
+      <div class="sr-item resistance">
+        <div>
+          <div class="sr-label">Resistance</div>
+        </div>
+        <div class="sr-price" id="sr-resistance">——</div>
+      </div>
+      <div class="sr-item support">
+        <div>
+          <div class="sr-label">Support</div>
+        </div>
+        <div class="sr-price" id="sr-support">——</div>
+      </div>
+      <div class="sr-item" style="background:var(--bg3);border-color:var(--border2)">
+        <div class="sr-label" style="color:var(--cyan)">Structure</div>
+        <span class="sr-structure" id="sr-structure">——</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- NO-TRADE ZONE -->
+  <div class="panel ntz-panel">
+    <div class="panel-title">No-Trade Zone</div>
+    <div class="ntz-visual">
+      <div class="ntz-bar">
+        <span class="ntz-label">⚠ DANGER ZONE — NO TRADE</span>
+      </div>
+      <div class="ntz-levels">
+        <div class="ntz-level">
+          <div class="ntz-level-label">Floor</div>
+          <div class="ntz-level-price" id="ntz-low">——</div>
+        </div>
+        <div class="ntz-level">
+          <div class="ntz-level-label">Ceiling</div>
+          <div class="ntz-level-price" id="ntz-high">——</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;font-size:9px;color:var(--muted);line-height:1.7;letter-spacing:1px">
+      Mid-range price zone where momentum is unclear. No entries should be taken here. Wait for price to react at support or resistance.
+    </div>
+  </div>
+
+  <!-- HISTORY TABLE -->
+  <div class="panel history-panel">
+    <div class="panel-title">Signal History</div>
+    <div id="history-container">
+      <div class="empty-state">
+        <div class="icon">📡</div>
+        <div>No signals yet. Waiting for webhook from TradingView...</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── SIMULATE BAR ──────────────────────────────────── -->
+<div class="simulate-panel">
+  <span class="sim-label">🧪 Test Signal</span>
+  <input class="sim-input" id="sim-price" placeholder="Price" type="number">
+  <input class="sim-input" id="sim-rsi" placeholder="RSI" type="number" value="57">
+  <select class="sim-input" id="sim-structure" style="width:80px">
+    <option>HH</option><option>HL</option><option>LH</option><option>LL</option>
+  </select>
+  <button class="sim-btn" id="sim-btn" onclick="simulate()">▶ SIMULATE</button>
+  <span class="sim-label" style="margin-left:12px">📡 Source:</span>
+  <code style="font-size:10px;color:var(--cyan);background:var(--bg3);padding:4px 8px;border-radius:3px;border:1px solid var(--border)">BingX · <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">15m</span></code>
+</div>
+
+<!-- ── LOG CONSOLE ──────────────────────────────────── -->
+<div class="log-panel" id="log-panel">
+  <div class="log-line"><span class="ts">[init]</span> <span class="info">BTC Sniper Dashboard loaded. Connecting to backend...</span></div>
+</div>
+
+<script>
+// Use same origin as the page — served by backend (npm start).
+// Fallback to localhost:3001 if opened as a plain file://
+const WS_URL = (location.protocol === 'file:')
+  ? 'ws://localhost:3001'
+  : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+const API_URL = (location.protocol === 'file:')
+  ? 'http://localhost:3001'
+  : location.origin;
+const MAX_LOGS   = 60;
+const MAX_HIST   = 20;
+
+let ws;
+let reconnectTimer;
+let signalHistory = [];
+
+// ── WebSocket ──────────────────────────────────────────────
+function connect() {
+  log('info', 'Connecting to backend WebSocket...');
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    setWsStatus('connected');
+    log('ok', 'WebSocket connected → backend live');
+    clearTimeout(reconnectTimer);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'signal')      renderSignal(msg.data);
+      if (msg.type === 'history')     renderHistory(msg.data);
+      if (msg.type === 'market_data') renderMarketData(msg.data);
+    } catch (err) {
+      log('err', 'Parse error: ' + err.message);
+    }
+  };
+
+  ws.onclose = () => {
+    setWsStatus('disconnected');
+    log('warn', 'WebSocket disconnected. Retrying in 3s...');
+    reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {
+    log('err', 'WebSocket error — is backend running on port 3001?');
+  };
+}
+
+function setWsStatus(state) {
+  const dot   = document.getElementById('ws-dot');
+  const label = document.getElementById('ws-label');
+  dot.className = 'ws-dot ' + state;
+  label.textContent = state.toUpperCase();
+}
+
+// ── Render Signal ──────────────────────────────────────────
+function renderSignal(s) {
+  if (!s) return;
+
+  // Decision banner
+  const badge = document.getElementById('decision-badge');
+  badge.textContent = s.decision_now || 'SKIP';
+  badge.className = 'decision-badge ' + (s.decision_now || 'SKIP');
+
+  document.getElementById('decision-reason').textContent = s.reason || '';
+  document.getElementById('decision-time').textContent   = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : '';
+
+  // Badges
+  const biasEl = document.getElementById('badge-bias');
+  biasEl.textContent = (s.bias || 'neutral').toUpperCase();
+  biasEl.className = 'badge ' + (s.bias || 'neutral');
+
+  const condEl = document.getElementById('badge-condition');
+  condEl.textContent = (s.market_condition || '—').toUpperCase();
+  condEl.className = 'badge ' + (s.market_condition || 'default');
+
+  // Live price
+  if (s.price) document.getElementById('live-price').textContent = '$' + Number(s.price).toLocaleString();
+
+  // Long Safe
+  if (s.long_safe) {
+    setText('ls-entry', fmt(s.long_safe.entry));
+    setText('ls-type',  s.long_safe.type || '—');
+    setText('ls-tp1',   fmt(s.long_safe.tp?.[0]));
+    setText('ls-tp2',   fmt(s.long_safe.tp?.[1]));
+    setText('ls-sl',    fmt(s.long_safe.sl));
+  }
+
+  // Short Safe
+  if (s.short_safe) {
+    setText('ss-entry', fmt(s.short_safe.entry));
+    setText('ss-type',  s.short_safe.type || '—');
+    setText('ss-tp1',   fmt(s.short_safe.tp?.[0]));
+    setText('ss-tp2',   fmt(s.short_safe.tp?.[1]));
+    setText('ss-sl',    fmt(s.short_safe.sl));
+  }
+
+  // Sniper Long
+  if (s.sniper_long) {
+    const zone = s.sniper_long.entry_zone;
+    setText('sl-zone',    zone ? fmt(zone[0]) + ' – ' + fmt(zone[1]) : '—');
+    setText('sl-tp1',     fmt(s.sniper_long.tp?.[0]));
+    setText('sl-tp2',     fmt(s.sniper_long.tp?.[1]));
+    setText('sl-sl',      fmt(s.sniper_long.sl));
+    setText('sl-trigger', s.sniper_long.trigger || '—');
+  }
+
+  // Sniper Short
+  if (s.sniper_short) {
+    const zone = s.sniper_short.entry_zone;
+    setText('ss2-zone',    zone ? fmt(zone[0]) + ' – ' + fmt(zone[1]) : '—');
+    setText('ss2-tp1',     fmt(s.sniper_short.tp?.[0]));
+    setText('ss2-tp2',     fmt(s.sniper_short.tp?.[1]));
+    setText('ss2-sl',      fmt(s.sniper_short.sl));
+    setText('ss2-trigger', s.sniper_short.trigger || '—');
+  }
+
+  // No Trade Zone
+  if (s.no_trade_zone) {
+    setText('ntz-low',  fmt(s.no_trade_zone[0]));
+    setText('ntz-high', fmt(s.no_trade_zone[1]));
+  }
+
+  // Flash effect
+  const panel = document.getElementById('decision-panel');
+  panel.classList.remove('flash-green', 'flash-red');
+  void panel.offsetWidth;
+  if (s.decision_now === 'LONG')  panel.classList.add('flash-green');
+  if (s.decision_now === 'SHORT') panel.classList.add('flash-red');
+
+  log('ok', `Signal: ${s.decision_now} | Bias: ${s.bias} | Condition: ${s.market_condition}`);
+}
+
+// ── Render Market Data ─────────────────────────────────────
+function renderMarketData(d) {
+  if (!d) return;
+  setText('m-open', fmt(d.open));
+  setText('m-close', fmt(d.close));
+  setText('m-high',  fmt(d.high));
+  setText('m-low',   fmt(d.low));
+  setText('m-vol',   d.volume ? Number(d.volume).toFixed(2) : '——');
+  // Backend already sends "15m" / "1h" / etc. — don't append "m".
+  const tfStr = d.timeframe ? String(d.timeframe).replace(/[^0-9a-zA-Z]/g, '') : '——';
+  setText('m-tf',    tfStr);
+  setText('src-tf',  tfStr);
+  if (d.pair) setText('src-symbol', d.pair);
+
+  if (d.close) document.getElementById('live-price').textContent = '$' + Number(d.close).toLocaleString();
+
+  // Pre-fill simulate input with latest real price (only if user hasn't typed anything)
+  const simInput = document.getElementById('sim-price');
+  if (simInput && !simInput.value && d.close) simInput.value = Number(d.close).toFixed(2);
+
+  // EMA
+  const close = parseFloat(d.close);
+  const emas = [
+    { id: '20', val: d.ema20,  },
+    { id: '50', val: d.ema50,  },
+    { id: '200', val: d.ema200 },
+  ];
+  emas.forEach(({ id, val }) => {
+    if (!val) return;
+    setText(`ema${id}-price`, fmt(val));
+    const delta   = close - parseFloat(val);
+    const pct     = ((delta / parseFloat(val)) * 100).toFixed(2);
+    const el      = document.getElementById(`ema${id}-delta`);
+    el.textContent = (delta >= 0 ? '+' : '') + pct + '%';
+    el.className  = 'ema-delta ' + (delta >= 0 ? 'above' : 'below');
+  });
+
+  // RSI
+  if (d.rsi) {
+    const rsi = parseFloat(d.rsi);
+    setText('rsi-val', rsi.toFixed(1));
+    const fill = document.getElementById('rsi-fill');
+    fill.style.width = rsi + '%';
+    fill.style.background = rsi > 70 ? 'var(--red)' : rsi < 30 ? 'var(--green)' : 'var(--cyan)';
+  }
+
+  // S/R
+  setText('sr-resistance', fmt(d.resistance));
+  setText('sr-support',    fmt(d.support));
+  if (d.structure) {
+    const el = document.getElementById('sr-structure');
+    el.textContent = d.structure;
+    el.className = 'sr-structure ' + d.structure;
+  }
+}
+
+// ── Render History ─────────────────────────────────────────
+function renderHistory(history) {
+  if (!history || !history.length) return;
+  signalHistory = history;
+
+  const container = document.getElementById('history-container');
+  const rows = history.slice(0, MAX_HIST).map(s => `
+    <tr>
+      <td>${s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : '—'}</td>
+      <td>${s.pair || 'BTCUSDT'}</td>
+      <td><span class="decision-pill ${s.decision_now}">${s.decision_now || '—'}</span></td>
+      <td><span class="badge ${s.bias || 'neutral'}" style="font-size:8px">${(s.bias || '—').toUpperCase()}</span></td>
+      <td><span class="badge ${s.market_condition || 'default'}" style="font-size:8px">${(s.market_condition || '—').toUpperCase()}</span></td>
+      <td style="color:var(--yellow)">${s.price ? '$' + Number(s.price).toLocaleString() : '—'}</td>
+      <td style="color:var(--muted);font-size:10px;max-width:300px">${s.reason || '—'}</td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Pair</th>
+          <th>Decision</th>
+          <th>Bias</th>
+          <th>Condition</th>
+          <th>Price</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ── Simulate ───────────────────────────────────────────────
+async function simulate() {
+  const btn   = document.getElementById('sim-btn');
+  const price = document.getElementById('sim-price').value;
+  const rsi   = document.getElementById('sim-rsi').value;
+  const structure = document.getElementById('sim-structure').value;
+
+  btn.textContent = '⏳ ANALYZING...';
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  log('info', `Simulating signal @ price=${price}, rsi=${rsi}, structure=${structure}`);
+
+  try {
+    const res = await fetch(API_URL + '/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        price: parseFloat(price),
+        rsi:   parseFloat(rsi),
+        structure,
+      }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      throw new Error('Non-JSON response (endpoint missing?)');
+    }
+    const data = await res.json();
+    log('ok', 'Simulation response received. Signal: ' + (data.signal?.decision_now || 'unknown'));
+  } catch (err) {
+    log('err', 'Simulation failed: ' + err.message + ' (is backend running?)');
+  } finally {
+    btn.textContent = '▶ SIMULATE';
+    btn.disabled = false;
+    btn.classList.remove('loading');
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val || '—';
+}
+
+function fmt(val) {
+  if (!val) return '—';
+  const n = parseFloat(val);
+  if (isNaN(n)) return val;
+  return n >= 1000 ? n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : n.toFixed(2);
+}
+
+function log(level, msg) {
+  const panel = document.getElementById('log-panel');
+  const ts    = new Date().toLocaleTimeString();
+  const line  = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="${level}">${msg}</span>`;
+  panel.insertBefore(line, panel.firstChild);
+  if (panel.children.length > MAX_LOGS) panel.removeChild(panel.lastChild);
+}
+
+// ── Init ───────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
