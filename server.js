@@ -400,7 +400,7 @@ Detect:
 ## ENTRY FORMAT
 
 Use ONLY:
-"entry_zone": ["low", "high"]
+"entry_zone": [low_price, high_price]
 
 ---
 
@@ -417,31 +417,37 @@ Else:
 
 ## OUTPUT FORMAT (STRICT JSON)
 
+IMPORTANT:
+- You MUST return REAL numeric price values
+- DO NOT return placeholders like "price", "tp1", "low", "high"
+- All values must be valid numbers based on current market price
+
+If decision_now = "SKIP":
+- still return full structure
+- but keep entry_zone empty []
+- tp []
+- sl null
+
+Example of CORRECT output:
 {
-"market_condition": "trend|range|impulse",
-"bias": "bullish|bearish|neutral",
-"liquidity_event": "sweep_high|sweep_low|none",
-
-"no_trade_zone": ["support", "resistance"],
-
-"sniper_long": {
-"entry_zone": ["low", "high"],
-"tp": ["tp1", "tp2"],
-"sl": "price"
-},
-
-"sniper_short": {
-"entry_zone": ["low", "high"],
-"tp": ["tp1", "tp2"],
-"sl": "price"
-},
-
-"decision_now": "LONG|SHORT|SKIP",
-"confidence": "high|medium|low",
-"reason": "clear explanation"
+  "market_condition": "range",
+  "bias": "neutral",
+  "liquidity_event": "none",
+  "no_trade_zone": [77400, 78000],
+  "sniper_long": {
+    "entry_zone": [77450, 77550],
+    "tp": [77700, 77900],
+    "sl": 77300
+  },
+  "sniper_short": {
+    "entry_zone": [77950, 78050],
+    "tp": [77700, 77400],
+    "sl": 78150
+  },
+  "decision_now": "SKIP",
+  "confidence": "low",
+  "reason": "price in mid range no trade"
 }
-
----
 
 ## FINAL GOAL
 
@@ -454,18 +460,21 @@ Act like a sniper:
   const userPrompt = `Analyze this BTCUSDT market data and generate trading signals:
 ${JSON.stringify(payload, null, 2)}
 
+IMPORTANT: Return REAL numeric price values only. No placeholders.
+
+If SKIP: entry_zone=[], tp=[], sl=null
+
 Return this exact JSON structure:
 {
   "market_condition": "trend|range|impulse",
   "bias": "bullish|bearish|neutral",
-  "no_trade_zone": ["price_low", "price_high"],
-  "long_safe": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
-  "short_safe": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
-  "sniper_long": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
-  "sniper_short": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
+  "liquidity_event": "sweep_high|sweep_low|none",
+  "no_trade_zone": [price_low, price_high],
+  "sniper_long": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
+  "sniper_short": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
   "decision_now": "LONG|SHORT|SKIP",
   "confidence": "high|medium|low",
-  "reason": "short explanation"
+  "reason": "clear explanation"
 }`;
 
   const completion = await openai.chat.completions.create({
@@ -561,19 +570,13 @@ async function tick() {
 
     const entry =
       signal?.sniper_long?.entry_zone?.[0] ||
-      signal?.sniper_short?.entry_zone?.[0] ||
-      signal?.long_safe?.entry_zone?.[0] ||
-      signal?.short_safe?.entry_zone?.[0];
+      signal?.sniper_short?.entry_zone?.[0];
     const tp =
       signal?.sniper_long?.tp?.[0] ||
-      signal?.sniper_short?.tp?.[0] ||
-      signal?.long_safe?.tp?.[0] ||
-      signal?.short_safe?.tp?.[0];
+      signal?.sniper_short?.tp?.[0];
     const sl =
       signal?.sniper_long?.sl ||
-      signal?.sniper_short?.sl ||
-      signal?.long_safe?.sl ||
-      signal?.short_safe?.sl;
+      signal?.sniper_short?.sl;
     if (entry && tp && sl) {
       const risk = Math.abs(entry - sl) / entry;
       const reward = Math.abs(tp - entry) / entry;
