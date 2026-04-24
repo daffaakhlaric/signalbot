@@ -321,6 +321,7 @@ function simulateDryTrade(signal, payload) {
   console.log(`   Balance before: $${DRY_BALANCE}`);
 
   broadcast({ type: "dry_trade", data: trade });
+  broadcast({ type: "dry_trades", data: dryTrades });
 }
 
 // ── Auto-check dry trades against current price ───────────
@@ -382,6 +383,7 @@ function closeDryTrade(tradeId, result) {
   dryTradesHistory.unshift(trade);
   dryTrades.splice(idx, 1);
   broadcast({ type: "dry_trade", data: trade });
+  broadcast({ type: "dry_trades", data: dryTrades });
   broadcast({ type: "dry_history", data: dryTradesHistory });
 }
 
