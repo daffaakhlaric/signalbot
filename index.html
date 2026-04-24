@@ -1641,22 +1641,24 @@ function renderPositions(data) {
 }
 
 // ── Dry Run Functions ─────────────────────────────────────
-let dryRunEnabled = false;
+let dryRunEnabled = localStorage.getItem('dryEnabled') === 'true';
 let dryTrades = [];
 
 function toggleDryRun() {
+  dryRunEnabled = !dryRunEnabled;
+  localStorage.setItem('dryEnabled', dryRunEnabled);
+  updateDryUI();
   fetch(API_URL + '/dryrun', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'toggle' }),
-  })
-    .then(r => r.json())
-    .then(d => {
-      dryRunEnabled = d.dryRunActive;
-      document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
-      document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
-      document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
-    });
+  });
+}
+
+function updateDryUI() {
+  document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
+  document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
+  document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
 }
 
 function fetchDryStatus() {
@@ -1668,9 +1670,8 @@ function fetchDryStatus() {
     .then(r => r.json())
     .then(d => {
       dryRunEnabled = d.active;
-      document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
-      document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
-      document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
+      localStorage.setItem('dryEnabled', d.active);
+      updateDryUI();
       document.getElementById('dry-balance').textContent = '$' + d.balance;
       document.getElementById('dry-margin').textContent = '$' + d.margin;
       document.getElementById('dry-lev').textContent = d.leverage + 'x';
@@ -1679,6 +1680,11 @@ function fetchDryStatus() {
       document.getElementById('dr-margin').textContent = '$' + d.margin;
       document.getElementById('dr-lev').textContent = d.leverage + 'x';
       if (d.openTrades) renderDryTrades(d.openTrades);
+      if (dryRunEnabled) {
+        document.getElementById('dry-toggle').textContent = '■ DISABLE';
+        document.getElementById('dry-status').textContent = 'ACTIVE';
+        document.getElementById('dry-status').style.color = 'var(--green)';
+      }
     });
 }
 
@@ -1822,6 +1828,7 @@ function log(level, msg) {
 
 // ── Init ───────────────────────────────────────────────────
 connect();
+fetchDryStatus();
 </script>
 </body>
 </html>
