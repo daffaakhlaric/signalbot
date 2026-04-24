@@ -601,10 +601,9 @@ IMPORTANT:
 - All values must be valid numbers based on current market price
 
 If decision_now = "SKIP":
-- still return full structure
-- but keep entry_zone empty []
-- tp []
-- sl null
+- still calculate and return entry_zone, tp, sl with REAL values
+- only the decision_now stays "SKIP"
+- do NOT empty the zones
 
 Example of CORRECT output:
 {
@@ -613,14 +612,14 @@ Example of CORRECT output:
   "liquidity_event": "none",
   "no_trade_zone": [77400, 78000],
   "sniper_long": {
-    "entry_zone": [],
-    "tp": [],
-    "sl": null
+    "entry_zone": [77450, 77550],
+    "tp": [77700, 77900],
+    "sl": 77300
   },
   "sniper_short": {
-    "entry_zone": [],
-    "tp": [],
-    "sl": null
+    "entry_zone": [77950, 78050],
+    "tp": [77700, 77400],
+    "sl": 78150
   },
   "decision_now": "SKIP",
   "confidence": "low",
@@ -638,9 +637,7 @@ Act like a sniper:
   const userPrompt = `Analyze this BTCUSDT market data and generate trading signals:
 ${JSON.stringify(payload, null, 2)}
 
-IMPORTANT: Return REAL numeric price values only. No placeholders.
-
-If SKIP: entry_zone=[], tp=[], sl=null
+IMPORTANT: Return REAL numeric price values only. No placeholders. Even on SKIP, always fill entry_zone, tp, and sl with real values.
 
 Return this exact JSON structure:
 {
