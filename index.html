@@ -1229,7 +1229,8 @@ function renderSignal(s) {
 
   // Long Safe
   if (s.long_safe) {
-    setText('ls-entry', fmt(s.long_safe.entry));
+    const zone = s.long_safe.entry_zone;
+    setText('ls-entry', zone ? fmt(zone[0]) + ' – ' + fmt(zone[1]) : '—');
     setText('ls-type',  s.long_safe.type || '—');
     setText('ls-tp1',   fmt(s.long_safe.tp?.[0]));
     setText('ls-tp2',   fmt(s.long_safe.tp?.[1]));
@@ -1238,7 +1239,8 @@ function renderSignal(s) {
 
   // Short Safe
   if (s.short_safe) {
-    setText('ss-entry', fmt(s.short_safe.entry));
+    const zone = s.short_safe.entry_zone;
+    setText('ss-entry', zone ? fmt(zone[0]) + ' – ' + fmt(zone[1]) : '—');
     setText('ss-type',  s.short_safe.type || '—');
     setText('ss-tp1',   fmt(s.short_safe.tp?.[0]));
     setText('ss-tp2',   fmt(s.short_safe.tp?.[1]));
