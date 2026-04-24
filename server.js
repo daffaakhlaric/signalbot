@@ -321,147 +321,108 @@ function buildMarketPayload(candles) {
 
 // ── GPT-4o-mini Analysis ───────────────────────────────────────
 async function analyzeWithGPT(payload) {
-  const systemPrompt = `You are an elite crypto trading AI specialized in BTCUSDT perpetual futures using smart money concepts and sniper-level precision.
+  const systemPrompt = `You are an elite crypto trading AI focused on BTCUSDT using smart money concepts.
 
-Your goal is to generate high-probability trade signals optimized for high leverage (100x–150x), focusing on liquidity zones, rejection, and breakout confirmation.
+Your priority is to trade ONLY at extreme levels (support/resistance) and strictly AVOID mid-range entries.
 
 ---
 
-## INPUT DATA
+## INPUT
 
-You will receive:
-
-* OHLC data
+* OHLC
 * EMA 20 / 50 / 200
 * RSI (14)
 * Market structure (HH, HL, LH, LL)
-* Support & Resistance (last 20 candles)
+* Support & Resistance
 
 ---
 
-## CORE ANALYSIS
+## CORE RULE (CRITICAL)
 
-### 1. MARKET CONDITION
+Define:
 
-Classify:
+* support
+* resistance
+* mid_range = between support and resistance
 
-* "impulse" → strong move
-* "trend" → structured movement
-* "range" → sideways / choppy
+If price is inside mid_range:
+→ RETURN FULL JSON with:
 
----
+* decision_now = "SKIP"
+* reason = "price in mid-range no trade zone"
 
-### 2. CHOP FILTER (CRITICAL)
-
-If:
-
-* Price near EMA20 (<0.2% distance)
-* RSI between 45–55
-* No strong HH or LL
-
-→ RETURN FULL STRUCTURE with SKIP:
-{
-"market_condition": "range",
-"bias": "neutral",
-"liquidity_event": "none",
-"no_trade_zone": ["price_low", "price_high"],
-"long_safe": {},
-"short_safe": {},
-"sniper_long": {},
-"sniper_short": {},
-"decision_now": "SKIP",
-"confidence": "low",
-"reason": "choppy market no clear structure"
-}
+NO exceptions.
 
 ---
 
-### 3. LIQUIDITY SWEEP
+## MARKET CLASSIFICATION
+
+* "trend" → clear HH/HL or LH/LL
+* "range" → sideways
+* "impulse" → strong breakout
+
+---
+
+## LIQUIDITY LOGIC
 
 Detect:
 
-* sweep_high → high breaks previous high but closes below
-* sweep_low → low breaks previous low but closes above
+* sweep_high → breakout above resistance but closes below
+* sweep_low → breakdown below support but closes above
 
 ---
 
-### 4. SIGNAL PRIORITY
+## VALID ENTRY CONDITIONS
 
-1. SNIPER SHORT (highest priority)
+### SNIPER SHORT (TOP ONLY)
 
-* sweep_high
-* rejection wick
-* bearish close
+* price near resistance (top 10–15% of range)
+* sweep_high OR rejection
+* bearish confirmation
 
-2. SNIPER LONG
+### SNIPER LONG (BOTTOM ONLY)
 
-* sweep_low
-* bounce
-* bullish close
-
-3. SAFE SHORT
-
-* resistance rejection
-
-4. SAFE LONG
-
-* breakout + reclaim
+* price near support (bottom 10–15% of range)
+* sweep_low OR bounce
+* bullish confirmation
 
 ---
 
-### 5. ENTRY ZONE
+## INVALID CONDITIONS (FORCE SKIP)
 
-Always return range:
+* price in middle of range
+* RSI 45–55 and no structure
+* EMA compressed (no direction)
+* no liquidity event
+
+---
+
+## ENTRY FORMAT
+
+Use ONLY:
 "entry_zone": ["low", "high"]
 
-NOT single price.
-
 ---
 
-### 6. RISK FILTER
+## RISK RULE
 
 Only allow trade if:
-Risk/Reward ≥ 1.5
+
+* Risk/Reward ≥ 1.5
 
 Else:
 → SKIP
 
 ---
 
-### 7. STOP LOSS
-
-* LONG → below sweep low / support
-* SHORT → above sweep high / resistance
-
----
-
-### 8. TAKE PROFIT
-
-* TP1: ~0.5%
-* TP2: ~1%
-
----
-
 ## OUTPUT FORMAT (STRICT JSON)
 
 {
-"market_condition": "impulse|trend|range",
+"market_condition": "trend|range|impulse",
 "bias": "bullish|bearish|neutral",
 "liquidity_event": "sweep_high|sweep_low|none",
 
-"no_trade_zone": ["low", "high"],
-
-"long_safe": {
-"entry_zone": ["low", "high"],
-"tp": ["tp1", "tp2"],
-"sl": "price"
-},
-
-"short_safe": {
-"entry_zone": ["low", "high"],
-"tp": ["tp1", "tp2"],
-"sl": "price"
-},
+"no_trade_zone": ["support", "resistance"],
 
 "sniper_long": {
 "entry_zone": ["low", "high"],
@@ -477,27 +438,18 @@ Else:
 
 "decision_now": "LONG|SHORT|SKIP",
 "confidence": "high|medium|low",
-"reason": "short explanation"
+"reason": "clear explanation"
 }
 
 ---
 
-## RULES
+## FINAL GOAL
 
-* No signal in mid-range
-* Prioritize sniper setups
-* Output valid JSON only
-* If no setup → SKIP
+Act like a sniper:
 
----
-
-## GOAL
-
-Trade like smart money:
-
-* Enter at extremes
-* Avoid noise
-* Precision > frequency`;
+* Wait for price at extremes
+* Avoid mid-range traps
+* Trade only high-probability setups`;
 
   const userPrompt = `Analyze this BTCUSDT market data and generate trading signals:
 ${JSON.stringify(payload, null, 2)}
@@ -582,7 +534,25 @@ async function tick() {
     console.log(`\n📊 New ${INTERVAL} bar — ${payload.pair} @ ${payload.close}`);
     console.log("🤖 Analyzing with GPT-4o-mini...");
 
-    const signal = await analyzeWithGPT(payload);
+    const midLow = payload.support + (payload.resistance - payload.support) * 0.3;
+    const midHigh = payload.resistance - (payload.resistance - payload.support) * 0.3;
+    let signal;
+    if (payload.close > midLow && payload.close < midHigh) {
+      console.log(`⚠️  Mid-range filter active (${payload.close} between ${midLow}–${midHigh})`);
+      signal = {
+        market_condition: "range",
+        bias: "neutral",
+        liquidity_event: "none",
+        no_trade_zone: [payload.support, payload.resistance],
+        sniper_long: {},
+        sniper_short: {},
+        decision_now: "SKIP",
+        confidence: "low",
+        reason: "mid-range filter active"
+      };
+    } else {
+      signal = await analyzeWithGPT(payload);
+    }
 
     if (signal.confidence === "low") {
       signal.decision_now = "SKIP";
