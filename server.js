@@ -266,11 +266,17 @@ function simulateDryTrade(signal, payload) {
   if (signal.decision_now !== "LONG" && signal.decision_now !== "SHORT") return;
 
   const side = signal.decision_now;
-  const entry =
-    signal?.sniper_long?.entry_zone?.[1] ||
-    signal?.sniper_short?.entry_zone?.[0];
-  const tp = signal?.sniper_long?.tp?.[0] || signal?.sniper_short?.tp?.[0];
-  const sl = signal?.sniper_long?.sl || signal?.sniper_short?.sl;
+  let entry, tp, sl;
+
+  if (side === "LONG") {
+    entry = signal.sniper_long?.entry_zone?.[1];
+    tp = signal.sniper_long?.tp?.[0];
+    sl = signal.sniper_long?.sl;
+  } else if (side === "SHORT") {
+    entry = signal.sniper_short?.entry_zone?.[0];
+    tp = signal.sniper_short?.tp?.[0];
+    sl = signal.sniper_short?.sl;
+  }
 
   if (!entry || !tp || !sl) {
     console.log("⚠️  Dry run: missing entry/tp/sl");
@@ -605,14 +611,14 @@ Example of CORRECT output:
   "liquidity_event": "none",
   "no_trade_zone": [77400, 78000],
   "sniper_long": {
-    "entry_zone": [77450, 77550],
-    "tp": [77700, 77900],
-    "sl": 77300
+    "entry_zone": [],
+    "tp": [],
+    "sl": null
   },
   "sniper_short": {
-    "entry_zone": [77950, 78050],
-    "tp": [77700, 77400],
-    "sl": 78150
+    "entry_zone": [],
+    "tp": [],
+    "sl": null
   },
   "decision_now": "SKIP",
   "confidence": "low",
@@ -718,17 +724,9 @@ async function tick() {
     let signal;
     if (payload.close > midLow && payload.close < midHigh) {
       console.log(`⚠️  Mid-range filter active (${payload.close} between ${midLow}–${midHigh})`);
-      signal = {
-        market_condition: "range",
-        bias: "neutral",
-        liquidity_event: "none",
-        no_trade_zone: [payload.support, payload.resistance],
-        sniper_long: {},
-        sniper_short: {},
-        decision_now: "SKIP",
-        confidence: "low",
-        reason: "mid-range filter active"
-      };
+      signal = await analyzeWithGPT(payload);
+      signal.decision_now = "SKIP";
+      signal.reason = "mid-range filter active";
     } else {
       signal = await analyzeWithGPT(payload);
     }
