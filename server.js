@@ -320,9 +320,18 @@ If:
 * RSI between 45–55
 * No strong HH or LL
 
-→ RETURN:
+→ RETURN FULL STRUCTURE with SKIP:
 {
+"market_condition": "range",
+"bias": "neutral",
+"liquidity_event": "none",
+"no_trade_zone": ["price_low", "price_high"],
+"long_safe": {},
+"short_safe": {},
+"sniper_long": {},
+"sniper_short": {},
 "decision_now": "SKIP",
+"confidence": "low",
 "reason": "choppy market no clear structure"
 }
 
@@ -459,11 +468,12 @@ Return this exact JSON structure:
   "market_condition": "trend|range|impulse",
   "bias": "bullish|bearish|neutral",
   "no_trade_zone": ["price_low", "price_high"],
-  "long_safe": { "entry": "price", "type": "reclaim breakout", "tp": ["tp1", "tp2"], "sl": "price" },
-  "short_safe": { "entry": "price", "type": "rejection", "tp": ["tp1", "tp2"], "sl": "price" },
-  "sniper_long": { "entry_zone": ["price_low", "price_high"], "trigger": "description", "tp": ["tp1", "tp2"], "sl": "price" },
-  "sniper_short": { "entry_zone": ["price_low", "price_high"], "trigger": "description", "tp": ["tp1", "tp2"], "sl": "price" },
+  "long_safe": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
+  "short_safe": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
+  "sniper_long": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
+  "sniper_short": { "entry_zone": ["price_low", "price_high"], "tp": ["tp1", "tp2"], "sl": "price" },
   "decision_now": "LONG|SHORT|SKIP",
+  "confidence": "high|medium|low",
   "reason": "short explanation"
 }`;
 
@@ -479,7 +489,24 @@ Return this exact JSON structure:
 
   const raw = completion.choices[0].message.content.trim();
   const clean = raw.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error("❌ JSON parse error:", clean.slice(0, 200));
+    return {
+      market_condition: "range",
+      bias: "neutral",
+      liquidity_event: "none",
+      no_trade_zone: [0, 0],
+      long_safe: {},
+      short_safe: {},
+      sniper_long: {},
+      sniper_short: {},
+      decision_now: "SKIP",
+      confidence: "low",
+      reason: "parse error fallback"
+    };
+  }
 }
 
 // ── Main tick: poll BingX, broadcast, run GPT on new bar ──────
@@ -492,6 +519,17 @@ async function tick() {
     }
 
     const payload = buildMarketPayload(candles);
+
+    const rangePercent = (payload.resistance - payload.support) / payload.close;
+    if (rangePercent < 0.0015) {
+      console.log(`⚠️  Range too tight (${(rangePercent * 100).toFixed(2)}%) — skip`);
+      return;
+    }
+
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    payload.sweep_high = last.high > prev.high && last.close < prev.high;
+    payload.sweep_low  = last.low < prev.low && last.close > prev.low;
     latestPayload = { ...payload, receivedAt: new Date().toISOString() };
     broadcast({ type: "market_data", data: latestPayload });
 
@@ -506,6 +544,51 @@ async function tick() {
     console.log("🤖 Analyzing with GPT-4o-mini...");
 
     const signal = await analyzeWithGPT(payload);
+
+    if (signal.confidence === "low") {
+      signal.decision_now = "SKIP";
+      console.log("⚠️  Confidence low — auto SKIP");
+    }
+
+    const entry =
+      signal?.sniper_long?.entry_zone?.[0] ||
+      signal?.sniper_short?.entry_zone?.[0] ||
+      signal?.long_safe?.entry_zone?.[0] ||
+      signal?.short_safe?.entry_zone?.[0];
+    const tp =
+      signal?.sniper_long?.tp?.[0] ||
+      signal?.sniper_short?.tp?.[0] ||
+      signal?.long_safe?.tp?.[0] ||
+      signal?.short_safe?.tp?.[0];
+    const sl =
+      signal?.sniper_long?.sl ||
+      signal?.sniper_short?.sl ||
+      signal?.long_safe?.sl ||
+      signal?.short_safe?.sl;
+    if (entry && tp && sl) {
+      const risk = Math.abs(entry - sl) / entry;
+      const reward = Math.abs(tp - entry) / entry;
+      if (reward / risk < 1.3) {
+        signal.decision_now = "SKIP";
+        console.log(`⚠️  RR too low (${(reward / risk).toFixed(2)}) — skip`);
+      }
+    }
+    if (entry && tp) {
+      const movePercent = Math.abs(tp - entry) / entry;
+      if (movePercent < 0.003) {
+        signal.decision_now = "SKIP";
+        console.log(`⚠️  Move too small (${(movePercent * 100).toFixed(2)}%) — skip`);
+      }
+    }
+    if (signal.decision_now === "LONG" && tp < entry) {
+      signal.decision_now = "SKIP";
+      console.log("⚠️  Invalid LONG TP — skip");
+    }
+    if (signal.decision_now === "SHORT" && tp > entry) {
+      signal.decision_now = "SKIP";
+      console.log("⚠️  Invalid SHORT TP — skip");
+    }
+
     signal.timestamp = new Date().toISOString();
     signal.price = payload.close;
     signal.pair  = payload.pair;
