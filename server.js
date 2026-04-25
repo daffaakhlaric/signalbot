@@ -1063,9 +1063,7 @@ async function tick() {
     let score = 0;
     if (signal.htf_bias === signal.decision_now) score++;
     if (signal.confidence === "high") score++;
-    const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
-    const range = payload15m.resistance - payload15m.support;
-    const dynamicMomentum = (range / payload15m.close) * 0.2;
+    // momFilter, range, dynamicMomentum already calculated above in momentum filter
     if (momFilter > dynamicMomentum) score++;
     signal.score = score;
 
