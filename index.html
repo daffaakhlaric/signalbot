@@ -1496,10 +1496,12 @@ let signalHistory = [];
 
 // ── WebSocket ──────────────────────────────────────────────
 function connect() {
-  log('info', 'Connecting to backend WebSocket...');
+  console.log(`[DEBUG] Attempting WS connection to: ${WS_URL}`);
+  log('info', `Connecting to ${WS_URL}...`);
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
+    console.log('[DEBUG] WebSocket OPEN');
     setWsStatus('connected');
     log('ok', 'WebSocket connected → backend live');
     clearTimeout(reconnectTimer);
@@ -1508,6 +1510,7 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
+      console.log(`[DEBUG] WS message:`, msg.type);
       if (msg.type === 'signal')      renderSignal(msg.data);
       if (msg.type === 'history')     renderHistory(msg.data);
       if (msg.type === 'market_data') renderMarketData(msg.data);
@@ -1521,14 +1524,16 @@ function connect() {
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (e) => {
+    console.log(`[DEBUG] WebSocket CLOSED:`, e.code, e.reason);
     setWsStatus('disconnected');
-    log('warn', 'WebSocket disconnected. Retrying in 3s...');
+    log('warn', `WebSocket closed (code ${e.code}). Retrying in 3s...`);
     reconnectTimer = setTimeout(connect, 3000);
   };
 
-  ws.onerror = () => {
-    log('err', 'WebSocket error — is backend running on port 3001?');
+  ws.onerror = (e) => {
+    console.error('[DEBUG] WebSocket ERROR:', e);
+    log('err', 'WebSocket error — check browser console for details');
   };
 }
 
