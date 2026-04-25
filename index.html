@@ -1673,8 +1673,7 @@ function renderSignal(s) {
     if (s.decision_now === 'SHORT') panel.classList.add('flash-red');
   }
 
-  const htfBias = s.htf_bias || 'NEUTRAL';
-  const structure = s.structure || s.htf_structure || 'NA';
+  // htfBias and structure already defined above
   const scoreStr = s.score !== undefined ? ` | Score: ${s.score}` : '';
   log('ok', `Signal: ${s.decision_now} | Bias: ${htfBias} | Structure: ${structure}${scoreStr}`);
 }
