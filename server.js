@@ -35,6 +35,12 @@ const INTERVAL = process.env.INTERVAL || "15m";
 const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
+// ── Fixed Risk Execution Model ─────────────────────────────
+const FIXED_MARGIN = 5;                                       // USD per trade
+const LEVERAGE = 150;                                         // x leverage
+const TP_MULTIPLIER = 1.0;                                    // 100% profit on margin
+const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
+
 const BINGX_BASE   = process.env.BINGX_BASE   || "https://open-api.bingx.com";
 const BINGX_API_KEY    = process.env.BINGX_API_KEY    || "";
 const BINGX_API_SECRET = process.env.BINGX_API_SECRET || "";
@@ -49,6 +55,20 @@ let signalHistory = [];
 let latestSignal = null;
 let latestPayload = null;
 let lastAnalyzedBarTime = 0;
+
+// ── Daily Trade Limit ─────────────────────────────────────────
+let tradeCountToday = 0;
+let lastTradeDate = new Date().toDateString();
+const MAX_TRADES_PER_DAY = 5;
+
+function checkDailyLimit() {
+  const today = new Date().toDateString();
+  if (today !== lastTradeDate) {
+    tradeCountToday = 0;
+    lastTradeDate = today;
+  }
+  return tradeCountToday < MAX_TRADES_PER_DAY;
+}
 
 // ── WebSocket broadcast ────────────────────────────────────────
 function broadcast(data) {
@@ -181,7 +201,7 @@ const FETCHERS = {
 
 // ── Session Filter ────────────────────────────────────────────
 function isTradingSession(utcHour) {
-  return (utcHour >= 7 && utcHour < 10) || (utcHour >= 13 && utcHour < 20);
+  return utcHour >= 6 && utcHour < 23;
 }
 
 // ── Market Structure Detection ─────────────────────────────────
@@ -202,8 +222,8 @@ function detectStructure(highs, lows) {
 
 // ── Candle Trigger Detection ───────────────────────────────────
 function getCandleTrigger(candle) {
-  const body    = Math.abs(candle.close - candle.open);
-  const range   = candle.high - candle.low;
+  const body      = Math.abs(candle.close - candle.open);
+  const range    = candle.high - candle.low;
   const upperWick = candle.high - Math.max(candle.close, candle.open);
   const lowerWick = Math.min(candle.close, candle.open) - candle.low;
   const isBullish = candle.close > candle.open;
@@ -215,16 +235,108 @@ function getCandleTrigger(candle) {
   const lowerWickPct = lowerWick / range;
   const bodyPct = body / range;
 
-  const prev = null; // caller passes previous candle if needed
-
   let trigger = null;
-  if (isBearish && upperWickPct > 0.5) {
+  if (isBearish && upperWickPct > 0.4 && bodyPct < 0.6) {
     trigger = "SHORT";
-  } else if (isBullish && lowerWickPct > 0.5) {
+  } else if (isBullish && lowerWickPct > 0.4 && bodyPct < 0.6) {
     trigger = "LONG";
   }
 
   return trigger;
+}
+
+// ── Candle Detail Analyzer ─────────────────────────────────────
+function getCandleDetail(candle) {
+  const body = Math.abs(candle.close - candle.open);
+  const range = candle.high - candle.low;
+
+  if (range === 0) return null;
+
+  const upperWick = candle.high - Math.max(candle.close, candle.open);
+  const lowerWick = Math.min(candle.close, candle.open) - candle.low;
+
+  return {
+    isBull: candle.close > candle.open,
+    isBear: candle.close < candle.open,
+    bodyPct: body / range,
+    upperWickPct: upperWick / range,
+    lowerWickPct: lowerWick / range
+  };
+}
+
+// ── Entry Confirmation Engine ─────────────────────────────────
+function confirmEntry(signal, payload) {
+  if (signal.decision_now === "SKIP") return signal;
+
+  const last = payload.lastCandle;
+  const prev = payload.prevCandle;
+
+  const c = getCandleDetail(last);
+  const p = getCandleDetail(prev);
+
+  if (!c || !p) return signal;
+
+  let valid = false;
+  let reason = "";
+
+  if (signal.decision_now === "LONG") {
+    const rejection =
+      c.lowerWickPct > 0.4 &&
+      c.bodyPct < 0.6 &&
+      c.isBull;
+
+    const engulfing =
+      c.isBull &&
+      p.isBear &&
+      last.close > prev.open &&
+      last.open < prev.close;
+
+    if (rejection || engulfing) {
+      valid = true;
+      reason = rejection ? "bullish rejection" : "bullish engulfing";
+    }
+  }
+
+  if (signal.decision_now === "SHORT") {
+    const rejection =
+      c.upperWickPct > 0.4 &&
+      c.bodyPct < 0.6 &&
+      c.isBear;
+
+    const engulfing =
+      c.isBear &&
+      p.isBull &&
+      last.open > prev.close &&
+      last.close < prev.open;
+
+    if (rejection || engulfing) {
+      valid = true;
+      reason = rejection ? "bearish rejection" : "bearish engulfing";
+    }
+  }
+
+  if (!valid) {
+    signal.decision_now = "SKIP";
+    signal.reason = "no confirmation candle";
+  } else {
+    signal.reason += ` + ${reason}`;
+  }
+
+  return signal;
+}
+
+// ── HTF Bias (1H trend confirmation) ────────────────────────────
+function getHTFBias(htf) {
+  const price  = htf.close;
+  const ema50  = htf.ema50;
+  const ema200 = htf.ema200;
+  const struct = htf.structure;
+
+  if (price > ema50 && ema50 > ema200) return "LONG";
+  if (price < ema50 && ema50 < ema200) return "SHORT";
+  if (struct === "HH" || struct === "HL") return "LONG";
+  if (struct === "LL" || struct === "LH") return "SHORT";
+  return "NEUTRAL";
 }
 
 // ── Core Sniper Signal Generator ──────────────────────────────
@@ -277,19 +389,19 @@ function generateSniperSignal(payload) {
     return s;
   }
 
-  // 3. Volatility filter
-  if (range / price < 0.002) {
+  // 3. Min range filter (avoid noise scalping)
+  if (range / price < 0.003) {
     const s = defaultSignal();
-    s.reason = "market too slow volatility filter";
+    s.reason = "low range market";
     return s;
   }
 
   // 4. Candle trigger
   const trigger = getCandleTrigger(last);
 
-  // 5. Determine direction based on zones + trigger
+  // 5. Determine direction based on zones + trigger (trigger REQUIRED)
   let decision = "SKIP";
-  let reason = "no valid setup";
+  let reason = "no valid trigger at key level";
 
   if (trigger === "LONG" && price <= botZone + range * 0.05) {
     decision = "LONG";
@@ -297,24 +409,21 @@ function generateSniperSignal(payload) {
   } else if (trigger === "SHORT" && price >= topZone - range * 0.05) {
     decision = "SHORT";
     reason = "bearish trigger at top zone";
-  } else if (price <= botZone) {
-    decision = "LONG";
-    reason = "price at bottom zone";
-  } else if (price >= topZone) {
-    decision = "SHORT";
-    reason = "price at top zone";
+  } else {
+    decision = "SKIP";
+    reason = "no trigger at key level";
   }
 
-  // Build entry zones
+  // Build entry zones (wider for better market hit)
   const slBuffer = range * 0.1;
-  const entryZoneLongHigh  = botZone + range * 0.03;
-  const entryZoneLongLow   = botZone - range * 0.03;
+  const entryZoneLongHigh  = botZone + range * 0.05;
+  const entryZoneLongLow   = botZone - range * 0.05;
   const tp1Long = price + range * 0.5;
   const tp2Long = price + range * 0.8;
   const slLong  = support - slBuffer;
 
-  const entryZoneShortHigh = topZone + range * 0.03;
-  const entryZoneShortLow  = topZone - range * 0.03;
+  const entryZoneShortHigh = topZone + range * 0.05;
+  const entryZoneShortLow  = topZone - range * 0.05;
   const tp1Short = price - range * 0.5;
   const tp2Short = price - range * 0.8;
   const slShort  = resist + slBuffer;
@@ -345,9 +454,10 @@ function validateSignal(signal) {
   if (signal.decision_now === "SKIP") return signal;
 
   const isLong  = signal.decision_now === "LONG";
-  const entry   = isLong ? signal.sniper_long.entry_zone[1]  : signal.sniper_short.entry_zone[0];
-  const tp      = isLong ? signal.sniper_long.tp[0]          : signal.sniper_short.tp[0];
-  const sl      = isLong ? signal.sniper_long.sl             : signal.sniper_short.sl;
+  const entryZone = isLong ? signal.sniper_long.entry_zone : signal.sniper_short.entry_zone;
+  const entry   = (entryZone[0] + entryZone[1]) / 2;
+  const tp      = isLong ? signal.sniper_long.tp[0] : signal.sniper_short.tp[0];
+  const sl      = isLong ? signal.sniper_long.sl : signal.sniper_short.sl;
 
   if (!entry || !tp || !sl) {
     signal.decision_now = "SKIP";
@@ -366,6 +476,14 @@ function validateSignal(signal) {
     return signal;
   }
 
+  // SL distance filter (critical for 150x leverage)
+  const slDist = Math.abs(entry - sl) / entry;
+  if (slDist < 0.002) {
+    signal.decision_now = "SKIP";
+    signal.reason += " | SL too tight";
+    return signal;
+  }
+
   // Direction check
   if (isLong && tp < entry) {
     signal.decision_now = "SKIP";
@@ -375,13 +493,16 @@ function validateSignal(signal) {
     signal.reason += " | invalid SHORT TP";
   }
 
-  signal.confidence = rr >= 2 ? "high" : "medium";
+  signal.confidence = rr >= 1.8 ? "high" : "medium";
+  if (signal.confidence === "medium") {
+    signal.reason += " | medium confidence";
+  }
   return signal;
 }
 
 // ── Cooldown System ────────────────────────────────────────────
 let lastTradeTime = 0;
-const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 function checkCooldown(signal) {
   if (signal.decision_now === "SKIP") return signal;
@@ -403,7 +524,7 @@ async function fetchBingXPositions() {
   const query = `symbol=${binSymbol}&timestamp=${ts}&recvWindow=${recvWindow}`;
   const crypto = require("node:crypto");
   const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(query).digest("hex");
-  const url = `${BINGX_BASE}/openApi/swap/v2/user/balance?${query}&signature=${sign}`;
+  const url = `${BINGX_BASE}/openApi/swap/v2/user/positions?${query}&signature=${sign}`;
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 15000);
@@ -434,11 +555,37 @@ async function placeBingXOrder(side, entryZone, tp, sl) {
   const binSymbol = SYMBOL.replace("-", "");
   const recvWindow = "10000";
 
-  const entry = side === "LONG" ? entryZone[1] : entryZone[0];
-  const closePrice = side === "LONG" ? tp[0] : tp[0];
-  const quantity = 0.001; // BTC amount, adjust as needed
+  // Fixed margin execution
+  const midPrice = (entryZone[0] + entryZone[1]) / 2;
+  const zoneWidth = Math.abs(entryZone[1] - entryZone[0]);
+  const rangePct = zoneWidth / midPrice;
+  const spreadFactor = rangePct > 0.005 ? 1.0005 : 1.0002;
+  const entry = side === "LONG"
+    ? midPrice * spreadFactor
+    : midPrice * (2 - spreadFactor);
 
-  const params = `symbol=${binSymbol}&side=${side}&positionSide=${side === "LONG" ? "LONG" : "SHORT"}&orderType=LIMIT&quantity=${quantity}&price=${entry}&takeProfitRate=${tp[0]}&stopLossRate=${sl}&timestamp=${ts}&recvWindow=${recvWindow}`;
+  const positionValue = FIXED_MARGIN * LEVERAGE;
+  const profitPct = FIXED_MARGIN / positionValue;
+  const calculatedTp = side === "LONG"
+    ? entry * (1 + profitPct)
+    : entry * (1 - profitPct);
+  const quantity = positionValue / entry;
+
+  const riskAmount = Math.abs(entry - sl) * quantity;
+  const profitAmount = (calculatedTp - entry) * quantity;
+
+  console.log(`
+🎯 FIXED RISK EXECUTION:
+  Mode: ${DRY_RUN ? "DRY RUN" : "LIVE"}
+  Side: ${side}
+  Entry: ${round(entry, 4)} | TP: ${round(calculatedTp, 4)} | SL: ${round(sl, 4)}
+  Margin: $${FIXED_MARGIN} | Leverage: ${LEVERAGE}x | Position: $${positionValue}
+  Quantity: ${round(quantity, 6)} BTC
+  Profit Target: $${round(profitAmount, 2)} | Risk: $${round(riskAmount, 2)} | RR: ${(profitAmount / riskAmount).toFixed(2)}
+  Profit %: ${(profitPct * 100).toFixed(3)}%
+`);
+
+  const params = `symbol=${binSymbol}&side=${side}&positionSide=${side === "LONG" ? "LONG" : "SHORT"}&orderType=LIMIT&quantity=${quantity}&price=${entry}&stopLossPrice=${sl}&timestamp=${ts}&recvWindow=${recvWindow}`;
   const crypto = require("node:crypto");
   const sign = crypto.createHmac("sha256", BINGX_API_SECRET).update(params).digest("hex");
   const url = `${BINGX_BASE}/openApi/swap/v2/trade/order?${params}&signature=${sign}`;
@@ -481,41 +628,54 @@ function simulateDryTrade(signal, payload) {
   if (signal.decision_now !== "LONG" && signal.decision_now !== "SHORT") return;
 
   const side = signal.decision_now;
-  let entry, tp, sl;
+  let entryZone, sl;
 
   if (side === "LONG") {
-    entry = signal.sniper_long?.entry_zone?.[1];
-    tp = signal.sniper_long?.tp?.[0];
+    entryZone = signal.sniper_long?.entry_zone;
     sl = signal.sniper_long?.sl;
   } else if (side === "SHORT") {
-    entry = signal.sniper_short?.entry_zone?.[0];
-    tp = signal.sniper_short?.tp?.[0];
+    entryZone = signal.sniper_short?.entry_zone;
     sl = signal.sniper_short?.sl;
   }
 
-  if (!entry || !tp || !sl) {
-    console.log("⚠️  Dry run: missing entry/tp/sl");
+  if (!entryZone || !sl) {
+    console.log("⚠️  Dry run: missing entry zone/sl");
     return;
   }
 
-  const positionValue = DRY_MARGIN * DRY_LEVERAGE;
+  // Fixed margin calculation (same as placeBingXOrder)
+  const midPrice = (entryZone[0] + entryZone[1]) / 2;
+  const zoneWidth = Math.abs(entryZone[1] - entryZone[0]);
+  const rangePct = zoneWidth / midPrice;
+  const spreadFactor = rangePct > 0.005 ? 1.0005 : 1.0002;
+  const entry = side === "LONG"
+    ? midPrice * spreadFactor
+    : midPrice * (2 - spreadFactor);
+
+  const positionValue = FIXED_MARGIN * LEVERAGE;
+  const profitPct = FIXED_MARGIN / positionValue;
+  const tp = side === "LONG"
+    ? entry * (1 + profitPct)
+    : entry * (1 - profitPct);
+  const quantity = positionValue / entry;
+
   const riskPct = Math.abs(entry - sl) / entry;
   const tpPct = Math.abs(tp - entry) / entry;
-  const pnlIfWin = positionValue * tpPct;
+  const pnlIfWin = FIXED_MARGIN;
   const pnlIfLose = positionValue * riskPct;
-  const rr = tpPct / riskPct;
+  const rr = pnlIfWin / pnlIfLose;
 
   const trade = {
     id: Date.now(),
     side,
-    entry,
-    tp,
-    sl,
+    entry: round(entry, 4),
+    tp: round(tp, 4),
+    sl: round(sl, 4),
     positionValue,
-    margin: DRY_MARGIN,
-    leverage: DRY_LEVERAGE,
+    margin: FIXED_MARGIN,
+    leverage: LEVERAGE,
     riskPct: (riskPct * 100).toFixed(3) + "%",
-    tpPct: (tpPct * 100).toFixed(2) + "%",
+    tpPct: (profitPct * 100).toFixed(3) + "%",
     rr: rr.toFixed(2),
     pnlIfWin: pnlIfWin.toFixed(2),
     pnlIfLose: pnlIfLose.toFixed(2),
@@ -528,12 +688,13 @@ function simulateDryTrade(signal, payload) {
   };
 
   dryTrades.push(trade);
-  console.log(`\n🎯 DRY RUN TRADE OPENED`);
-  console.log(`   Side: ${side} | Entry: ${entry} | TP: ${tp} | SL: ${sl}`);
-  console.log(`   Position: $${positionValue} | Margin: $${DRY_MARGIN} | Lev: ${DRY_LEVERAGE}x`);
-  console.log(`   Risk: ${trade.riskPct} | Reward: ${trade.tpPct} | R:R: ${rr}`);
-  console.log(`   If WIN: +$${pnlIfWin.toFixed(2)} | If LOSE: -$${pnlIfLose.toFixed(2)}`);
-  console.log(`   Balance before: $${DRY_BALANCE}`);
+  console.log(`
+🎯 DRY RUN TRADE OPENED (FIXED MARGIN):
+  Side: ${side} | Entry: ${round(entry, 4)} | TP: ${round(tp, 4)} | SL: ${round(sl, 4)}
+  Margin: $${FIXED_MARGIN} | Leverage: ${LEVERAGE}x | Position: $${positionValue}
+  Profit %: ${(profitPct * 100).toFixed(3)}% | Risk: ${riskPct.toFixed(4)} | RR: ${rr.toFixed(2)}
+  If WIN: +$${pnlIfWin.toFixed(2)} | If LOSE: -$${pnlIfLose.toFixed(2)}
+`);
 
   broadcast({ type: "dry_trade", data: trade });
   broadcast({ type: "dry_trades", data: dryTrades });
@@ -699,48 +860,139 @@ function buildMarketPayload(candles) {
 // ── Main tick: poll exchange, run sniper engine ────────────
 async function tick() {
   try {
-    const candles = await fetchKlines(SYMBOL, INTERVAL, KLINE_LIMIT);
-    if (candles.length < 20) {
-      console.warn(`⚠️  Only ${candles.length} candles`);
+    const [candles15m, candles1h] = await Promise.all([
+      fetchKlines(SYMBOL, "15m", KLINE_LIMIT),
+      fetchKlines(SYMBOL, "1h",  KLINE_LIMIT),
+    ]);
+    if (candles15m.length < 20) {
+      console.warn(`⚠️  Only ${candles15m.length} candles`);
       return;
     }
 
-    const payload = buildMarketPayload(candles);
-    latestPayload = { ...payload, receivedAt: new Date().toISOString() };
+    const payload15m = buildMarketPayload(candles15m);
+    const payload1h  = buildMarketPayload(candles1h);
+    latestPayload = { ...payload15m, receivedAt: new Date().toISOString() };
     broadcast({ type: "market_data", data: latestPayload });
 
-    if (payload.barTime === lastAnalyzedBarTime) {
+    if (payload15m.barTime === lastAnalyzedBarTime) {
       process.stdout.write(".");
       return;
     }
-    lastAnalyzedBarTime = payload.barTime;
+    lastAnalyzedBarTime = payload15m.barTime;
 
-    console.log(`\n📊 New ${INTERVAL} bar — ${payload.pair} @ ${payload.close}`);
+    console.log(`\n📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close}`);
 
-    let signal = generateSniperSignal(payload);
+    let signal = generateSniperSignal(payload15m);
+
+    // 1. Entry confirmation FIRST (before RR calc)
+    signal = confirmEntry(signal, payload15m);
+
+    // 2. Validate (RR check)
     signal = validateSignal(signal);
     signal = checkCooldown(signal);
 
+    const htfBias = getHTFBias(payload1h);
+    signal.htf_bias = htfBias;
+    signal.htf_timeframe = "1H";
+    signal.htf_structure = payload1h.structure;
+
+    // 3. HTF filter — only reject if OPPOSITE direction
+    if (
+      (signal.decision_now === "LONG" && htfBias === "SHORT") ||
+      (signal.decision_now === "SHORT" && htfBias === "LONG")
+    ) {
+      signal.decision_now = "SKIP";
+      signal.reason = `HTF mismatch (${htfBias})`;
+    }
+
+    // 3b. Anti fake breakout filter (weak momentum) — adaptive
     if (signal.decision_now !== "SKIP") {
-      lastTradeTime = Date.now();
+      const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
+      const range = payload15m.resistance - payload15m.support;
+      const dynamicMomentum = (range / payload15m.close) * 0.2;
+      if (momFilter < dynamicMomentum) {
+        signal.decision_now = "SKIP";
+        signal.reason = "weak momentum";
+      }
+    }
+
+    // 4. Daily limit check
+    if (signal.decision_now !== "SKIP" && !checkDailyLimit()) {
+      signal.decision_now = "SKIP";
+      signal.reason = "daily limit reached";
+    }
+
+    if (signal.decision_now !== "SKIP") {
+      if (!DRY_RUN) {
+        try {
+          const positions = await fetchBingXPositions();
+          const posList = positions?.positions || positions?.list || [];
+          const hasPos = posList.some(p => Math.abs(p.positionAmt || p.size || 0) > 0);
+          if (hasPos) {
+            console.log("⚠️  Already have open position → skip auto trade");
+          } else {
+            await placeBingXOrder(
+              signal.decision_now,
+              signal.decision_now === "LONG"
+                ? signal.sniper_long.entry_zone
+                : signal.sniper_short.entry_zone,
+              signal.decision_now === "LONG"
+                ? signal.sniper_long.tp
+                : signal.sniper_short.tp,
+              signal.decision_now === "LONG"
+                ? signal.sniper_long.sl
+                : signal.sniper_short.sl
+            );
+            lastTradeTime = Date.now();
+            tradeCountToday++;
+          }
+        } catch (e) {
+          console.warn("⚠️  Auto trade failed:", e.message);
+        }
+      } else {
+        console.log(`🧪 DRY RUN MODE: Skipping live BingX order (would execute ${signal.decision_now})`);
+      }
     }
 
     signal.timestamp = new Date().toISOString();
-    signal.price = payload.close;
-    signal.pair = payload.pair;
+    signal.price = payload15m.close;
+    signal.pair = payload15m.pair;
     signal.source = activeSource || DATA_SOURCE;
+
+    // Signal scoring
+    let score = 0;
+    if (signal.htf_bias === signal.decision_now) score++;
+    if (signal.confidence === "high") score++;
+    const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
+    const range = payload15m.resistance - payload15m.support;
+    const dynamicMomentum = (range / payload15m.close) * 0.2;
+    if (momFilter > dynamicMomentum) score++;
+    signal.score = score;
+
+    if (signal.score < 2) {
+      signal.decision_now = "SKIP";
+      signal.reason += " | low score";
+    }
 
     latestSignal = signal;
     signalHistory.unshift(signal);
     if (signalHistory.length > 50) signalHistory.pop();
 
     console.log(`✅ ${signal.decision_now} | ${signal.reason}`);
+    console.log(`
+🧠 SIGNAL DEBUG:
+  Decision: ${signal.decision_now}
+  Reason: ${signal.reason}
+  HTF: ${signal.htf_bias} (${signal.htf_structure})
+  Price: ${signal.price}
+  Confidence: ${signal.confidence}
+`);
 
     broadcast({ type: "signal",  data: signal });
     broadcast({ type: "history", data: signalHistory });
 
-    simulateDryTrade(signal, payload);
-    checkDryTrades(payload.close);
+    simulateDryTrade(signal, payload15m);
+    checkDryTrades(payload15m.close);
 
     try {
       const positions = await fetchBingXPositions();
@@ -813,6 +1065,19 @@ app.get("/history", (req, res) => {
   res.json(signalHistory);
 });
 
+// ── GET /trades — dry run + live trade history ─────────────────
+app.get("/trades", (req, res) => {
+  res.json({
+    mode: DRY_RUN ? "dry_run" : "live",
+    open_trades: dryTrades,
+    closed_trades: dryTradesHistory,
+    total_closed: dryTradesHistory.length,
+    wins: dryTradesHistory.filter(t => t.result === "WIN").length,
+    losses: dryTradesHistory.filter(t => t.result === "LOSE").length,
+    total_pnl: dryTradesHistory.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0).toFixed(2),
+  });
+});
+
 // ── GET /diag — connectivity test to all exchanges ────────────
 app.get("/diag", async (_req, res) => {
   const out = {
@@ -850,6 +1115,10 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     uptime: process.uptime(),
+    execution_mode: DRY_RUN ? "dry_run" : "live",
+    fixed_margin: FIXED_MARGIN,
+    leverage: LEVERAGE,
+    tp_multiplier: TP_MULTIPLIER,
     source_config: DATA_SOURCE,
     source_active: activeSource,
     symbol: SYMBOL,
@@ -904,22 +1173,26 @@ app.post("/dryrun", (req, res) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
   console.log(`
-╔════════════════════════════════════════════════╗
-║       BTC SNIPER BOT — Backend (BingX)         ║
-╠════════════════════════════════════════════════╣
-║  Dashboard→ http://localhost:${PORT}              ║
-║  WS       → ws://localhost:${PORT}                ║
-║  Source   → ${(DATA_SOURCE === "auto" ? "AUTO (bybit→okx→binance→bingx)" : DATA_SOURCE.toUpperCase()).padEnd(34)}   ║
-║  Symbol   → ${SYMBOL.padEnd(34)}   ║
-║  Timeframe→ ${INTERVAL.padEnd(34)}   ║
-║  Poll     → every ${(POLL_MS / 1000).toString().padEnd(24)}s    ║
-║                                                ║
-║  /signal  → GET   latest signal                ║
-║  /history → GET   last 50 signals              ║
-║  /health  → GET   server status                ║
-║  /refresh → POST  force re-analyze now         ║
-║  /simulate→ POST  mock data (dev)              ║
-╚════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════╗
+║       BTC SNIPER BOT — Fixed Risk Execution Engine     ║
+╠════════════════════════════════════════════════════════╣
+║  Mode      → ${(DRY_RUN ? "🧪 DRY RUN" : "🚀 LIVE TRADING").padEnd(40)}║
+║  Dashboard → http://localhost:${PORT}                     ║
+║  WS        → ws://localhost:${PORT}                       ║
+║  Source    → ${(DATA_SOURCE === "auto" ? "AUTO (bybit→okx→binance→bingx)" : DATA_SOURCE.toUpperCase()).padEnd(36)}║
+║  Symbol    → ${SYMBOL.padEnd(36)}║
+║  Timeframe → ${INTERVAL.padEnd(36)}║
+║  Poll      → every ${(POLL_MS / 1000).toString().padEnd(26)}s   ║
+║                                                        ║
+║  Margin    → $${FIXED_MARGIN} | Leverage → ${LEVERAGE}x | Profit Target → ${(TP_MULTIPLIER * 100).toFixed(0)}%║
+║  Risk Model→ Fixed $${FIXED_MARGIN} margin per trade            ║
+║                                                        ║
+║  /signal   → GET   latest signal                       ║
+║  /history  → GET   last 50 signals                     ║
+║  /health   → GET   server status                       ║
+║  /refresh  → POST  force re-analyze now                ║
+║  /simulate → POST  mock data (dev)                     ║
+╚════════════════════════════════════════════════════════╝
 `);
   await tick();
   setInterval(tick, POLL_MS);
