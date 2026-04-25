@@ -462,8 +462,8 @@ function getScalperRecommendation(payload) {
   const { support, resistance, ema20, rsi } = payload;
 
   const range = resistance - support;
-  const tpRange = range * 0.15;    // fast TP (15% of range)
-  const slRange = range * 0.1;     // tight SL (10% of range)
+  const tpRange = range * 0.12;    // fast TP (12% of range)
+  const slRange = range * 0.08;    // tight SL (8% of range)
 
   let direction = "NONE";
   let entry = null;
@@ -471,28 +471,42 @@ function getScalperRecommendation(payload) {
   let sl = null;
   let reason = "";
 
-  // 🟢 LONG SCALP: bounce from support
-  if (price <= ema20 && price <= support + range * 0.2 && rsi < 55) {
+  // 🟢 LONG: price near/below EMA, RSI oversold
+  if (price <= ema20 && rsi < 55) {
     direction = "LONG";
     entry = price;
     tp = price + tpRange;
     sl = price - slRange;
-    reason = "scalp bounce from support";
+    reason = "scalp EMA bounce (oversold)";
   }
-  // 🔴 SHORT SCALP: rejection from resistance
-  else if (price >= ema20 && price >= resistance - range * 0.2 && rsi > 45) {
+  // 🔴 SHORT: price near/above EMA, RSI overbought
+  else if (price >= ema20 && rsi > 45) {
     direction = "SHORT";
     entry = price;
     tp = price - tpRange;
     sl = price + slRange;
-    reason = "scalp rejection from resistance";
+    reason = "scalp EMA rejection (overbought)";
+  }
+  // ⚡ FALLBACK: always return LONG or SHORT (never NONE)
+  else if (price < ema20) {
+    direction = "LONG";
+    entry = price;
+    tp = price + tpRange * 0.7;  // reduced TP
+    sl = price - slRange;
+    reason = "fallback EMA support";
+  } else {
+    direction = "SHORT";
+    entry = price;
+    tp = price - tpRange * 0.7;  // reduced TP
+    sl = price + slRange;
+    reason = "fallback EMA resistance";
   }
 
   return {
     direction,
-    entry: entry ? round(entry, 2) : null,
-    tp: tp ? round(tp, 2) : null,
-    sl: sl ? round(sl, 2) : null,
+    entry: round(entry, 2),
+    tp: round(tp, 2),
+    sl: round(sl, 2),
     mode: "scalp",
     reason
   };
@@ -510,21 +524,22 @@ function getPriorityRecommendation(signal) {
   let sl = null;
   let reason = "";
 
-  // 🔥 1. PRIORITAS SNIPER jika active/ready
+  // 🔥 1. SNIPER only if LONG/SHORT + ACTIVE/READY (NOT SCALP mode)
   if (
     sniper &&
+    (sniper.preferred === "LONG" || sniper.preferred === "SHORT") &&
     (sniper.status.includes("ACTIVE") || sniper.status.includes("READY"))
   ) {
     type = "SNIPER";
     action = sniper.preferred;
     const zone = signal[`sniper_${action.toLowerCase()}`];
-    entry = zone?.entry_zone?.[0] || null;
-    tp = zone?.tp?.[0] || null;
-    sl = zone?.sl || null;
+    entry = zone?.entry_zone?.[0];
+    tp = zone?.tp?.[0];
+    sl = zone?.sl;
     reason = "sniper zone active (high probability)";
   }
-  // ⚡ 2. FALLBACK SCALPER jika no sniper
-  else if (scalper && scalper.direction !== "NONE") {
+  // ⚡ 2. SCALPER (always has direction now, never NONE)
+  else if (scalper && scalper.direction && scalper.direction !== "NONE") {
     type = "SCALPER";
     action = scalper.direction;
     entry = scalper.entry;
