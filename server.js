@@ -1,7 +1,7 @@
 // ============================================================
-// BTC SNIPER BOT — Backend Server (BingX edition)
-// Polls BingX perpetual futures klines → computes indicators
-// → GPT-4o-mini analysis → broadcasts via WebSocket
+// BTC SNIPER BOT — Pure Sniper Engine (No AI)
+// Deterministic rule-based trading signals
+// Polls exchange klines → computes indicators → sniper engine
 // ============================================================
 
 require("dotenv").config();
@@ -14,7 +14,6 @@ const http = require("http");
 const path = require("path");
 const WebSocket = require("ws");
 const cors = require("cors");
-const OpenAI = require("openai");
 
 const app = express();
 const server = http.createServer(app);
@@ -25,8 +24,6 @@ app.use(express.json());
 
 // Serve the dashboard (index.html + any assets in project root)
 app.use(express.static(path.join(__dirname)));
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ── Config ─────────────────────────────────────────────────────
 // DATA_SOURCE: bybit | okx | binance | bingx | auto (tries each in order)
@@ -177,6 +174,224 @@ const FETCHERS = {
   bybit:   fetchKlinesBybit,
   okx:     fetchKlinesOKX,
 };
+
+// ══════════════════════════════════════════════════════════════
+// PURE SNIPER ENGINE — No AI, Deterministic Rules
+// ══════════════════════════════════════════════════════════════
+
+// ── Session Filter ────────────────────────────────────────────
+function isTradingSession(utcHour) {
+  return (utcHour >= 7 && utcHour < 10) || (utcHour >= 13 && utcHour < 20);
+}
+
+// ── Market Structure Detection ─────────────────────────────────
+function detectStructure(highs, lows) {
+  if (highs.length < 20 || lows.length < 20) return "NA";
+  const recentH = highs.slice(-10), recentL = lows.slice(-10);
+  const priorH  = highs.slice(-20, -10), priorL = lows.slice(-20, -10);
+  const maxRH = Math.max(...recentH), maxRL = Math.min(...recentL);
+  const maxPH = Math.max(...priorH), maxPL = Math.min(...priorL);
+  const minRH = Math.min(...recentH), minRL = Math.min(...recentL);
+  const minPH = Math.min(...priorH), minPL = Math.min(...priorL);
+  if (maxRH > maxPH && maxRL > maxPL) return "HH";
+  if (maxRH < maxPH && maxRL < maxPL) return "LL";
+  if (maxRH > maxPH) return "LH";
+  if (maxRL < maxPL) return "HL";
+  return "NA";
+}
+
+// ── Candle Trigger Detection ───────────────────────────────────
+function getCandleTrigger(candle) {
+  const body    = Math.abs(candle.close - candle.open);
+  const range   = candle.high - candle.low;
+  const upperWick = candle.high - Math.max(candle.close, candle.open);
+  const lowerWick = Math.min(candle.close, candle.open) - candle.low;
+  const isBullish = candle.close > candle.open;
+  const isBearish = candle.close < candle.open;
+
+  if (range === 0) return null;
+
+  const upperWickPct = upperWick / range;
+  const lowerWickPct = lowerWick / range;
+  const bodyPct = body / range;
+
+  const prev = null; // caller passes previous candle if needed
+
+  let trigger = null;
+  if (isBearish && upperWickPct > 0.5) {
+    trigger = "SHORT";
+  } else if (isBullish && lowerWickPct > 0.5) {
+    trigger = "LONG";
+  }
+
+  return trigger;
+}
+
+// ── Core Sniper Signal Generator ──────────────────────────────
+function generateSniperSignal(payload) {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+
+  const price     = payload.close;
+  const support   = payload.support;
+  const resist   = payload.resistance;
+  const range    = resist - support;
+  const topZone  = resist - range * 0.15;
+  const botZone  = support + range * 0.15;
+  const midLow   = support + range * 0.3;
+  const midHigh  = resist - range * 0.3;
+
+  const last   = payload.lastCandle;
+  const prev  = payload.prevCandle;
+
+  // Default SKIP response with both zones filled
+  const defaultSignal = () => ({
+    pair: payload.pair,
+    decision_now: "SKIP",
+    price,
+    sniper_long: {
+      entry_zone: [botZone - range * 0.05, botZone + range * 0.05],
+      tp: [price + range * 0.5, price + range * 0.8],
+      sl: support
+    },
+    sniper_short: {
+      entry_zone: [topZone - range * 0.05, topZone + range * 0.05],
+      tp: [price - range * 0.5, price - range * 0.8],
+      sl: resist
+    },
+    confidence: "low",
+    reason: "no valid trigger"
+  });
+
+  // 1. Session filter
+  if (!isTradingSession(utcHour)) {
+    const s = defaultSignal();
+    s.reason = "outside trading session";
+    return s;
+  }
+
+  // 2. Mid-range filter
+  if (price > midLow && price < midHigh) {
+    const s = defaultSignal();
+    s.reason = "price in mid-range no trade zone";
+    return s;
+  }
+
+  // 3. Volatility filter
+  if (range / price < 0.002) {
+    const s = defaultSignal();
+    s.reason = "market too slow volatility filter";
+    return s;
+  }
+
+  // 4. Candle trigger
+  const trigger = getCandleTrigger(last);
+
+  // 5. Determine direction based on zones + trigger
+  let decision = "SKIP";
+  let reason = "no valid setup";
+
+  if (trigger === "LONG" && price <= botZone + range * 0.05) {
+    decision = "LONG";
+    reason = "bullish trigger at bottom zone";
+  } else if (trigger === "SHORT" && price >= topZone - range * 0.05) {
+    decision = "SHORT";
+    reason = "bearish trigger at top zone";
+  } else if (price <= botZone) {
+    decision = "LONG";
+    reason = "price at bottom zone";
+  } else if (price >= topZone) {
+    decision = "SHORT";
+    reason = "price at top zone";
+  }
+
+  // Build entry zones
+  const slBuffer = range * 0.1;
+  const entryZoneLongHigh  = botZone + range * 0.03;
+  const entryZoneLongLow   = botZone - range * 0.03;
+  const tp1Long = price + range * 0.5;
+  const tp2Long = price + range * 0.8;
+  const slLong  = support - slBuffer;
+
+  const entryZoneShortHigh = topZone + range * 0.03;
+  const entryZoneShortLow  = topZone - range * 0.03;
+  const tp1Short = price - range * 0.5;
+  const tp2Short = price - range * 0.8;
+  const slShort  = resist + slBuffer;
+
+  const signal = {
+    pair: payload.pair,
+    decision_now: decision,
+    price,
+    sniper_long: {
+      entry_zone: [round(entryZoneLongLow), round(entryZoneLongHigh)],
+      tp: [round(tp1Long), round(tp2Long)],
+      sl: round(slLong)
+    },
+    sniper_short: {
+      entry_zone: [round(entryZoneShortLow), round(entryZoneShortHigh)],
+      tp: [round(tp1Short), round(tp2Short)],
+      sl: round(slShort)
+    },
+    confidence: "low",
+    reason
+  };
+
+  return signal;
+}
+
+// ── Validate Signal (RR, entry, direction) ─────────────────────
+function validateSignal(signal) {
+  if (signal.decision_now === "SKIP") return signal;
+
+  const isLong  = signal.decision_now === "LONG";
+  const entry   = isLong ? signal.sniper_long.entry_zone[1]  : signal.sniper_short.entry_zone[0];
+  const tp      = isLong ? signal.sniper_long.tp[0]          : signal.sniper_short.tp[0];
+  const sl      = isLong ? signal.sniper_long.sl             : signal.sniper_short.sl;
+
+  if (!entry || !tp || !sl) {
+    signal.decision_now = "SKIP";
+    signal.reason += " | missing entry/tp/sl";
+    return signal;
+  }
+
+  // RR check
+  const risk    = Math.abs(entry - sl) / entry;
+  const reward  = Math.abs(tp - entry) / entry;
+  const rr      = reward / risk;
+
+  if (rr < 1.5) {
+    signal.decision_now = "SKIP";
+    signal.reason += ` | RR too low ${rr.toFixed(2)}`;
+    return signal;
+  }
+
+  // Direction check
+  if (isLong && tp < entry) {
+    signal.decision_now = "SKIP";
+    signal.reason += " | invalid LONG TP";
+  } else if (!isLong && tp > entry) {
+    signal.decision_now = "SKIP";
+    signal.reason += " | invalid SHORT TP";
+  }
+
+  signal.confidence = rr >= 2 ? "high" : "medium";
+  return signal;
+}
+
+// ── Cooldown System ────────────────────────────────────────────
+let lastTradeTime = 0;
+const COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+
+function checkCooldown(signal) {
+  if (signal.decision_now === "SKIP") return signal;
+  const now = Date.now();
+  if (now - lastTradeTime < COOLDOWN_MS) {
+    signal.decision_now = "SKIP";
+    signal.reason = "cooldown active";
+  }
+  return signal;
+}
 
 // ── BingX Positions ──────────────────────────────────────
 // Docs: https://bingx-api.github.io/docs/#/swapV2/account-api.html
@@ -494,247 +709,24 @@ function buildMarketPayload(candles) {
     resistance: round(resistance),
     barTime:    last.time,
     timestamp:  new Date(last.time).toISOString(),
+    lastCandle: last,
+    prevCandle: prev,
   };
 }
 
-// ── GPT-4o-mini Analysis ───────────────────────────────────────
-async function analyzeWithGPT(payload) {
-  const systemPrompt = `You are an elite crypto trading AI focused on BTCUSDT using smart money concepts.
-
-Your priority is to trade ONLY at extreme levels (support/resistance) and strictly AVOID mid-range entries.
-
----
-
-## INPUT
-
-* OHLC
-* EMA 20 / 50 / 200
-* RSI (14)
-* Market structure (HH, HL, LH, LL)
-* Support & Resistance
-
----
-
-## CORE RULE (CRITICAL)
-
-Define:
-
-* support
-* resistance
-* mid_range = between support and resistance
-
-If price is inside mid_range:
-→ RETURN FULL JSON with:
-
-* decision_now = "SKIP"
-* reason = "price in mid-range no trade zone"
-
-NO exceptions.
-
----
-
-## MARKET CLASSIFICATION
-
-* "trend" → clear HH/HL or LH/LL
-* "range" → sideways
-* "impulse" → strong breakout
-
----
-
-## LIQUIDITY LOGIC
-
-Detect:
-
-* sweep_high → breakout above resistance but closes below
-* sweep_low → breakdown below support but closes above
-
----
-
-## VALID ENTRY CONDITIONS
-
-### SNIPER SHORT (TOP ONLY)
-
-* price near resistance (top 10–15% of range)
-* sweep_high OR rejection
-* bearish confirmation
-
-### SNIPER LONG (BOTTOM ONLY)
-
-* price near support (bottom 10–15% of range)
-* sweep_low OR bounce
-* bullish confirmation
-
----
-
-## INVALID CONDITIONS (FORCE SKIP)
-
-* price in middle of range
-* RSI 45–55 and no structure
-* EMA compressed (no direction)
-* no liquidity event
-
----
-
-## ENTRY FORMAT
-
-Use ONLY:
-"entry_zone": [low_price, high_price]
-
----
-
-## RISK RULE
-
-Only allow trade if:
-
-* Risk/Reward ≥ 1.5
-
-Else:
-→ SKIP
-
----
-
-## OUTPUT FORMAT (STRICT JSON)
-
-IMPORTANT:
-- You MUST return REAL numeric price values
-- DO NOT return placeholders like "price", "tp1", "low", "high"
-- All values must be valid numbers based on current market price
-
-If decision_now = "SKIP":
-- still calculate and return entry_zone, tp, sl with REAL values
-- only the decision_now stays "SKIP"
-- do NOT empty the zones
-
-Example of CORRECT output:
-{
-  "market_condition": "range",
-  "bias": "neutral",
-  "liquidity_event": "none",
-  "no_trade_zone": [77400, 78000],
-  "sniper_long": {
-    "entry_zone": [77450, 77550],
-    "tp": [77700, 77900],
-    "sl": 77300
-  },
-  "sniper_short": {
-    "entry_zone": [77950, 78050],
-    "tp": [77700, 77400],
-    "sl": 78150
-  },
-  "decision_now": "SKIP",
-  "confidence": "low",
-  "reason": "price in mid range no trade"
-}
-
-## FINAL GOAL
-
-Act like a sniper:
-
-* Wait for price at extremes
-* Avoid mid-range traps
-* Trade only high-probability setups
-
----
-
-## SNIPER RECOMMENDATION
-
-Always provide directional bias even if decision is SKIP.
-
-Rules:
-- If structure = LH or LL → preferred = "SHORT"
-- If structure = HH or HL → preferred = "LONG"
-- If neutral → preferred = "NONE"
-
-Status:
-- "WAIT" → price in mid-range, no entry now
-- "READY" → price near entry zone, valid entry possible
-- "ACTIVE" → valid entry now, execute trade
-
-Also include trigger_area:
-- short → sniper_short entry_zone
-- long → sniper_long entry_zone`;
-
-  const userPrompt = `Analyze this BTCUSDT market data and generate trading signals:
-${JSON.stringify(payload, null, 2)}
-
-IMPORTANT: Return REAL numeric price values only. No placeholders. Even on SKIP, always fill entry_zone, tp, and sl with real values.
-
-Return this exact JSON structure:
-{
-  "market_condition": "trend|range|impulse",
-  "bias": "bullish|bearish|neutral",
-  "liquidity_event": "sweep_high|sweep_low|none",
-  "no_trade_zone": [price_low, price_high],
-  "sniper_long": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
-  "sniper_short": { "entry_zone": [entry_low, entry_high], "tp": [tp1, tp2], "sl": stop_loss_price },
-  "sniper_recommendation": {
-    "preferred": "SHORT|LONG|NONE",
-    "reason": "why this direction",
-    "status": "WAIT|READY|ACTIVE",
-    "trigger_area": { "short": [sniper_short_entry_low, sniper_short_entry_high], "long": [sniper_long_entry_low, sniper_long_entry_high] }
-  },
-  "decision_now": "LONG|SHORT|SKIP",
-  "confidence": "high|medium|low",
-  "reason": "clear explanation"
-}`;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user",   content: userPrompt },
-    ],
-    temperature: 0.2,
-    max_tokens: 800,
-  });
-
-  const raw = completion.choices[0].message.content.trim();
-  const clean = raw.replace(/```json|```/g, "").trim();
-  try {
-    return JSON.parse(clean);
-  } catch (e) {
-    console.error("❌ JSON parse error:", clean.slice(0, 200));
-    return {
-      market_condition: "range",
-      bias: "neutral",
-      liquidity_event: "none",
-      no_trade_zone: [0, 0],
-      long_safe: {},
-      short_safe: {},
-      sniper_long: {},
-      sniper_short: {},
-      decision_now: "SKIP",
-      confidence: "low",
-      reason: "parse error fallback"
-    };
-  }
-}
-
-// ── Main tick: poll BingX, broadcast, run GPT on new bar ──────
+// ── Main tick: poll exchange, run sniper engine ────────────
 async function tick() {
   try {
     const candles = await fetchKlines(SYMBOL, INTERVAL, KLINE_LIMIT);
-    if (candles.length < 200) {
-      console.warn(`⚠️  Only ${candles.length} candles — need 200+ for EMA200`);
+    if (candles.length < 20) {
+      console.warn(`⚠️  Only ${candles.length} candles`);
       return;
     }
 
     const payload = buildMarketPayload(candles);
-
-    const rangePercent = (payload.resistance - payload.support) / payload.close;
-    if (rangePercent < 0.0015) {
-      console.log(`⚠️  Range too tight (${(rangePercent * 100).toFixed(2)}%) — skip`);
-      return;
-    }
-
-    const last = candles[candles.length - 1];
-    const prev = candles[candles.length - 2];
-    payload.sweep_high = last.high > prev.high && last.close < prev.high;
-    payload.sweep_low  = last.low < prev.low && last.close > prev.low;
     latestPayload = { ...payload, receivedAt: new Date().toISOString() };
     broadcast({ type: "market_data", data: latestPayload });
 
-    // Run GPT only when a new bar closes (avoids spamming OpenAI every poll)
     if (payload.barTime === lastAnalyzedBarTime) {
       process.stdout.write(".");
       return;
@@ -742,79 +734,25 @@ async function tick() {
     lastAnalyzedBarTime = payload.barTime;
 
     console.log(`\n📊 New ${INTERVAL} bar — ${payload.pair} @ ${payload.close}`);
-    console.log("🤖 Analyzing with GPT-4o-mini...");
 
-    const midLow = payload.support + (payload.resistance - payload.support) * 0.3;
-    const midHigh = payload.resistance - (payload.resistance - payload.support) * 0.3;
-    let signal;
-    if (payload.close > midLow && payload.close < midHigh) {
-      console.log(`⚠️  Mid-range filter active (${payload.close} between ${midLow}–${midHigh})`);
-      signal = await analyzeWithGPT(payload);
-      signal.decision_now = "SKIP";
-      signal.reason = "mid-range filter active";
-    } else {
-      signal = await analyzeWithGPT(payload);
-    }
+    let signal = generateSniperSignal(payload);
+    signal = validateSignal(signal);
+    signal = checkCooldown(signal);
 
-    if (signal.confidence === "low") {
-      signal.decision_now = "SKIP";
-      console.log("⚠️  Confidence low — auto SKIP");
-    }
-
-    const entry =
-      signal?.sniper_long?.entry_zone?.[0] ||
-      signal?.sniper_short?.entry_zone?.[0];
-    const tp =
-      signal?.sniper_long?.tp?.[0] ||
-      signal?.sniper_short?.tp?.[0];
-    const sl =
-      signal?.sniper_long?.sl ||
-      signal?.sniper_short?.sl;
-    if (entry && tp && sl) {
-      const risk = Math.abs(entry - sl) / entry;
-      const reward = Math.abs(tp - entry) / entry;
-      if (reward / risk < 1.3) {
-        signal.decision_now = "SKIP";
-        console.log(`⚠️  RR too low (${(reward / risk).toFixed(2)}) — skip`);
-      }
-    }
-    if (entry && tp) {
-      const movePercent = Math.abs(tp - entry) / entry;
-      if (movePercent < 0.003) {
-        signal.decision_now = "SKIP";
-        console.log(`⚠️  Move too small (${(movePercent * 100).toFixed(2)}%) — skip`);
-      }
-    }
-    if (signal.decision_now === "LONG" && tp < entry) {
-      signal.decision_now = "SKIP";
-      console.log("⚠️  Invalid LONG TP — skip");
-    }
-    if (signal.decision_now === "SHORT" && tp > entry) {
-      signal.decision_now = "SKIP";
-      console.log("⚠️  Invalid SHORT TP — skip");
-    }
-
-    // Fetch BingX positions
-    try {
-      const positions = await fetchBingXPositions();
-      if (positions) {
-        latestPositions = positions;
-        broadcast({ type: "positions", data: latestPositions });
-      }
-    } catch (e) {
-      console.warn("⚠️  Positions fetch failed:", e.message);
+    if (signal.decision_now !== "SKIP") {
+      lastTradeTime = Date.now();
     }
 
     signal.timestamp = new Date().toISOString();
     signal.price = payload.close;
-    signal.pair  = payload.pair;
+    signal.pair = payload.pair;
     signal.source = activeSource || DATA_SOURCE;
 
     latestSignal = signal;
     signalHistory.unshift(signal);
     if (signalHistory.length > 50) signalHistory.pop();
 
-    console.log(`✅ ${signal.decision_now} | bias: ${signal.bias} | ${signal.reason}`);
+    console.log(`✅ ${signal.decision_now} | ${signal.reason}`);
 
     broadcast({ type: "signal",  data: signal });
     broadcast({ type: "history", data: signalHistory });
@@ -822,7 +760,6 @@ async function tick() {
     simulateDryTrade(signal, payload);
     checkDryTrades(payload.close);
 
-    // Fetch BingX positions
     try {
       const positions = await fetchBingXPositions();
       if (positions) {
@@ -837,35 +774,31 @@ async function tick() {
   }
 }
 
-// ── POST /simulate — manual test (no BingX call) ──────────────
+// ── POST /simulate — manual test ──────────────────────────────
 app.post("/simulate", async (req, res) => {
   try {
-    // Use input price → fallback to latest real price from BingX → last resort default.
     const price = Number(req.body?.price) || latestPayload?.close || 70000;
-    const rsi = Number(req.body?.rsi) || 57.2;
-    const structure = req.body?.structure || "HH";
+    const support = price * 0.99;
+    const resist = price * 1.01;
+    const last = { open: price * 0.998, high: price * 1.008, low: price * 0.992, close: price };
+    const prev = { open: price * 0.996, high: price * 1.004, low: price * 0.988, close: price * 0.997 };
 
     const payload = {
       pair: SYMBOL.replace("-", ""),
       timeframe: INTERVAL,
-      open:       round(price * 0.998),
-      high:       round(price * 1.008),
-      low:        round(price * 0.992),
-      close:      round(price),
-      volume:     2345.6,
-      ema20:      round(price * 0.998),
-      ema50:      round(price * 0.988),
-      ema200:     round(price * 0.93),
-      rsi,
-      structure,
-      support:    round(price * 0.99),
-      resistance: round(price * 1.01),
+      close: price,
+      support,
+      resistance: resist,
+      lastCandle: last,
+      prevCandle: prev,
       timestamp: new Date().toISOString(),
     };
-    const signal = await analyzeWithGPT(payload);
+
+    let signal = generateSniperSignal(payload);
+    signal = validateSignal(signal);
     signal.timestamp = new Date().toISOString();
     signal.price = payload.close;
-    signal.pair  = "BTCUSDT";
+    signal.pair = "BTCUSDT";
     signal.source = "simulate";
 
     latestSignal = signal;
@@ -873,7 +806,7 @@ app.post("/simulate", async (req, res) => {
     if (signalHistory.length > 50) signalHistory.pop();
 
     broadcast({ type: "market_data", data: payload });
-    broadcast({ type: "signal",  data: signal });
+    broadcast({ type: "signal", data: signal });
     broadcast({ type: "history", data: signalHistory });
     res.json({ success: true, signal });
   } catch (err) {
@@ -883,7 +816,7 @@ app.post("/simulate", async (req, res) => {
 
 // ── POST /refresh — force an immediate poll & analysis ────────
 app.post("/refresh", async (req, res) => {
-  lastAnalyzedBarTime = 0; // force GPT run
+  lastAnalyzedBarTime = 0;
   await tick();
   res.json({ success: true, signal: latestSignal, market_data: latestPayload });
 });
