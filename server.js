@@ -51,6 +51,9 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 // ── Signal Generation Mode ─────────────────────────────────
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
+// ── Force Entry Mode ───────────────────────────────────────
+const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
+
 const BINGX_BASE   = process.env.BINGX_BASE   || "https://open-api.bingx.com";
 const BINGX_API_KEY    = process.env.BINGX_API_KEY    || "";
 const BINGX_API_SECRET = process.env.BINGX_API_SECRET || "";
@@ -250,11 +253,11 @@ function getRealtimeTrigger(candle) {
   const upperPct = upperWick / range;
   const lowerPct = lowerWick / range;
 
-  // 🔴 SHORT TRIGGER: Upper wick > 40%
-  if (upperPct > 0.4) return "SHORT";
+  // 🔴 SHORT TRIGGER: Upper wick > 30% (lowered from 0.4)
+  if (upperPct > 0.3) return "SHORT";
 
-  // 🟢 LONG TRIGGER: Lower wick > 40%
-  if (lowerPct > 0.4) return "LONG";
+  // 🟢 LONG TRIGGER: Lower wick > 30% (lowered from 0.4)
+  if (lowerPct > 0.3) return "LONG";
 
   return null;
 }
@@ -453,6 +456,92 @@ function getSniperRecommendation(signal, payload) {
   };
 }
 
+// ── Scalper Recommendation (Fast, Small TP) ───────────────────
+function getScalperRecommendation(payload) {
+  const price = payload.close;
+  const { support, resistance, ema20, rsi } = payload;
+
+  const range = resistance - support;
+  const tpRange = range * 0.15;    // fast TP (15% of range)
+  const slRange = range * 0.1;     // tight SL (10% of range)
+
+  let direction = "NONE";
+  let entry = null;
+  let tp = null;
+  let sl = null;
+  let reason = "";
+
+  // 🟢 LONG SCALP: bounce from support
+  if (price <= ema20 && price <= support + range * 0.2 && rsi < 55) {
+    direction = "LONG";
+    entry = price;
+    tp = price + tpRange;
+    sl = price - slRange;
+    reason = "scalp bounce from support";
+  }
+  // 🔴 SHORT SCALP: rejection from resistance
+  else if (price >= ema20 && price >= resistance - range * 0.2 && rsi > 45) {
+    direction = "SHORT";
+    entry = price;
+    tp = price - tpRange;
+    sl = price + slRange;
+    reason = "scalp rejection from resistance";
+  }
+
+  return {
+    direction,
+    entry: entry ? round(entry, 2) : null,
+    tp: tp ? round(tp, 2) : null,
+    sl: sl ? round(sl, 2) : null,
+    mode: "scalp",
+    reason
+  };
+}
+
+// ── Priority Recommendation (Sniper vs Scalper) ────────────────
+function getPriorityRecommendation(signal) {
+  const sniper = signal.recommendation;
+  const scalper = signal.scalper;
+
+  let type = "NONE";
+  let action = "WAIT";
+  let entry = null;
+  let tp = null;
+  let sl = null;
+  let reason = "";
+
+  // 🔥 1. PRIORITAS SNIPER jika active/ready
+  if (
+    sniper &&
+    (sniper.status.includes("ACTIVE") || sniper.status.includes("READY"))
+  ) {
+    type = "SNIPER";
+    action = sniper.preferred;
+    const zone = signal[`sniper_${action.toLowerCase()}`];
+    entry = zone?.entry_zone?.[0] || null;
+    tp = zone?.tp?.[0] || null;
+    sl = zone?.sl || null;
+    reason = "sniper zone active (high probability)";
+  }
+  // ⚡ 2. FALLBACK SCALPER jika no sniper
+  else if (scalper && scalper.direction !== "NONE") {
+    type = "SCALPER";
+    action = scalper.direction;
+    entry = scalper.entry;
+    tp = scalper.tp;
+    sl = scalper.sl;
+    reason = "scalper quick opportunity";
+  }
+  // ❌ 3. NO TRADE
+  else {
+    type = "NONE";
+    action = "WAIT";
+    reason = "no valid setup";
+  }
+
+  return { type, action, entry, tp, sl, reason };
+}
+
 // ── HTF Bias (1H trend confirmation) ────────────────────────────
 function getHTFBias(htf) {
   const price  = htf.close;
@@ -546,8 +635,8 @@ function generateSniperSignal(payload) {
     return s;
   }
 
-  // 3. Min range filter (avoid noise scalping)
-  if (range / price < 0.003) {
+  // 3. Min range filter (avoid noise scalping) — lowered from 0.003 to 0.002
+  if (range / price < 0.002) {
     const s = defaultSignal();
     s.reason = "low range market";
     return s;
@@ -1064,6 +1153,12 @@ async function tick() {
         signal.decision_now = "LONG";
         signal.reason = "real-time trigger in long zone";
       }
+      // FORCE_ENTRY mode: enter immediately on any trigger
+      else if (FORCE_ENTRY && trigger) {
+        botLog("warn", `⚡ FORCE ENTRY MODE | ${trigger} trigger detected`);
+        signal.decision_now = trigger;
+        signal.reason = "force entry mode";
+      }
     }
 
     const htfBias = getHTFBias(payload1h);
@@ -1076,10 +1171,14 @@ async function tick() {
     const range = payload15m.resistance - payload15m.support;
     const dynamicMomentum = (range / payload15m.close) * 0.2;
 
-    // 3. HTF filter — only reject if OPPOSITE direction
+    // 3. HTF filter — only reject if OPPOSITE direction (but NOT for auto-triggers)
+    const isAutoTrigger = signal.reason.includes("real-time trigger");
     if (
-      (signal.decision_now === "LONG" && htfBias === "SHORT") ||
-      (signal.decision_now === "SHORT" && htfBias === "LONG")
+      !isAutoTrigger &&
+      (
+        (signal.decision_now === "LONG" && htfBias === "SHORT") ||
+        (signal.decision_now === "SHORT" && htfBias === "LONG")
+      )
     ) {
       signal.decision_now = "SKIP";
       signal.reason = `HTF mismatch (${htfBias})`;
@@ -1141,6 +1240,14 @@ async function tick() {
     // Get sniper recommendation
     const recommendation = getSniperRecommendation(signal, payload15m);
     signal.recommendation = recommendation;
+
+    // Get scalper recommendation (dual-mode: sniper + scalper)
+    const scalper = getScalperRecommendation(payload15m);
+    signal.scalper = scalper;
+
+    // Get priority recommendation (which mode to use)
+    const priority = getPriorityRecommendation(signal);
+    signal.priority = priority;
 
     // Signal scoring (mark as low confidence on low score, don't force SKIP)
     let score = 0;
@@ -1298,6 +1405,14 @@ app.post("/simulate", async (req, res) => {
     // Get recommendation
     const recommendation = getSniperRecommendation(signal, payload);
     signal.recommendation = recommendation;
+
+    // Get scalper recommendation
+    const scalper = getScalperRecommendation(payload);
+    signal.scalper = scalper;
+
+    // Get priority recommendation
+    const priority = getPriorityRecommendation(signal);
+    signal.priority = priority;
 
     // Signal tracking
     if (!latestSignal || latestSignal.price !== signal.price) {
