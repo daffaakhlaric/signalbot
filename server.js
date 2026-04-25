@@ -9,6 +9,13 @@ const dns = require("node:dns");
 // Prefer IPv4 to avoid "fetch failed" when IPv6 is not routable (common on Windows / ISP).
 dns.setDefaultResultOrder("ipv4first");
 
+// ⚠️  SSL/TLS cert validation workaround (for dev/testing with expired certs)
+// ❗ NEVER use in production — this disables critical security
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === undefined) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  console.log("⚠️  TLS cert validation DISABLED (dev mode)");
+}
+
 const express = require("express");
 const http = require("http");
 const path = require("path");
@@ -1109,7 +1116,21 @@ async function tick() {
       console.warn("⚠️  Positions fetch failed:", e.message);
     }
   } catch (err) {
-    console.error(`\n❌ Tick error: ${err.message}`);
+    console.error(`\n❌ TICK ERROR - Full details:`);
+    console.error(err);
+
+    // Send error fallback payload to UI so it's not completely blank
+    const errorPayload = {
+      pair: SYMBOL.replace("-", ""),
+      close: null,
+      status: "ERROR",
+      error: err.message,
+      timestamp: new Date().toISOString(),
+      errorDetails: String(err.stack).split('\n').slice(0, 3).join(' | ')
+    };
+    latestPayload = errorPayload;
+    broadcast({ type: "market_data", data: errorPayload });
+    botLog("err", `Fetch failed: ${err.message}`);
   }
 }
 
