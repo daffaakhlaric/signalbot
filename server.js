@@ -660,30 +660,12 @@ function rsi(closes, period = 14) {
   return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
-// Compare last 10 vs previous 10 bars to label market structure
-function detectStructure(highs, lows) {
-  const n = highs.length;
-  if (n < 20) return "NA";
-  const recentH = highs.slice(-10), recentL = lows.slice(-10);
-  const priorH  = highs.slice(-20, -10), priorL = lows.slice(-20, -10);
-  const hh = Math.max(...recentH) > Math.max(...priorH);
-  const hl = Math.min(...recentL) > Math.min(...priorL);
-  const lh = Math.max(...recentH) < Math.max(...priorH);
-  const ll = Math.min(...recentL) < Math.min(...priorL);
-  if (hh && hl) return "HH";
-  if (lh && ll) return "LL";
-  if (hh) return "HH";
-  if (ll) return "LL";
-  if (lh) return "LH";
-  if (hl) return "HL";
-  return "NA";
-}
-
 const round = (v, d = 2) =>
   v == null || Number.isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
 
 function buildMarketPayload(candles) {
   const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
   const closes = candles.map((c) => c.close);
   const highs  = candles.map((c) => c.high);
   const lows   = candles.map((c) => c.low);
