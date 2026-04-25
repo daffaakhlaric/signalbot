@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(timeout 20 npm start)",
+      "Bash(tee /tmp/bot_fresh.log)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
