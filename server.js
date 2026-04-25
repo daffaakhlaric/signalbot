@@ -229,29 +229,29 @@ function detectStructure(highs, lows) {
   return "NA";
 }
 
-// ── Candle Trigger Detection ───────────────────────────────────
-function getCandleTrigger(candle) {
-  const body      = Math.abs(candle.close - candle.open);
-  const range    = candle.high - candle.low;
-  const upperWick = candle.high - Math.max(candle.close, candle.open);
-  const lowerWick = Math.min(candle.close, candle.open) - candle.low;
-  const isBullish = candle.close > candle.open;
-  const isBearish = candle.close < candle.open;
-
+// ── Real-Time Trigger Detection ───────────────────────────────
+function getRealtimeTrigger(candle) {
+  const range = candle.high - candle.low;
   if (range === 0) return null;
 
-  const upperWickPct = upperWick / range;
-  const lowerWickPct = lowerWick / range;
-  const bodyPct = body / range;
+  const upperWick = candle.high - Math.max(candle.close, candle.open);
+  const lowerWick = Math.min(candle.close, candle.open) - candle.low;
 
-  let trigger = null;
-  if (isBearish && upperWickPct > 0.4 && bodyPct < 0.6) {
-    trigger = "SHORT";
-  } else if (isBullish && lowerWickPct > 0.4 && bodyPct < 0.6) {
-    trigger = "LONG";
-  }
+  const upperPct = upperWick / range;
+  const lowerPct = lowerWick / range;
 
-  return trigger;
+  // 🔴 SHORT TRIGGER: Upper wick > 40%
+  if (upperPct > 0.4) return "SHORT";
+
+  // 🟢 LONG TRIGGER: Lower wick > 40%
+  if (lowerPct > 0.4) return "LONG";
+
+  return null;
+}
+
+// ── Candle Trigger Detection ───────────────────────────────────
+function getCandleTrigger(candle) {
+  return getRealtimeTrigger(candle);
 }
 
 // ── Candle Detail Analyzer ─────────────────────────────────────
@@ -332,6 +332,66 @@ function confirmEntry(signal, payload) {
   }
 
   return signal;
+}
+
+// ── Check if price is in zone ──────────────────────────────────
+function isPriceInZone(price, zone) {
+  return price >= zone[0] && price <= zone[1];
+}
+
+// ── Sniper Recommendation Engine ───────────────────────────────
+function getSniperRecommendation(signal, payload) {
+  const price = payload.close;
+  const { support, resistance, structure } = payload;
+
+  const range = resistance - support;
+  const topZone = resistance - range * 0.15;
+  const botZone = support + range * 0.15;
+
+  let preferred = "NONE";
+  let reason = "";
+
+  // Determine preferred direction from structure
+  if (structure === "LH" || structure === "LL") {
+    preferred = "SHORT";
+    reason = `bearish structure (${structure})`;
+  } else if (structure === "HH" || structure === "HL") {
+    preferred = "LONG";
+    reason = `bullish structure (${structure})`;
+  } else {
+    reason = "neutral structure";
+  }
+
+  // Determine status based on price position
+  let status = "WAIT";
+
+  if (preferred === "SHORT") {
+    if (isPriceInZone(price, signal.sniper_short.entry_zone)) {
+      status = "ACTIVE_SHORT";
+    } else if (price >= topZone) {
+      status = "READY_SHORT";
+    }
+  } else if (preferred === "LONG") {
+    if (isPriceInZone(price, signal.sniper_long.entry_zone)) {
+      status = "ACTIVE_LONG";
+    } else if (price <= botZone) {
+      status = "READY_LONG";
+    }
+  }
+
+  return {
+    preferred,
+    status,
+    reason,
+    trigger_price: {
+      short: signal.sniper_short.entry_zone[0],
+      long: signal.sniper_long.entry_zone[1]
+    },
+    entry_zone: {
+      short: signal.sniper_short.entry_zone,
+      long: signal.sniper_long.entry_zone
+    }
+  };
 }
 
 // ── HTF Bias (1H trend confirmation) ────────────────────────────
@@ -877,13 +937,13 @@ async function tick() {
     latestPayload = { ...payload15m, receivedAt: new Date().toISOString() };
     broadcast({ type: "market_data", data: latestPayload });
 
-    if (payload15m.barTime === lastAnalyzedBarTime) {
+    // Real-time analysis: ALWAYS analyze (no bar close wait)
+    if (payload15m.barTime !== lastAnalyzedBarTime) {
+      lastAnalyzedBarTime = payload15m.barTime;
+      botLog("info", `📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close} | Structure: ${payload15m.structure}`);
+    } else {
       process.stdout.write(".");
-      return;
     }
-    lastAnalyzedBarTime = payload15m.barTime;
-
-    botLog("info", `📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close} | Structure: ${payload15m.structure}`);
 
     let signal = generateSniperSignal(payload15m);
 
@@ -972,6 +1032,25 @@ async function tick() {
     signal.price = payload15m.close;
     signal.pair = payload15m.pair;
     signal.source = activeSource || DATA_SOURCE;
+
+    // Get sniper recommendation
+    const recommendation = getSniperRecommendation(signal, payload15m);
+    signal.recommendation = recommendation;
+
+    // Auto-execution: Check if price entered zone with trigger
+    if (!DRY_RUN && signal.decision_now === "SKIP") {
+      const trigger = getRealtimeTrigger(payload15m.lastCandle);
+
+      if (trigger === "SHORT" && isPriceInZone(payload15m.close, signal.sniper_short.entry_zone)) {
+        botLog("warn", `🔥 AUTO-TRIGGER SHORT | Price ${payload15m.close} in zone [${signal.sniper_short.entry_zone}] with trigger`);
+        signal.decision_now = "SHORT";
+        signal.reason = "real-time trigger in short zone";
+      } else if (trigger === "LONG" && isPriceInZone(payload15m.close, signal.sniper_long.entry_zone)) {
+        botLog("warn", `🔥 AUTO-TRIGGER LONG | Price ${payload15m.close} in zone [${signal.sniper_long.entry_zone}] with trigger`);
+        signal.decision_now = "LONG";
+        signal.reason = "real-time trigger in long zone";
+      }
+    }
 
     // Signal scoring
     let score = 0;

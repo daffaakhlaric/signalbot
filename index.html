@@ -1119,11 +1119,23 @@
     </div>
     <!-- SNIPER RECOMMENDATION -->
     <div class="recommendation-panel" id="recommendation-panel" style="display:none">
-      <div class="rec-label">📌 SNIPER RECOMMENDATION</div>
-      <div class="rec-direction" id="rec-direction"></div>
-      <div class="rec-status" id="rec-status"></div>
-      <div class="rec-reason" id="rec-reason"></div>
-      <div class="rec-areas">
+      <div class="rec-label">🎯 SNIPER RECOMMENDATION</div>
+      <div class="rec-direction" id="rec-direction">NONE</div>
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+        <div class="rec-status" id="rec-status">WAIT</div>
+        <div style="font-size:10px;color:var(--text);flex:1" id="rec-reason">—</div>
+      </div>
+      <div class="rec-areas" style="margin-top:12px">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">🔴 SHORT TRIGGER</div>
+          <div class="rec-area-val" id="rec-short-trigger">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">🟢 LONG TRIGGER</div>
+          <div class="rec-area-val" id="rec-long-trigger">—</div>
+        </div>
+      </div>
+      <div class="rec-areas" style="margin-top:10px">
         <div class="rec-area short-area">
           <div class="rec-area-label">SHORT ZONE</div>
           <div class="rec-area-val" id="rec-short-zone">—</div>
@@ -1551,20 +1563,40 @@ function renderSignal(s) {
   // Live price
   if (s.price) document.getElementById('live-price').textContent = '$' + Number(s.price).toLocaleString();
 
-  // Sniper Recommendation
-  const rec = s.sniper_recommendation;
+  // Sniper Recommendation (Real-time Engine)
+  const rec = s.recommendation;
   const recPanel = document.getElementById('recommendation-panel');
   if (rec) {
     recPanel.style.display = 'flex';
+
+    // Direction
     const dirEl = document.getElementById('rec-direction');
-    dirEl.textContent = rec.preferred || 'NONE';
-    dirEl.className = 'rec-direction ' + (rec.preferred || 'NONE');
+    dirEl.textContent = (rec.preferred || 'NONE').toUpperCase();
+    dirEl.className = 'rec-direction ' + (rec.preferred === 'SHORT' ? 'SHORT' : rec.preferred === 'LONG' ? 'LONG' : 'NONE');
+
+    // Status
     const statusEl = document.getElementById('rec-status');
-    statusEl.textContent = (rec.status || 'WAIT').toUpperCase();
+    const statusMap = {
+      'WAIT': 'WAIT',
+      'READY_SHORT': '⚠️ READY SHORT',
+      'READY_LONG': '⚠️ READY LONG',
+      'ACTIVE_SHORT': '🔥 ACTIVE SHORT',
+      'ACTIVE_LONG': '🔥 ACTIVE LONG',
+      'NONE': 'WAIT'
+    };
+    statusEl.textContent = statusMap[rec.status] || 'WAIT';
     statusEl.className = 'rec-status ' + (rec.status || 'WAIT');
-    document.getElementById('rec-reason').textContent = rec.reason || '';
-    const shortZone = rec.trigger_area?.short;
-    const longZone = rec.trigger_area?.long;
+
+    // Reason
+    document.getElementById('rec-reason').textContent = rec.reason || '—';
+
+    // Trigger prices
+    document.getElementById('rec-short-trigger').textContent = rec.trigger_price?.short ? fmt(rec.trigger_price.short) : '—';
+    document.getElementById('rec-long-trigger').textContent = rec.trigger_price?.long ? fmt(rec.trigger_price.long) : '—';
+
+    // Zones
+    const shortZone = rec.entry_zone?.short;
+    const longZone = rec.entry_zone?.long;
     document.getElementById('rec-short-zone').textContent = shortZone ? fmt(shortZone[0]) + ' – ' + fmt(shortZone[1]) : '—';
     document.getElementById('rec-long-zone').textContent = longZone ? fmt(longZone[0]) + ' – ' + fmt(longZone[1]) : '—';
   } else {
