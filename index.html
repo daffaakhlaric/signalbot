@@ -947,6 +947,12 @@
     border: 1px solid var(--red);
   }
 
+  .dry-pill.win {
+    background: rgba(0,255,136,0.15);
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+
   .dry-run-panel {
     grid-column: 1 / -1;
   }
@@ -1340,13 +1346,38 @@
     </div>
   </div>
 
-  <!-- HISTORY TABLE -->
+  <!-- TRADE HISTORY & OPEN POSITIONS -->
   <div class="panel history-panel">
-    <div class="panel-title">Signal History</div>
+    <div class="panel-title">Trade History</div>
+
+    <!-- Open Positions Card -->
+    <div id="open-positions-card" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;display:none">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">📍 OPEN POSITIONS</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Side</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="pos-side">—</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Entry</div>
+          <div style="font-size:14px;font-weight:700;color:var(--yellow)" id="pos-entry">—</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Current P&L</div>
+          <div style="font-size:14px;font-weight:700" id="pos-pnl">—</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Margin Used</div>
+          <div style="font-size:14px;font-weight:700;color:var(--cyan)" id="pos-margin">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Closed Trades Table -->
     <div id="history-container">
       <div class="empty-state">
-        <div class="icon">📡</div>
-        <div>No signals yet. Waiting for webhook from TradingView...</div>
+        <div class="icon">📊</div>
+        <div>No trades yet. Enable dry run or wait for signal...</div>
       </div>
     </div>
   </div>
@@ -1364,37 +1395,52 @@
 
   <!-- DRY RUN PANEL -->
   <div class="panel dry-run-panel">
-    <div class="panel-title">🎮 Dry Run Simulator</div>
+    <div class="panel-title">🎮 Simulator Settings</div>
     <div class="dry-run-summary">
       <div class="dry-stat">
         <div class="dry-stat-label">Balance</div>
-        <div class="dry-stat-value yellow" id="dr-balance">$100</div>
+        <div class="dry-stat-value yellow">$100</div>
       </div>
       <div class="dry-stat">
-        <div class="dry-stat-label">Margin</div>
-        <div class="dry-stat-value" id="dr-margin">$5</div>
+        <div class="dry-stat-label">Margin / Trade</div>
+        <div class="dry-stat-value cyan">$5</div>
       </div>
       <div class="dry-stat">
         <div class="dry-stat-label">Leverage</div>
-        <div class="dry-stat-value" id="dr-lev">150x</div>
+        <div class="dry-stat-value green">150x</div>
       </div>
       <div class="dry-stat">
-        <div class="dry-stat-label">Win</div>
-        <div class="dry-stat-value green" id="dr-wins">0</div>
-      </div>
-      <div class="dry-stat">
-        <div class="dry-stat-label">Loss</div>
-        <div class="dry-stat-value red" id="dr-loss">0</div>
-      </div>
-      <div class="dry-stat">
-        <div class="dry-stat-label">Total PnL</div>
-        <div class="dry-stat-value yellow" id="dr-pnl">$0</div>
+        <div class="dry-stat-label">Profit Target</div>
+        <div class="dry-stat-value green">100%</div>
       </div>
     </div>
-    <div id="dry-trades-container">
+
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+      <div class="panel-title" style="margin-bottom:12px">Performance</div>
+      <div class="dry-run-summary">
+        <div class="dry-stat">
+          <div class="dry-stat-label">Total Trades</div>
+          <div class="dry-stat-value" id="dr-total">0</div>
+        </div>
+        <div class="dry-stat">
+          <div class="dry-stat-label">Wins</div>
+          <div class="dry-stat-value green" id="dr-wins">0</div>
+        </div>
+        <div class="dry-stat">
+          <div class="dry-stat-label">Losses</div>
+          <div class="dry-stat-value red" id="dr-loss">0</div>
+        </div>
+        <div class="dry-stat">
+          <div class="dry-stat-label">Total PnL</div>
+          <div class="dry-stat-value yellow" id="dr-pnl">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dry-trades-container" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
       <div class="empty-state">
         <div class="icon">🎯</div>
-        <div>No dry run trades yet. Enable dry run mode.</div>
+        <div>No open trades</div>
       </div>
     </div>
   </div>
@@ -1414,18 +1460,6 @@
   <code style="font-size:10px;color:var(--cyan);background:var(--bg3);padding:4px 8px;border-radius:3px;border:1px solid var(--border)">BingX · <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">15m</span></code>
 </div>
 
-<!-- ── DRY RUN PANEL ──────────────────────────────────── -->
-<div class="simulate-panel" id="dry-panel">
-  <span class="sim-label">🎮 Dry Run</span>
-  <button class="sim-btn" id="dry-toggle" onclick="toggleDryRun()">▶ ENABLE</button>
-  <span id="dry-status" style="font-size:9px;color:var(--muted)">OFF</span>
-  <span style="font-size:9px;color:var(--muted);margin-left:16px">
-    Balance: <span id="dry-balance" style="color:var(--yellow)">$100</span> |
-    Margin: <span id="dry-margin" style="color:var(--yellow)">$5</span> |
-    Lev: <span id="dry-lev" style="color:var(--yellow)">150x</span> |
-    TP: <span id="dry-tp" style="color:var(--green)">100%</span>
-  </span>
-</div>
 
 <!-- ── LOG CONSOLE ──────────────────────────────────── -->
 <div class="log-panel" id="log-panel">
@@ -1469,6 +1503,7 @@ function connect() {
       if (msg.type === 'dry_trade')   renderDryTrade(msg.data);
       if (msg.type === 'dry_history') renderDryHistory(msg.data);
       if (msg.type === 'dry_trades')  renderDryTrades(msg.data);
+      if (msg.type === 'log')         addBotLog(msg.data);
     } catch (err) {
       log('err', 'Parse error: ' + err.message);
     }
@@ -1648,21 +1683,56 @@ function renderMarketData(d) {
   }
 }
 
-// ── Render History ─────────────────────────────────────────
-function renderHistory(history) {
-  if (!history || !history.length) return;
-  signalHistory = history;
+// ── Render Trade History ──────────────────────────────────
+function fetchTradeHistory() {
+  fetch(API_URL + '/trades')
+    .then(r => r.json())
+    .then(data => {
+      renderTradeHistory(data.closed_trades || [], data.open_trades || []);
+    })
+    .catch(err => console.warn('Failed to fetch trade history:', err));
+}
 
+function renderTradeHistory(closedTrades, openTrades) {
   const container = document.getElementById('history-container');
-  const rows = history.slice(0, MAX_HIST).map(s => `
-    <tr>
-      <td>${s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : '—'}</td>
-      <td>${s.pair || 'BTCUSDT'}</td>
-      <td><span class="decision-pill ${s.decision_now}">${s.decision_now || '—'}</span></td>
-      <td><span class="badge ${s.bias || 'neutral'}" style="font-size:8px">${(s.bias || '—').toUpperCase()}</span></td>
-      <td><span class="badge ${s.market_condition || 'default'}" style="font-size:8px">${(s.market_condition || '—').toUpperCase()}</span></td>
-      <td style="color:var(--yellow)">${s.price ? '$' + Number(s.price).toLocaleString() : '—'}</td>
-      <td style="color:var(--muted);font-size:10px;max-width:300px">${s.reason || '—'}</td>
+  const posCard = document.getElementById('open-positions-card');
+
+  // Show open positions card if there are open trades
+  if (openTrades && openTrades.length > 0) {
+    const t = openTrades[0];
+    posCard.style.display = 'block';
+    document.getElementById('pos-side').textContent = t.side.toUpperCase();
+    document.getElementById('pos-side').style.color = t.side.toUpperCase() === 'LONG' ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pos-entry').textContent = fmt(t.entry);
+    document.getElementById('pos-pnl').textContent = t.result === 'OPEN' ? 'PENDING' : fmt(t.pnl);
+    document.getElementById('pos-pnl').style.color = t.result === 'OPEN' ? 'var(--yellow)' : (parseFloat(t.pnl) >= 0 ? 'var(--green)' : 'var(--red)');
+    document.getElementById('pos-margin').textContent = '$' + t.margin;
+  } else {
+    posCard.style.display = 'none';
+  }
+
+  // Render closed trades table
+  if (!closedTrades || closedTrades.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📊</div>
+        <div>No closed trades yet</div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = closedTrades.slice(0, MAX_HIST).map(t => `
+    <tr class="${t.result === 'WIN' ? 'flash-green' : 'flash-red'}" style="opacity:0.9">
+      <td>${t.closedAt ? new Date(t.closedAt).toLocaleTimeString() : '—'}</td>
+      <td>${t.pair || 'BTCUSDT'}</td>
+      <td><span class="decision-pill ${t.side.toLowerCase()}">${t.side}</span></td>
+      <td style="color:var(--yellow)">${fmt(t.entry)}</td>
+      <td style="color:var(--green)">${fmt(t.tp)}</td>
+      <td style="color:var(--red)">${fmt(t.sl)}</td>
+      <td><span class="dry-pill ${t.result.toLowerCase()}">${t.result}</span></td>
+      <td style="color:${parseFloat(t.pnl) >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:700">${parseFloat(t.pnl) >= 0 ? '+' : ''}$${parseFloat(t.pnl).toFixed(2)}</td>
+      <td style="color:var(--muted);font-size:10px">${t.signal_reason || '—'}</td>
     </tr>
   `).join('');
 
@@ -1670,18 +1740,28 @@ function renderHistory(history) {
     <table class="history-table">
       <thead>
         <tr>
-          <th>Time</th>
+          <th>Closed At</th>
           <th>Pair</th>
-          <th>Decision</th>
-          <th>Bias</th>
-          <th>Condition</th>
-          <th>Price</th>
-          <th>Reason</th>
+          <th>Side</th>
+          <th>Entry</th>
+          <th>TP</th>
+          <th>SL</th>
+          <th>Result</th>
+          <th>PnL</th>
+          <th>Signal Reason</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+// ── Legacy: Render Signal History ──────────────────────────
+function renderHistory(history) {
+  if (!history || !history.length) return;
+  signalHistory = history;
+  // Note: Signal history is deprecated in favor of trade history
+  // but keeping this for backwards compatibility
 }
 
 // ── Render Positions ─────────────────────────────────────
@@ -1869,6 +1949,8 @@ function renderDryHistory(history) {
     if (t.result === 'WIN') { wins++; totalPnl += parseFloat(t.pnl); }
     else { losses++; totalPnl += parseFloat(t.pnl); }
   });
+  const total = wins + losses;
+  document.getElementById('dr-total').textContent = total;
   document.getElementById('dr-wins').textContent = wins;
   document.getElementById('dr-loss').textContent = losses;
   document.getElementById('dr-pnl').textContent = '$' + totalPnl.toFixed(2);
@@ -1924,6 +2006,17 @@ async function simulate() {
   }
 }
 
+// ── Bot Log Handler ───────────────────────────────────────
+function addBotLog(logEntry) {
+  const panel = document.getElementById('log-panel');
+  const ts    = new Date(logEntry.timestamp).toLocaleTimeString();
+  const line  = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="${logEntry.level}">${logEntry.message}</span>`;
+  panel.insertBefore(line, panel.firstChild);
+  if (panel.children.length > MAX_LOGS) panel.removeChild(panel.lastChild);
+}
+
 // ── Helpers ────────────────────────────────────────────────
 function setText(id, val) {
   const el = document.getElementById(id);
@@ -1950,6 +2043,8 @@ function log(level, msg) {
 // ── Init ───────────────────────────────────────────────────
 connect();
 fetchDryStatus();
+fetchTradeHistory();
+setInterval(fetchTradeHistory, 5000); // Refresh trade history every 5s
 </script>
 </body>
 </html>

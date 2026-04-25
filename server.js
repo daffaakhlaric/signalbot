@@ -78,8 +78,17 @@ function broadcast(data) {
   });
 }
 
+// ── Bot Logger ─────────────────────────────────────────────
+function botLog(level, message) {
+  const timestamp = new Date().toISOString();
+  const logEntry = { timestamp, level, message };
+  console.log(`[${level.toUpperCase()}] ${message}`);
+  broadcast({ type: "log", data: logEntry });
+}
+
 wss.on("connection", (ws) => {
   console.log("📡 Dashboard connected");
+  botLog("info", "📡 Dashboard connected");
   if (latestPayload) ws.send(JSON.stringify({ type: "market_data", data: latestPayload }));
   if (latestSignal)  ws.send(JSON.stringify({ type: "signal", data: latestSignal }));
   if (signalHistory.length) ws.send(JSON.stringify({ type: "history", data: signalHistory }));
@@ -688,13 +697,7 @@ function simulateDryTrade(signal, payload) {
   };
 
   dryTrades.push(trade);
-  console.log(`
-🎯 DRY RUN TRADE OPENED (FIXED MARGIN):
-  Side: ${side} | Entry: ${round(entry, 4)} | TP: ${round(tp, 4)} | SL: ${round(sl, 4)}
-  Margin: $${FIXED_MARGIN} | Leverage: ${LEVERAGE}x | Position: $${positionValue}
-  Profit %: ${(profitPct * 100).toFixed(3)}% | Risk: ${riskPct.toFixed(4)} | RR: ${rr.toFixed(2)}
-  If WIN: +$${pnlIfWin.toFixed(2)} | If LOSE: -$${pnlIfLose.toFixed(2)}
-`);
+  botLog("ok", `🎯 DRY TRADE OPENED | ${side} @ ${round(entry, 4)} | TP: ${round(tp, 4)} | SL: ${round(sl, 4)} | Pos: $${positionValue} | RR: ${rr.toFixed(2)}`);
 
   broadcast({ type: "dry_trade", data: trade });
   broadcast({ type: "dry_trades", data: dryTrades });
@@ -722,10 +725,10 @@ function checkDryTrades(currentPrice) {
     }
 
     if (hitTP) {
-      console.log(`🎯 DRY RUN: TP hit for ${side}! Price ${currentPrice} >= ${tp}`);
+      botLog("ok", `✅ TP HIT | ${side} @ ${currentPrice} | Profit: +$${trade.pnlIfWin}`);
       toClose.push({ tradeId: trade.id, result: "WIN" });
     } else if (hitSL) {
-      console.log(`🎯 DRY RUN: SL hit for ${side}! Price ${currentPrice} <= ${sl}`);
+      botLog("warn", `🛑 SL HIT | ${side} @ ${currentPrice} | Loss: -$${trade.pnlIfLose}`);
       toClose.push({ tradeId: trade.id, result: "LOSE" });
     }
   });
@@ -880,16 +883,25 @@ async function tick() {
     }
     lastAnalyzedBarTime = payload15m.barTime;
 
-    console.log(`\n📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close}`);
+    botLog("info", `📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close} | Structure: ${payload15m.structure}`);
 
     let signal = generateSniperSignal(payload15m);
 
     // 1. Entry confirmation FIRST (before RR calc)
     signal = confirmEntry(signal, payload15m);
+    if (signal.decision_now !== "SKIP") {
+      botLog("info", `✅ Entry confirmed: ${signal.reason}`);
+    }
 
     // 2. Validate (RR check)
     signal = validateSignal(signal);
+    if (signal.decision_now === "SKIP") {
+      botLog("warn", `❌ Validation failed: ${signal.reason}`);
+    }
     signal = checkCooldown(signal);
+    if (signal.decision_now === "SKIP" && signal.reason === "cooldown active") {
+      botLog("warn", `⏳ Cooldown active - next trade available in ${Math.ceil((lastTradeTime + COOLDOWN_MS - Date.now()) / 1000)}s`);
+    }
 
     const htfBias = getHTFBias(payload1h);
     signal.htf_bias = htfBias;
@@ -929,8 +941,9 @@ async function tick() {
           const posList = positions?.positions || positions?.list || [];
           const hasPos = posList.some(p => Math.abs(p.positionAmt || p.size || 0) > 0);
           if (hasPos) {
-            console.log("⚠️  Already have open position → skip auto trade");
+            botLog("warn", "⚠️ Already have open position → skipping trade");
           } else {
+            botLog("info", `🚀 EXECUTING ${signal.decision_now} TRADE | Margin: $${FIXED_MARGIN} | Leverage: ${LEVERAGE}x`);
             await placeBingXOrder(
               signal.decision_now,
               signal.decision_now === "LONG"
@@ -945,12 +958,13 @@ async function tick() {
             );
             lastTradeTime = Date.now();
             tradeCountToday++;
+            botLog("ok", `✅ TRADE PLACED | Count today: ${tradeCountToday}/${MAX_TRADES_PER_DAY}`);
           }
         } catch (e) {
-          console.warn("⚠️  Auto trade failed:", e.message);
+          botLog("err", `❌ Trade execution failed: ${e.message}`);
         }
       } else {
-        console.log(`🧪 DRY RUN MODE: Skipping live BingX order (would execute ${signal.decision_now})`);
+        botLog("info", `🧪 DRY RUN: Would execute ${signal.decision_now} | Entry zone: ${signal.decision_now === "LONG" ? signal.sniper_long.entry_zone : signal.sniper_short.entry_zone}`);
       }
     }
 
@@ -1172,6 +1186,9 @@ app.post("/dryrun", (req, res) => {
 // ── Start server & begin polling ──────────────────────────────
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, async () => {
+  botLog("ok", `🚀 BTC SNIPER BOT STARTED | Mode: ${DRY_RUN ? "🧪 DRY RUN" : "🚀 LIVE"}`);
+  botLog("info", `⚙️ Config: Margin=$${FIXED_MARGIN} | Leverage=${LEVERAGE}x | Source=${DATA_SOURCE}`);
+  botLog("info", `📊 Timeframe: ${INTERVAL} | Poll interval: ${POLL_MS}ms`);
   console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║       BTC SNIPER BOT — Fixed Risk Execution Engine     ║
