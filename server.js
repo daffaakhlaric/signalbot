@@ -37,7 +37,8 @@ app.use(express.static(path.join(__dirname)));
 const DATA_SOURCE = (process.env.DATA_SOURCE || "auto").toLowerCase();
 const FALLBACK_ORDER = ["bybit", "okx", "binance", "bingx"];
 
-const SYMBOL = process.env.SYMBOL || "BTC-USDT";              // dash format; auto-converted per exchange
+// Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
+const SYMBOLS = (process.env.SYMBOLS || "BTC-USDT,AXS-USDT").split(",").map(s => s.trim());
 const INTERVAL = process.env.INTERVAL || "15m";
 const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
 const KLINE_LIMIT = 250;                                      // enough for EMA200
@@ -63,7 +64,18 @@ const OKX_BASE     = process.env.OKX_BASE     || "https://www.okx.com";
 
 let activeSource = DATA_SOURCE === "auto" ? null : DATA_SOURCE;
 
-// ── State ──────────────────────────────────────────────────────
+// ── Per-Pair State ──────────────────────────────────────────────
+const pairState = {};
+SYMBOLS.forEach(symbol => {
+  pairState[symbol] = {
+    signalHistory: [],
+    latestSignal: null,
+    latestPayload: null,
+    lastAnalyzedBarTime: 0,
+  };
+});
+
+// Legacy state (keep for backward compatibility)
 let signalHistory = [];
 let latestSignal = null;
 let latestPayload = null;
@@ -1092,7 +1104,7 @@ function buildMarketPayload(candles) {
   const resistance = Math.max(...last20.map((c) => c.high));
 
   return {
-    pair:       SYMBOL.replace("-", ""),
+    pair:       SYMBOLS[0].replace("-", ""),
     timeframe:  INTERVAL,
     open:       last.open,
     high:       last.high,
@@ -1113,80 +1125,76 @@ function buildMarketPayload(candles) {
   };
 }
 
-// ── Main tick: poll exchange, run sniper engine ────────────
-async function tick() {
+// ── Build market payload for a specific symbol ──────────────
+function buildMarketPayloadForSymbol(candles, symbol) {
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  const closes = candles.map((c) => c.close);
+  const highs  = candles.map((c) => c.high);
+  const lows   = candles.map((c) => c.low);
+
+  const last20 = candles.slice(-20);
+  const support    = Math.min(...last20.map((c) => c.low));
+  const resistance = Math.max(...last20.map((c) => c.high));
+
+  return {
+    pair:       symbol.replace("-", ""),
+    timeframe:  INTERVAL,
+    open:       last.open,
+    high:       last.high,
+    low:        last.low,
+    close:      last.close,
+    volume:     round(last.volume, 4),
+    ema20:      round(ema(closes, 20)),
+    ema50:      round(ema(closes, 50)),
+    ema200:     round(ema(closes, 200)),
+    rsi:        round(rsi(closes, 14)),
+    structure:  detectStructure(highs, lows),
+    support:    round(support),
+    resistance: round(resistance),
+    barTime:    last.time,
+    timestamp:  new Date(last.time).toISOString(),
+    lastCandle: last,
+    prevCandle: prev,
+  };
+}
+
+// ── Process a single trading pair ───────────────────────────
+async function processPair(symbol) {
   try {
+    const state = pairState[symbol];
+    if (!state) return;
+
     const [candles15m, candles1h] = await Promise.all([
-      fetchKlines(SYMBOL, "15m", KLINE_LIMIT),
-      fetchKlines(SYMBOL, "1h",  KLINE_LIMIT),
+      fetchKlines(symbol, "15m", KLINE_LIMIT),
+      fetchKlines(symbol, "1h",  KLINE_LIMIT),
     ]);
-    if (candles15m.length < 20) {
-      console.warn(`⚠️  Only ${candles15m.length} candles`);
-      return;
-    }
 
-    const payload15m = buildMarketPayload(candles15m);
-    const payload1h  = buildMarketPayload(candles1h);
-    latestPayload = { ...payload15m, receivedAt: new Date().toISOString() };
-    broadcast({ type: "market_data", data: latestPayload });
+    if (candles15m.length < 20) return;
 
-    // Real-time analysis: ALWAYS analyze (no bar close wait)
-    if (payload15m.barTime !== lastAnalyzedBarTime) {
-      lastAnalyzedBarTime = payload15m.barTime;
-      botLog("info", `📊 New 15m bar — ${payload15m.pair} @ ${payload15m.close} | Structure: ${payload15m.structure}`);
-    } else {
-      process.stdout.write(".");
+    const payload15m = buildMarketPayloadForSymbol(candles15m, symbol);
+    const payload1h  = buildMarketPayloadForSymbol(candles1h, symbol);
+    state.latestPayload = payload15m;
+
+    // Real-time analysis
+    if (payload15m.barTime !== state.lastAnalyzedBarTime) {
+      state.lastAnalyzedBarTime = payload15m.barTime;
+      botLog("info", `📊 ${symbol} new bar — @ ${payload15m.close} | Structure: ${payload15m.structure}`);
     }
 
     let signal = generateSniperSignal(payload15m);
-
-    // 1. Entry confirmation FIRST (before RR calc)
     signal = confirmEntry(signal, payload15m);
-    if (signal.decision_now !== "SKIP") {
-      botLog("info", `✅ Entry confirmed: ${signal.reason}`);
-    }
-
-    // 2. Validate (RR check)
     signal = validateSignal(signal);
-    if (signal.decision_now === "SKIP") {
-      botLog("warn", `❌ Validation failed: ${signal.reason}`);
-    }
     signal = checkCooldown(signal);
-    if (signal.decision_now === "SKIP" && signal.reason === "cooldown active") {
-      botLog("warn", `⏳ Cooldown active - next trade available in ${Math.ceil((lastTradeTime + COOLDOWN_MS - Date.now()) / 1000)}s`);
-    }
-
-    // FIX 5: Auto-trigger PRIORITIZED — check BEFORE other filters
-    if (!DRY_RUN && signal.decision_now === "SKIP") {
-      const trigger = getRealtimeTrigger(payload15m.lastCandle);
-      if (trigger === "SHORT" && isPriceInZone(payload15m.close, signal.sniper_short.entry_zone)) {
-        botLog("warn", `🔥 AUTO-TRIGGER SHORT | Price ${payload15m.close} in zone [${signal.sniper_short.entry_zone}] with trigger`);
-        signal.decision_now = "SHORT";
-        signal.reason = "real-time trigger in short zone";
-      } else if (trigger === "LONG" && isPriceInZone(payload15m.close, signal.sniper_long.entry_zone)) {
-        botLog("warn", `🔥 AUTO-TRIGGER LONG | Price ${payload15m.close} in zone [${signal.sniper_long.entry_zone}] with trigger`);
-        signal.decision_now = "LONG";
-        signal.reason = "real-time trigger in long zone";
-      }
-      // FORCE_ENTRY mode: enter immediately on any trigger
-      else if (FORCE_ENTRY && trigger) {
-        botLog("warn", `⚡ FORCE ENTRY MODE | ${trigger} trigger detected`);
-        signal.decision_now = trigger;
-        signal.reason = "force entry mode";
-      }
-    }
 
     const htfBias = getHTFBias(payload1h);
     signal.htf_bias = htfBias;
-    signal.htf_timeframe = "1H";
     signal.htf_structure = payload1h.structure;
 
-    // Calculate momentum metrics for use in filters and scoring
     const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
     const range = payload15m.resistance - payload15m.support;
     const dynamicMomentum = (range / payload15m.close) * 0.2;
 
-    // 3. HTF filter — only reject if OPPOSITE direction (but NOT for auto-triggers)
     const isAutoTrigger = signal.reason.includes("real-time trigger");
     if (
       !isAutoTrigger &&
@@ -1199,7 +1207,6 @@ async function tick() {
       signal.reason = `HTF mismatch (${htfBias})`;
     }
 
-    // 3b. Anti fake breakout filter (weak momentum) — mark as low confidence, don't force SKIP
     if (signal.decision_now !== "SKIP") {
       if (momFilter < dynamicMomentum) {
         signal.confidence = "low";
@@ -1207,44 +1214,9 @@ async function tick() {
       }
     }
 
-    // 4. Daily limit check
     if (signal.decision_now !== "SKIP" && !checkDailyLimit()) {
       signal.decision_now = "SKIP";
       signal.reason = "daily limit reached";
-    }
-
-    if (signal.decision_now !== "SKIP") {
-      if (!DRY_RUN) {
-        try {
-          const positions = await fetchBingXPositions();
-          const posList = positions?.positions || positions?.list || [];
-          const hasPos = posList.some(p => Math.abs(p.positionAmt || p.size || 0) > 0);
-          if (hasPos) {
-            botLog("warn", "⚠️ Already have open position → skipping trade");
-          } else {
-            botLog("info", `🚀 EXECUTING ${signal.decision_now} TRADE | Margin: $${FIXED_MARGIN} | Leverage: ${LEVERAGE}x`);
-            await placeBingXOrder(
-              signal.decision_now,
-              signal.decision_now === "LONG"
-                ? signal.sniper_long.entry_zone
-                : signal.sniper_short.entry_zone,
-              signal.decision_now === "LONG"
-                ? signal.sniper_long.tp
-                : signal.sniper_short.tp,
-              signal.decision_now === "LONG"
-                ? signal.sniper_long.sl
-                : signal.sniper_short.sl
-            );
-            lastTradeTime = Date.now();
-            tradeCountToday++;
-            botLog("ok", `✅ TRADE PLACED | Count today: ${tradeCountToday}/${MAX_TRADES_PER_DAY}`);
-          }
-        } catch (e) {
-          botLog("err", `❌ Trade execution failed: ${e.message}`);
-        }
-      } else {
-        botLog("info", `🧪 DRY RUN: Would execute ${signal.decision_now} | Entry zone: ${signal.decision_now === "LONG" ? signal.sniper_long.entry_zone : signal.sniper_short.entry_zone}`);
-      }
     }
 
     signal.timestamp = new Date().toISOString();
@@ -1256,58 +1228,65 @@ async function tick() {
     const recommendation = getSniperRecommendation(signal, payload15m);
     signal.recommendation = recommendation;
 
-    // Get scalper recommendation (dual-mode: sniper + scalper)
+    // Get scalper recommendation
     const scalper = getScalperRecommendation(payload15m);
     signal.scalper = scalper;
 
-    // Get priority recommendation (which mode to use)
+    // Get priority recommendation
     const priority = getPriorityRecommendation(signal);
     signal.priority = priority;
 
-    // Signal scoring (mark as low confidence on low score, don't force SKIP)
+    // Signal scoring
     let score = 0;
     if (signal.htf_bias === signal.decision_now) score++;
     if (signal.confidence === "high") score++;
     if (momFilter > dynamicMomentum) score++;
     signal.score = score;
 
-    // Mark as low confidence on low score (don't force SKIP)
     if (signal.score < 1 && signal.decision_now !== "SKIP") {
       signal.confidence = "low";
       signal.reason += " | low score";
     }
 
     // Signal change detection
-    if (latestSignal && latestSignal.decision_now === signal.decision_now && latestSignal.price === signal.price) {
+    if (state.latestSignal && state.latestSignal.decision_now === signal.decision_now && state.latestSignal.price === signal.price) {
       signal.is_same_signal = true;
     } else {
       signal.is_same_signal = false;
     }
 
-    // Track when signal was updated
     signal.updated_at = new Date().toISOString();
     signal.bar_time = payload15m.barTime;
 
-    latestSignal = signal;
-    signalHistory.unshift(signal);
-    if (signalHistory.length > 50) signalHistory.pop();
+    state.latestSignal = signal;
+    state.signalHistory.unshift(signal);
+    if (state.signalHistory.length > 50) state.signalHistory.pop();
 
-    console.log(`✅ ${signal.decision_now} | ${signal.reason}`);
-    console.log(`
-🧠 SIGNAL DEBUG:
-  Decision: ${signal.decision_now}
-  Reason: ${signal.reason}
-  HTF: ${signal.htf_bias} (${signal.htf_structure})
-  Price: ${signal.price}
-  Confidence: ${signal.confidence}
-`);
-
-    broadcast({ type: "signal",  data: signal });
-    broadcast({ type: "history", data: signalHistory });
+    // Broadcast multi-pair signal
+    broadcast({
+      type: "multi_signal",
+      data: {
+        pair: signal.pair,
+        symbol: symbol,
+        signal,
+        market: payload15m
+      }
+    });
 
     simulateDryTrade(signal, payload15m);
     checkDryTrades(payload15m.close);
+  } catch (err) {
+    botLog("err", `❌ ${symbol} error: ${err.message}`);
+  }
+}
 
+// ── Main tick: poll exchange, run sniper engine for all pairs ─
+async function tick() {
+  try {
+    // Process all trading pairs in parallel
+    await Promise.all(SYMBOLS.map(symbol => processPair(symbol)));
+
+    // Try to fetch positions (for first pair or all)
     try {
       const positions = await fetchBingXPositions();
       if (positions) {
@@ -1320,18 +1299,6 @@ async function tick() {
   } catch (err) {
     console.error(`\n❌ TICK ERROR - Full details:`);
     console.error(err);
-
-    // Send error fallback payload to UI so it's not completely blank
-    const errorPayload = {
-      pair: SYMBOL.replace("-", ""),
-      close: null,
-      status: "ERROR",
-      error: err.message,
-      timestamp: new Date().toISOString(),
-      errorDetails: String(err.stack).split('\n').slice(0, 3).join(' | ')
-    };
-    latestPayload = errorPayload;
-    broadcast({ type: "market_data", data: errorPayload });
     botLog("err", `Fetch failed: ${err.message}`);
   }
 }
@@ -1583,7 +1550,7 @@ server.listen(PORT, async () => {
 ║  Dashboard → http://localhost:${PORT}                     ║
 ║  WS        → ws://localhost:${PORT}                       ║
 ║  Source    → ${(DATA_SOURCE === "auto" ? "AUTO (bybit→okx→binance→bingx)" : DATA_SOURCE.toUpperCase()).padEnd(36)}║
-║  Symbol    → ${SYMBOL.padEnd(36)}║
+║  Symbols   → ${SYMBOLS.join(",").padEnd(36)}║
 ║  Timeframe → ${INTERVAL.padEnd(36)}║
 ║  Poll      → every ${(POLL_MS / 1000).toString().padEnd(26)}s   ║
 ║                                                        ║

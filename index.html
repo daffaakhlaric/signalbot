@@ -146,6 +146,47 @@
 
   .price-ticker span { font-size: 11px; color: var(--muted); margin-right: 4px; }
 
+  /* ── Pair Tabs (Multi-pair support) ── */
+  #pair-tabs-container {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+  }
+
+  .pair-tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 12px;
+    overflow-x: auto;
+  }
+
+  .pair-tabs button {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pair-tabs button:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .pair-tabs button.active {
+    color: var(--green);
+    border-bottom-color: var(--green);
+    box-shadow: 0 2px 8px rgba(0,255,136,0.2);
+  }
+
   /* ── Main grid ── */
   .main {
     display: grid;
@@ -1130,6 +1171,11 @@
 <!-- ── MAIN ────────────────────────────────────────────── -->
 <div class="main">
 
+  <!-- PAIR TABS (MULTI-PAIR SUPPORT) -->
+  <div id="pair-tabs-container" style="display:none">
+    <div class="pair-tabs" id="pair-tabs"></div>
+  </div>
+
   <!-- DECISION BANNER -->
   <div class="decision-panel" id="decision-panel">
     <div class="decision-badge wait" id="decision-badge">WAITING</div>
@@ -1577,6 +1623,51 @@ let ws;
 let reconnectTimer;
 let signalHistory = [];
 
+// ── Multi-pair state ───────────────────────────────────────
+const pairState = {};
+let activePair = "BTCUSDT";
+
+function getPairKey(pair) {
+  if (!pair) return "BTCUSDT";
+  return String(pair).replace("-", "").toUpperCase();
+}
+
+function renderTabs() {
+  const container = document.getElementById("pair-tabs");
+  if (!container) return;
+
+  const pairs = Object.keys(pairState).sort();
+  if (pairs.length === 0) return;
+
+  container.innerHTML = "";
+
+  pairs.forEach(pair => {
+    const btn = document.createElement("button");
+    btn.textContent = pair;
+    btn.className = pair === activePair ? "active" : "";
+    btn.onclick = () => openPair(pair);
+    container.appendChild(btn);
+  });
+
+  // Show tabs container only if multiple pairs
+  const tabsContainer = document.getElementById("pair-tabs-container");
+  if (tabsContainer) {
+    tabsContainer.style.display = pairs.length > 1 ? "block" : "none";
+  }
+}
+
+function openPair(pair) {
+  activePair = pair;
+  renderTabs();
+  const data = pairState[pair];
+  if (data && data.signal) {
+    renderSignal(data.signal);
+    if (data.market) {
+      renderMarketData(data.market);
+    }
+  }
+}
+
 // ── WebSocket ──────────────────────────────────────────────
 function connect() {
   console.log(`[DEBUG] Attempting WS connection to: ${WS_URL}`);
@@ -1594,6 +1685,20 @@ function connect() {
     try {
       const msg = JSON.parse(e.data);
       console.log(`[DEBUG] WS message:`, msg.type);
+
+      // Multi-pair signal handler
+      if (msg.type === 'multi_signal') {
+        const { pair, symbol, signal, market } = msg.data;
+        const pairKey = getPairKey(pair || symbol);
+        pairState[pairKey] = { signal, market };
+        renderTabs();
+        if (pairKey === activePair) {
+          renderSignal(signal);
+          if (market) renderMarketData(market);
+        }
+        return;
+      }
+
       if (msg.type === 'signal')      renderSignal(msg.data);
       if (msg.type === 'history')     renderHistory(msg.data);
       if (msg.type === 'market_data') renderMarketData(msg.data);
