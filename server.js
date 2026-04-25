@@ -975,6 +975,11 @@ async function tick() {
     signal.htf_timeframe = "1H";
     signal.htf_structure = payload1h.structure;
 
+    // Calculate momentum metrics for use in filters and scoring
+    const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
+    const range = payload15m.resistance - payload15m.support;
+    const dynamicMomentum = (range / payload15m.close) * 0.2;
+
     // 3. HTF filter — only reject if OPPOSITE direction
     if (
       (signal.decision_now === "LONG" && htfBias === "SHORT") ||
@@ -986,9 +991,6 @@ async function tick() {
 
     // 3b. Anti fake breakout filter (weak momentum) — adaptive
     if (signal.decision_now !== "SKIP") {
-      const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
-      const range = payload15m.resistance - payload15m.support;
-      const dynamicMomentum = (range / payload15m.close) * 0.2;
       if (momFilter < dynamicMomentum) {
         signal.decision_now = "SKIP";
         signal.reason = "weak momentum";
@@ -1063,7 +1065,6 @@ async function tick() {
     let score = 0;
     if (signal.htf_bias === signal.decision_now) score++;
     if (signal.confidence === "high") score++;
-    // momFilter, range, dynamicMomentum already calculated above in momentum filter
     if (momFilter > dynamicMomentum) score++;
     signal.score = score;
 
