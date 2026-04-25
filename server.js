@@ -346,10 +346,10 @@ function isPriceInZone(price, zone) {
   return price >= zone[0] && price <= zone[1];
 }
 
-// ── Sniper Recommendation Engine ───────────────────────────────
+// ── Sniper Recommendation Engine (with Hybrid Fallback Logic) ────
 function getSniperRecommendation(signal, payload) {
   const price = payload.close;
-  const { support, resistance, structure } = payload;
+  const { support, resistance, structure, ema20, ema50, ema200 } = payload;
 
   const range = resistance - support;
   const topZone = resistance - range * 0.15;
@@ -357,32 +357,80 @@ function getSniperRecommendation(signal, payload) {
 
   let preferred = "NONE";
   let reason = "";
+  let mode = "trend"; // "trend" or "range"
 
-  // Determine preferred direction from structure
+  // Primary: Determine preferred direction from structure
   if (structure === "LH" || structure === "LL") {
     preferred = "SHORT";
     reason = `bearish structure (${structure})`;
+    mode = "trend";
   } else if (structure === "HH" || structure === "HL") {
     preferred = "LONG";
     reason = `bullish structure (${structure})`;
+    mode = "trend";
   } else {
-    reason = "neutral structure";
+    // Fallback 1: Use HTF bias if structure is neutral
+    if (signal.htf_bias === "LONG") {
+      preferred = "LONG";
+      reason = "HTF bias is LONG";
+      mode = "trend";
+    } else if (signal.htf_bias === "SHORT") {
+      preferred = "SHORT";
+      reason = "HTF bias is SHORT";
+      mode = "trend";
+    } else {
+      // Fallback 2: Use EMA alignment if HTF bias is neutral
+      if (ema20 && ema50 && ema200) {
+        if (price > ema20 && ema20 > ema50 && ema50 > ema200) {
+          preferred = "LONG";
+          reason = "EMA uptrend alignment (20>50>200)";
+          mode = "trend";
+        } else if (price < ema20 && ema20 < ema50 && ema50 < ema200) {
+          preferred = "SHORT";
+          reason = "EMA downtrend alignment (20<50<200)";
+          mode = "trend";
+        } else {
+          // Fallback 3: SCALP mode for sideways/neutral markets
+          preferred = "SCALP";
+          reason = "sideways market - SCALP mode active";
+          mode = "range";
+        }
+      } else {
+        // Fallback 3: SCALP mode if EMAs not available
+        preferred = "SCALP";
+        reason = "neutral market - SCALP mode active";
+        mode = "range";
+      }
+    }
   }
 
-  // Determine status based on price position
+  // Determine status based on price position and mode
   let status = "WAIT";
 
-  if (preferred === "SHORT") {
-    if (isPriceInZone(price, signal.sniper_short.entry_zone)) {
-      status = "ACTIVE_SHORT";
-    } else if (price >= topZone) {
-      status = "READY_SHORT";
+  if (mode === "trend") {
+    if (preferred === "SHORT") {
+      if (isPriceInZone(price, signal.sniper_short.entry_zone)) {
+        status = "ACTIVE_SHORT";
+      } else if (price >= topZone) {
+        status = "READY_SHORT";
+      }
+    } else if (preferred === "LONG") {
+      if (isPriceInZone(price, signal.sniper_long.entry_zone)) {
+        status = "ACTIVE_LONG";
+      } else if (price <= botZone) {
+        status = "READY_LONG";
+      }
     }
-  } else if (preferred === "LONG") {
-    if (isPriceInZone(price, signal.sniper_long.entry_zone)) {
-      status = "ACTIVE_LONG";
+  } else if (mode === "range") {
+    // SCALP mode: look for zone entries from both directions
+    if (isPriceInZone(price, signal.sniper_short.entry_zone)) {
+      status = "ACTIVE_SHORT_SCALP";
+    } else if (isPriceInZone(price, signal.sniper_long.entry_zone)) {
+      status = "ACTIVE_LONG_SCALP";
+    } else if (price >= topZone) {
+      status = "READY_SHORT_SCALP";
     } else if (price <= botZone) {
-      status = "READY_LONG";
+      status = "READY_LONG_SCALP";
     }
   }
 
@@ -390,6 +438,7 @@ function getSniperRecommendation(signal, payload) {
     preferred,
     status,
     reason,
+    mode,
     trigger_price: {
       short: signal.sniper_short.entry_zone[0],
       long: signal.sniper_long.entry_zone[1]

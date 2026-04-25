@@ -1017,6 +1017,7 @@
 
   .rec-direction.SHORT { color: var(--red); }
   .rec-direction.LONG  { color: var(--green); }
+  .rec-direction.SCALP { color: #ff8c00; }
   .rec-direction.NONE  { color: var(--muted); }
 
   .rec-status {
@@ -1032,6 +1033,29 @@
   .rec-status.WAIT  { background: rgba(255,215,0,0.1); color: var(--yellow); border: 1px solid var(--yellow); }
   .rec-status.READY { background: rgba(0,212,255,0.1); color: var(--cyan); border: 1px solid var(--cyan); }
   .rec-status.ACTIVE { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid var(--green); }
+
+  .rec-mode-badge {
+    display: inline-block;
+    font-size: 8px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+
+  .rec-mode-badge.trend {
+    background: rgba(0,212,255,0.15);
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+
+  .rec-mode-badge.range {
+    background: rgba(255,140,0,0.15);
+    color: #ff8c00;
+    border-color: #ff8c00;
+  }
 
   .rec-reason {
     font-size: 10px;
@@ -1121,8 +1145,9 @@
     <div class="recommendation-panel" id="recommendation-panel" style="display:none">
       <div class="rec-label">🎯 SNIPER RECOMMENDATION</div>
       <div class="rec-direction" id="rec-direction">NONE</div>
-      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">
         <div class="rec-status" id="rec-status">WAIT</div>
+        <div class="rec-mode-badge" id="rec-mode" style="font-size:8px;padding:4px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:1px;font-weight:700;display:none">TREND</div>
         <div style="font-size:10px;color:var(--text);flex:1" id="rec-reason">—</div>
       </div>
       <div class="rec-areas" style="margin-top:12px">
@@ -1586,8 +1611,14 @@ function renderSignal(s) {
 
     // Direction
     const dirEl = document.getElementById('rec-direction');
-    dirEl.textContent = (rec.preferred || 'NONE').toUpperCase();
-    dirEl.className = 'rec-direction ' + (rec.preferred === 'SHORT' ? 'SHORT' : rec.preferred === 'LONG' ? 'LONG' : 'NONE');
+    const dirText = rec.preferred === 'SCALP' ? '⚡ SCALP' : (rec.preferred || 'NONE').toUpperCase();
+    dirEl.textContent = dirText;
+    let dirClass = 'rec-direction ';
+    if (rec.preferred === 'SHORT') dirClass += 'SHORT';
+    else if (rec.preferred === 'LONG') dirClass += 'LONG';
+    else if (rec.preferred === 'SCALP') dirClass += 'SCALP';
+    else dirClass += 'NONE';
+    dirEl.className = dirClass;
 
     // Status
     const statusEl = document.getElementById('rec-status');
@@ -1597,10 +1628,24 @@ function renderSignal(s) {
       'READY_LONG': '⚠️ READY LONG',
       'ACTIVE_SHORT': '🔥 ACTIVE SHORT',
       'ACTIVE_LONG': '🔥 ACTIVE LONG',
+      'READY_SHORT_SCALP': '⚠️ SHORT ZONE',
+      'READY_LONG_SCALP': '⚠️ LONG ZONE',
+      'ACTIVE_SHORT_SCALP': '🔥 SHORT ZONE',
+      'ACTIVE_LONG_SCALP': '🔥 LONG ZONE',
       'NONE': 'WAIT'
     };
     statusEl.textContent = statusMap[rec.status] || 'WAIT';
     statusEl.className = 'rec-status ' + (rec.status || 'WAIT');
+
+    // Mode badge
+    const modeEl = document.getElementById('rec-mode');
+    if (rec.mode) {
+      modeEl.textContent = rec.mode === 'range' ? 'RANGE MODE' : 'TREND MODE';
+      modeEl.className = 'rec-mode-badge ' + rec.mode;
+      modeEl.style.display = 'inline-block';
+    } else {
+      modeEl.style.display = 'none';
+    }
 
     // Reason
     document.getElementById('rec-reason').textContent = rec.reason || '—';
