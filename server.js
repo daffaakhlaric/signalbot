@@ -1052,7 +1052,7 @@ async function tick() {
       }
     }
 
-    // Signal scoring
+    // Signal scoring (less strict: only reject if score < 1)
     let score = 0;
     if (signal.htf_bias === signal.decision_now) score++;
     if (signal.confidence === "high") score++;
@@ -1062,10 +1062,22 @@ async function tick() {
     if (momFilter > dynamicMomentum) score++;
     signal.score = score;
 
-    if (signal.score < 2) {
+    // Only reject on extremely low score
+    if (signal.score < 1 && signal.decision_now !== "SKIP") {
       signal.decision_now = "SKIP";
       signal.reason += " | low score";
     }
+
+    // Signal change detection
+    if (latestSignal && latestSignal.decision_now === signal.decision_now && latestSignal.price === signal.price) {
+      signal.is_same_signal = true;
+    } else {
+      signal.is_same_signal = false;
+    }
+
+    // Track when signal was updated
+    signal.updated_at = new Date().toISOString();
+    signal.bar_time = payload15m.barTime;
 
     latestSignal = signal;
     signalHistory.unshift(signal);

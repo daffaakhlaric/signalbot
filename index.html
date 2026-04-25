@@ -1549,16 +1549,26 @@ function renderSignal(s) {
   badge.className = 'decision-badge ' + (s.decision_now || 'SKIP');
 
   document.getElementById('decision-reason').textContent = s.reason || '';
-  document.getElementById('decision-time').textContent   = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : '';
 
-  // Badges
+  // Show updated time with refresh indicator
+  const updateTimeEl = document.getElementById('decision-time');
+  const now = new Date();
+  const updateTime = s.updated_at ? new Date(s.updated_at) : now;
+  const timeStr = updateTime.toLocaleTimeString();
+  const isNew = s.is_same_signal ? '' : ' 🔄';
+  updateTimeEl.textContent = timeStr + isNew;
+  updateTimeEl.style.color = s.is_same_signal ? '#586069' : '#00ff88';
+
+  // Badges - use actual field names from signal
   const biasEl = document.getElementById('badge-bias');
-  biasEl.textContent = (s.bias || 'neutral').toUpperCase();
-  biasEl.className = 'badge ' + (s.bias || 'neutral');
+  const htfBias = s.htf_bias || s.bias || 'NEUTRAL';
+  biasEl.textContent = htfBias.toUpperCase();
+  biasEl.className = 'badge ' + htfBias.toLowerCase();
 
   const condEl = document.getElementById('badge-condition');
-  condEl.textContent = (s.market_condition || '—').toUpperCase();
-  condEl.className = 'badge ' + (s.market_condition || 'default');
+  const structure = s.structure || s.htf_structure || s.market_condition || 'NA';
+  condEl.textContent = structure.toUpperCase();
+  condEl.className = 'badge ' + structure.toLowerCase();
 
   // Live price
   if (s.price) document.getElementById('live-price').textContent = '$' + Number(s.price).toLocaleString();
@@ -1649,14 +1659,19 @@ function renderSignal(s) {
     setText('ntz-high', fmt(s.no_trade_zone[1]));
   }
 
-  // Flash effect
+  // Flash effect on new signal
   const panel = document.getElementById('decision-panel');
-  panel.classList.remove('flash-green', 'flash-red');
-  void panel.offsetWidth;
-  if (s.decision_now === 'LONG')  panel.classList.add('flash-green');
-  if (s.decision_now === 'SHORT') panel.classList.add('flash-red');
+  if (!s.is_same_signal) {
+    panel.classList.remove('flash-green', 'flash-red');
+    void panel.offsetWidth;
+    if (s.decision_now === 'LONG')  panel.classList.add('flash-green');
+    if (s.decision_now === 'SHORT') panel.classList.add('flash-red');
+  }
 
-  log('ok', `Signal: ${s.decision_now} | Bias: ${s.bias} | Condition: ${s.market_condition}`);
+  const htfBias = s.htf_bias || 'NEUTRAL';
+  const structure = s.structure || s.htf_structure || 'NA';
+  const scoreStr = s.score !== undefined ? ` | Score: ${s.score}` : '';
+  log('ok', `Signal: ${s.decision_now} | Bias: ${htfBias} | Structure: ${structure}${scoreStr}`);
 }
 
 // ── Render Market Data ─────────────────────────────────────
