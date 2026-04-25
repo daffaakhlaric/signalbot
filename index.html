@@ -1908,9 +1908,13 @@ function toggleDryRun() {
 }
 
 function updateDryUI() {
-  document.getElementById('dry-toggle').textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
-  document.getElementById('dry-status').textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
-  document.getElementById('dry-status').style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
+  const toggle = document.getElementById('dry-toggle');
+  const status = document.getElementById('dry-status');
+  if (toggle) toggle.textContent = dryRunEnabled ? '■ DISABLE' : '▶ ENABLE';
+  if (status) {
+    status.textContent = dryRunEnabled ? 'ACTIVE' : 'OFF';
+    status.style.color = dryRunEnabled ? 'var(--green)' : 'var(--muted)';
+  }
 }
 
 function fetchDryStatus() {
@@ -1924,13 +1928,20 @@ function fetchDryStatus() {
       dryRunEnabled = d.active;
       localStorage.setItem('dryEnabled', d.active);
       updateDryUI();
-      document.getElementById('dry-balance').textContent = '$' + d.balance;
-      document.getElementById('dry-margin').textContent = '$' + d.margin;
-      document.getElementById('dry-lev').textContent = d.leverage + 'x';
-      document.getElementById('dry-tp').textContent = d.tpPct;
-      document.getElementById('dr-balance').textContent = '$' + d.balance;
-      document.getElementById('dr-margin').textContent = '$' + d.margin;
-      document.getElementById('dr-lev').textContent = d.leverage + 'x';
+      // Update UI elements if they exist
+      const els = {
+        'dry-balance': '$' + d.balance,
+        'dry-margin': '$' + d.margin,
+        'dry-lev': d.leverage + 'x',
+        'dry-tp': d.tpPct,
+        'dr-balance': '$' + d.balance,
+        'dr-margin': '$' + d.margin,
+        'dr-lev': d.leverage + 'x'
+      };
+      Object.entries(els).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      });
       if (d.openTrades) renderDryTrades(d.openTrades);
       if (dryRunEnabled) {
         document.getElementById('dry-toggle').textContent = '■ DISABLE';
