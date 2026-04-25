@@ -1171,6 +1171,64 @@
         </div>
       </div>
     </div>
+
+    <!-- SCALPER RECOMMENDATION CARD -->
+    <div class="recommendation-panel" id="scalper-panel" style="display:none">
+      <div class="rec-label">⚡ SCALPER RECOMMENDATION</div>
+      <div class="rec-direction" id="scalper-direction">NONE</div>
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:10px;color:var(--text);flex:1" id="scalper-reason">—</div>
+      </div>
+      <div class="rec-areas" style="margin-top:12px">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">ENTRY</div>
+          <div class="rec-area-val" id="scalper-entry">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">TP (8.4%)</div>
+          <div class="rec-area-val" id="scalper-tp">—</div>
+        </div>
+      </div>
+      <div class="rec-areas" style="margin-top:10px">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">SL (8%)</div>
+          <div class="rec-area-val" id="scalper-sl">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">RR RATIO</div>
+          <div class="rec-area-val" id="scalper-rr">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIORITY RECOMMENDATION CARD -->
+    <div class="recommendation-panel" id="priority-panel" style="display:none">
+      <div class="rec-label">🎲 PRIORITY EXECUTION</div>
+      <div class="rec-direction" id="priority-type">NONE</div>
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:10px;color:var(--text);flex:1" id="priority-reason">—</div>
+      </div>
+      <div class="rec-areas" style="margin-top:12px">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">ACTION</div>
+          <div class="rec-area-val" id="priority-action">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">ENTRY</div>
+          <div class="rec-area-val" id="priority-entry">—</div>
+        </div>
+      </div>
+      <div class="rec-areas" style="margin-top:10px">
+        <div class="rec-area short-area">
+          <div class="rec-area-label">TP</div>
+          <div class="rec-area-val" id="priority-tp">—</div>
+        </div>
+        <div class="rec-area long-area">
+          <div class="rec-area-label">SL</div>
+          <div class="rec-area-val" id="priority-sl">—</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- SIGNAL CARDS -->
@@ -1661,6 +1719,72 @@ function renderSignal(s) {
     document.getElementById('rec-long-zone').textContent = longZone ? fmt(longZone[0]) + ' – ' + fmt(longZone[1]) : '—';
   } else {
     recPanel.style.display = 'none';
+  }
+
+  // Scalper Recommendation
+  const scalper = s.scalper;
+  const scalperPanel = document.getElementById('scalper-panel');
+  if (scalper && scalper.direction && scalper.direction !== 'NONE') {
+    scalperPanel.style.display = 'flex';
+
+    // Direction
+    const scalperDirEl = document.getElementById('scalper-direction');
+    scalperDirEl.textContent = (scalper.direction || 'NONE').toUpperCase();
+    let scalperDirClass = 'rec-direction ';
+    if (scalper.direction === 'SHORT') scalperDirClass += 'SHORT';
+    else if (scalper.direction === 'LONG') scalperDirClass += 'LONG';
+    else scalperDirClass += 'NONE';
+    scalperDirEl.className = scalperDirClass;
+
+    // Reason
+    document.getElementById('scalper-reason').textContent = scalper.reason || '—';
+
+    // Entry, TP, SL
+    document.getElementById('scalper-entry').textContent = scalper.entry ? fmt(scalper.entry) : '—';
+    document.getElementById('scalper-tp').textContent = scalper.tp ? fmt(scalper.tp) : '—';
+    document.getElementById('scalper-sl').textContent = scalper.sl ? fmt(scalper.sl) : '—';
+
+    // RR Ratio
+    if (scalper.entry && scalper.tp && scalper.sl) {
+      const risk = Math.abs(scalper.entry - scalper.sl);
+      const reward = Math.abs(scalper.tp - scalper.entry);
+      const rr = risk > 0 ? (reward / risk).toFixed(2) : '—';
+      document.getElementById('scalper-rr').textContent = rr + ':1';
+    } else {
+      document.getElementById('scalper-rr').textContent = '—';
+    }
+  } else {
+    scalperPanel.style.display = 'none';
+  }
+
+  // Priority Recommendation
+  const priority = s.priority;
+  const priorityPanel = document.getElementById('priority-panel');
+  if (priority && priority.type && priority.type !== 'NONE') {
+    priorityPanel.style.display = 'flex';
+
+    // Type (SNIPER or SCALPER)
+    const priorityTypeEl = document.getElementById('priority-type');
+    const typeText = priority.type === 'SNIPER' ? '🎯 SNIPER' : (priority.type === 'SCALPER' ? '⚡ SCALPER' : 'NONE');
+    priorityTypeEl.textContent = typeText;
+    let priorityTypeClass = 'rec-direction ';
+    if (priority.type === 'SNIPER') priorityTypeClass += 'LONG';
+    else if (priority.type === 'SCALPER') priorityTypeClass += 'SCALP';
+    else priorityTypeClass += 'NONE';
+    priorityTypeEl.className = priorityTypeClass;
+
+    // Action (LONG or SHORT)
+    document.getElementById('priority-action').textContent = priority.action ? priority.action.toUpperCase() : '—';
+
+    // Reason
+    document.getElementById('priority-reason').textContent = priority.reason || '—';
+
+    // Entry, TP, SL
+    document.getElementById('priority-entry').textContent = priority.entry ? fmt(priority.entry) : '—';
+    document.getElementById('priority-tp').textContent = priority.tp ? fmt(priority.tp) : '—';
+    document.getElementById('priority-sl').textContent = priority.sl ? fmt(priority.sl) : '—';
+  } else {
+    priorityPanel.style.display = 'none';
   }
 
   // Long Safe
