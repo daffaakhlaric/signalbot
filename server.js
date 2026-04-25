@@ -1134,41 +1134,105 @@ async function tick() {
   }
 }
 
-// ── POST /simulate — manual test ──────────────────────────────
+// ── POST /simulate — instant market data update for testing ────────────────
 app.post("/simulate", async (req, res) => {
   try {
-    const price = Number(req.body?.price) || latestPayload?.close || 70000;
+    const price = Number(req.body?.price) || latestPayload?.close || 77500;
+    const direction = req.body?.direction || "neutral";
+
+    // Create realistic support/resistance from last 20 candles mock
     const support = price * 0.99;
     const resist = price * 1.01;
-    const last = { open: price * 0.998, high: price * 1.008, low: price * 0.992, close: price };
-    const prev = { open: price * 0.996, high: price * 1.004, low: price * 0.988, close: price * 0.997 };
+    const range = resist - support;
+    const botZone = support + range * 0.15;
+    const topZone = resist - range * 0.15;
+
+    let last, structure;
+    if (direction === "long") {
+      // Lower wick trigger at support
+      last = {
+        open: botZone,
+        high: price,
+        low: support,
+        close: botZone + range * 0.1
+      };
+      structure = "HH"; // bullish
+    } else if (direction === "short") {
+      // Upper wick trigger at resistance
+      last = {
+        open: topZone,
+        high: resist,
+        low: price,
+        close: topZone - range * 0.1
+      };
+      structure = "LL"; // bearish
+    } else {
+      // Neutral candle in mid-range
+      last = {
+        open: price,
+        high: price * 1.002,
+        low: price * 0.998,
+        close: price
+      };
+      structure = "NA";
+    }
+
+    const prev = {
+      open: price * 0.999,
+      high: price * 1.005,
+      low: price * 0.995,
+      close: price * 0.998
+    };
 
     const payload = {
       pair: SYMBOL.replace("-", ""),
       timeframe: INTERVAL,
+      open: last.open,
+      high: last.high,
+      low: last.low,
       close: price,
-      support,
-      resistance: resist,
+      volume: 100,
+      ema20: price,
+      ema50: price,
+      ema200: price,
+      rsi: 50,
+      structure,
+      support: round(support),
+      resistance: round(resist),
+      barTime: Date.now(),
+      timestamp: new Date().toISOString(),
       lastCandle: last,
       prevCandle: prev,
-      timestamp: new Date().toISOString(),
     };
 
+    // Generate signal (will auto-skip if conditions not met, but zones will show)
     let signal = generateSniperSignal(payload);
-    signal = validateSignal(signal);
     signal.timestamp = new Date().toISOString();
-    signal.price = payload.close;
-    signal.pair = "BTCUSDT";
+    signal.pair = payload.pair;
     signal.source = "simulate";
+    signal.htf_bias = direction === "long" ? "LONG" : direction === "short" ? "SHORT" : "NEUTRAL";
+    signal.htf_structure = structure;
+    signal.updated_at = new Date().toISOString();
+    signal.bar_time = payload.barTime;
+
+    // Get recommendation
+    const recommendation = getSniperRecommendation(signal, payload);
+    signal.recommendation = recommendation;
+
+    // Signal tracking
+    if (!latestSignal || latestSignal.price !== signal.price) {
+      signal.is_same_signal = false;
+    }
 
     latestSignal = signal;
+    latestPayload = payload;
     signalHistory.unshift(signal);
     if (signalHistory.length > 50) signalHistory.pop();
 
     broadcast({ type: "market_data", data: payload });
     broadcast({ type: "signal", data: signal });
     broadcast({ type: "history", data: signalHistory });
-    res.json({ success: true, signal });
+    res.json({ success: true, signal, market_data: payload });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1323,6 +1387,7 @@ server.listen(PORT, async () => {
 ║  /simulate → POST  mock data (dev)                     ║
 ╚════════════════════════════════════════════════════════╝
 `);
-  await tick();
+  // Don't await — start polling in background so server can listen immediately
+  tick().catch(e => console.error("Initial tick error:", e));
   setInterval(tick, POLL_MS);
 });
