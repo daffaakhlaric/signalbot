@@ -48,6 +48,9 @@ const LEVERAGE = 150;                                         // x leverage
 const TP_MULTIPLIER = 1.0;                                    // 100% profit on margin
 const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 
+// ── Signal Generation Mode ─────────────────────────────────
+const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
+
 const BINGX_BASE   = process.env.BINGX_BASE   || "https://open-api.bingx.com";
 const BINGX_API_KEY    = process.env.BINGX_API_KEY    || "";
 const BINGX_API_SECRET = process.env.BINGX_API_SECRET || "";
@@ -222,7 +225,7 @@ function isTradingSession(utcHour) {
 
 // ── Market Structure Detection ─────────────────────────────────
 function detectStructure(highs, lows) {
-  if (highs.length < 20 || lows.length < 20) return "NA";
+  if (highs.length < 10 || lows.length < 10) return "NA";
   const recentH = highs.slice(-10), recentL = lows.slice(-10);
   const priorH  = highs.slice(-20, -10), priorL = lows.slice(-20, -10);
   const maxRH = Math.max(...recentH), maxRL = Math.min(...recentL);
@@ -297,7 +300,7 @@ function confirmEntry(signal, payload) {
 
   if (signal.decision_now === "LONG") {
     const rejection =
-      c.lowerWickPct > 0.4 &&
+      c.lowerWickPct > 0.3 &&
       c.bodyPct < 0.6 &&
       c.isBull;
 
@@ -315,7 +318,7 @@ function confirmEntry(signal, payload) {
 
   if (signal.decision_now === "SHORT") {
     const rejection =
-      c.upperWickPct > 0.4 &&
+      c.upperWickPct > 0.3 &&
       c.bodyPct < 0.6 &&
       c.isBear;
 
@@ -464,8 +467,37 @@ function getHTFBias(htf) {
   return "NEUTRAL";
 }
 
+// ── Get filter thresholds based on mode ─────────────────────
+function getFilterThresholds() {
+  switch (MODE) {
+    case "AGGRESSIVE":
+      return {
+        midRangeWidth: 0.15,    // 30% total (wider trade zone)
+        wickThreshold: 0.25,    // more lenient
+        minRR: 1.3,             // lower RR requirement
+        minMomentum: 0.001      // less strict momentum
+      };
+    case "SAFE":
+      return {
+        midRangeWidth: 0.3,     // 40% no-trade zone (narrower trade zone)
+        wickThreshold: 0.4,     // stricter wicks
+        minRR: 2.0,             // higher RR requirement
+        minMomentum: 0.005      // stricter momentum
+      };
+    case "BALANCED":
+    default:
+      return {
+        midRangeWidth: 0.2,     // 40% total (20% on each side)
+        wickThreshold: 0.3,     // balanced
+        minRR: 1.5,             // standard RR
+        minMomentum: 0.002      // standard momentum
+      };
+  }
+}
+
 // ── Core Sniper Signal Generator ──────────────────────────────
 function generateSniperSignal(payload) {
+  const thresholds = getFilterThresholds();
   const now = new Date();
   const utcHour = now.getUTCHours();
 
@@ -475,8 +507,6 @@ function generateSniperSignal(payload) {
   const range    = resist - support;
   const topZone  = resist - range * 0.15;
   const botZone  = support + range * 0.15;
-  const midLow   = support + range * 0.3;
-  const midHigh  = resist - range * 0.3;
 
   const last   = payload.lastCandle;
   const prev  = payload.prevCandle;
@@ -507,8 +537,10 @@ function generateSniperSignal(payload) {
     return s;
   }
 
-  // 2. Mid-range filter
-  if (price > midLow && price < midHigh) {
+  // 2. Mid-range filter (adjust width based on MODE)
+  const midLowAdj = support + range * thresholds.midRangeWidth;
+  const midHighAdj = resist - range * thresholds.midRangeWidth;
+  if (price > midLowAdj && price < midHighAdj) {
     const s = defaultSignal();
     s.reason = "price in mid-range no trade zone";
     return s;
@@ -578,6 +610,7 @@ function generateSniperSignal(payload) {
 function validateSignal(signal) {
   if (signal.decision_now === "SKIP") return signal;
 
+  const thresholds = getFilterThresholds();
   const isLong  = signal.decision_now === "LONG";
   const entryZone = isLong ? signal.sniper_long.entry_zone : signal.sniper_short.entry_zone;
   const entry   = (entryZone[0] + entryZone[1]) / 2;
@@ -595,9 +628,9 @@ function validateSignal(signal) {
   const reward  = Math.abs(tp - entry) / entry;
   const rr      = reward / risk;
 
-  if (rr < 1.5) {
+  if (rr < thresholds.minRR) {
     signal.decision_now = "SKIP";
-    signal.reason += ` | RR too low ${rr.toFixed(2)}`;
+    signal.reason += ` | RR too low ${rr.toFixed(2)} (min: ${thresholds.minRR})`;
     return signal;
   }
 
@@ -1019,6 +1052,20 @@ async function tick() {
       botLog("warn", `⏳ Cooldown active - next trade available in ${Math.ceil((lastTradeTime + COOLDOWN_MS - Date.now()) / 1000)}s`);
     }
 
+    // FIX 5: Auto-trigger PRIORITIZED — check BEFORE other filters
+    if (!DRY_RUN && signal.decision_now === "SKIP") {
+      const trigger = getRealtimeTrigger(payload15m.lastCandle);
+      if (trigger === "SHORT" && isPriceInZone(payload15m.close, signal.sniper_short.entry_zone)) {
+        botLog("warn", `🔥 AUTO-TRIGGER SHORT | Price ${payload15m.close} in zone [${signal.sniper_short.entry_zone}] with trigger`);
+        signal.decision_now = "SHORT";
+        signal.reason = "real-time trigger in short zone";
+      } else if (trigger === "LONG" && isPriceInZone(payload15m.close, signal.sniper_long.entry_zone)) {
+        botLog("warn", `🔥 AUTO-TRIGGER LONG | Price ${payload15m.close} in zone [${signal.sniper_long.entry_zone}] with trigger`);
+        signal.decision_now = "LONG";
+        signal.reason = "real-time trigger in long zone";
+      }
+    }
+
     const htfBias = getHTFBias(payload1h);
     signal.htf_bias = htfBias;
     signal.htf_timeframe = "1H";
@@ -1038,11 +1085,11 @@ async function tick() {
       signal.reason = `HTF mismatch (${htfBias})`;
     }
 
-    // 3b. Anti fake breakout filter (weak momentum) — adaptive
+    // 3b. Anti fake breakout filter (weak momentum) — mark as low confidence, don't force SKIP
     if (signal.decision_now !== "SKIP") {
       if (momFilter < dynamicMomentum) {
-        signal.decision_now = "SKIP";
-        signal.reason = "weak momentum";
+        signal.confidence = "low";
+        signal.reason += " | weak momentum";
       }
     }
 
@@ -1095,31 +1142,16 @@ async function tick() {
     const recommendation = getSniperRecommendation(signal, payload15m);
     signal.recommendation = recommendation;
 
-    // Auto-execution: Check if price entered zone with trigger
-    if (!DRY_RUN && signal.decision_now === "SKIP") {
-      const trigger = getRealtimeTrigger(payload15m.lastCandle);
-
-      if (trigger === "SHORT" && isPriceInZone(payload15m.close, signal.sniper_short.entry_zone)) {
-        botLog("warn", `🔥 AUTO-TRIGGER SHORT | Price ${payload15m.close} in zone [${signal.sniper_short.entry_zone}] with trigger`);
-        signal.decision_now = "SHORT";
-        signal.reason = "real-time trigger in short zone";
-      } else if (trigger === "LONG" && isPriceInZone(payload15m.close, signal.sniper_long.entry_zone)) {
-        botLog("warn", `🔥 AUTO-TRIGGER LONG | Price ${payload15m.close} in zone [${signal.sniper_long.entry_zone}] with trigger`);
-        signal.decision_now = "LONG";
-        signal.reason = "real-time trigger in long zone";
-      }
-    }
-
-    // Signal scoring (less strict: only reject if score < 1)
+    // Signal scoring (mark as low confidence on low score, don't force SKIP)
     let score = 0;
     if (signal.htf_bias === signal.decision_now) score++;
     if (signal.confidence === "high") score++;
     if (momFilter > dynamicMomentum) score++;
     signal.score = score;
 
-    // Only reject on extremely low score
+    // Mark as low confidence on low score (don't force SKIP)
     if (signal.score < 1 && signal.decision_now !== "SKIP") {
-      signal.decision_now = "SKIP";
+      signal.confidence = "low";
       signal.reason += " | low score";
     }
 
