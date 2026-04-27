@@ -524,6 +524,445 @@ function getScalperRecommendation(payload) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════
+// MULTI-STRATEGY SIGNAL ENGINE
+// ══════════════════════════════════════════════════════════════
+
+// ── Session Detector ─────────────────────────────────────────
+function getSession() {
+  const utcHour = new Date().getUTCHours();
+  if (utcHour >= 7  && utcHour < 12)  return { name: "London Open",   active: true,  quality: "high" };
+  if (utcHour >= 12 && utcHour < 16)  return { name: "NY Open",       active: true,  quality: "high" };
+  if (utcHour >= 16 && utcHour < 20)  return { name: "London/NY Overlap", active: true, quality: "high" };
+  if (utcHour >= 20 && utcHour < 23)  return { name: "NY Session",    active: true,  quality: "medium" };
+  if (utcHour >= 0  && utcHour < 7)   return { name: "Asian Session", active: false, quality: "low" };
+  return { name: "Off-Session", active: false, quality: "low" };
+}
+
+// ── Trend Rider Signal ────────────────────────────────────────
+function getTrendRiderSignal(payload, htfBias) {
+  const { close: price, ema20, ema50, ema200, structure, support, resistance, rsi: rsiVal } = payload;
+  const range = resistance - support;
+
+  const emaUptrend   = ema20 > ema50 && ema50 > ema200 && price > ema20;
+  const emaDowntrend = ema20 < ema50 && ema50 < ema200 && price < ema20;
+
+  const bullStructure = structure === "HH" || structure === "HL";
+  const bearStructure = structure === "LL" || structure === "LH";
+
+  let direction = "WAIT";
+  let reason    = "";
+  let entry = null, tp = null, sl = null, strength = "weak";
+
+  if (emaUptrend && bullStructure && (htfBias === "LONG" || htfBias === "NEUTRAL")) {
+    // Pullback entry near EMA20
+    if (price <= ema20 * 1.005 && price >= ema20 * 0.995) {
+      direction = "LONG";
+      entry = price;
+      tp    = price + range * 0.6;
+      sl    = ema50 * 0.998;
+      reason = `EMA uptrend (20>50>200) + ${structure} structure — pullback to EMA20`;
+      strength = rsiVal < 60 ? "strong" : "moderate";
+    } else {
+      direction = "LONG";
+      entry = ema20;
+      tp    = ema20 + range * 0.6;
+      sl    = ema50 * 0.998;
+      reason = `EMA uptrend + ${structure} — wait pullback to EMA20`;
+      strength = "waiting";
+    }
+  } else if (emaDowntrend && bearStructure && (htfBias === "SHORT" || htfBias === "NEUTRAL")) {
+    if (price >= ema20 * 0.995 && price <= ema20 * 1.005) {
+      direction = "SHORT";
+      entry = price;
+      tp    = price - range * 0.6;
+      sl    = ema50 * 1.002;
+      reason = `EMA downtrend (20<50<200) + ${structure} structure — rejection at EMA20`;
+      strength = rsiVal > 40 ? "strong" : "moderate";
+    } else {
+      direction = "SHORT";
+      entry = ema20;
+      tp    = ema20 - range * 0.6;
+      sl    = ema50 * 1.002;
+      reason = `EMA downtrend + ${structure} — wait rejection at EMA20`;
+      strength = "waiting";
+    }
+  } else {
+    reason = "no EMA alignment for trend";
+  }
+
+  const rr = (entry && tp && sl)
+    ? Math.abs(tp - entry) / Math.abs(entry - sl)
+    : 0;
+
+  return {
+    direction,
+    entry: round(entry, 2),
+    tp:    round(tp, 2),
+    sl:    round(sl, 2),
+    rr:    round(rr, 2),
+    trend_strength: strength,
+    reason,
+  };
+}
+
+// ── Momentum Break Signal ──────────────────────────────────────
+function getMomentumBreakSignal(payload) {
+  const { lastCandle, prevCandle, support, resistance, rsi: rsiVal } = payload;
+  const range = resistance - support;
+
+  const body     = Math.abs(lastCandle.close - lastCandle.open);
+  const fullRange = lastCandle.high - lastCandle.low;
+  const bodyPct  = fullRange > 0 ? body / fullRange : 0;
+  const upperWick = lastCandle.high - Math.max(lastCandle.close, lastCandle.open);
+  const lowerWick = Math.min(lastCandle.close, lastCandle.open) - lastCandle.low;
+
+  const breakResist = lastCandle.close > resistance && prevCandle.close <= resistance;
+  const breakSupport = lastCandle.close < support    && prevCandle.close >= support;
+
+  const strongBody = bodyPct > 0.65;
+  const lowWick    = (breakResist ? upperWick : lowerWick) / fullRange < 0.2;
+
+  let direction = "WAIT", entry = null, tp = null, sl = null, strength = "none";
+  let entry_type = "none", reason = "";
+
+  if (breakResist && strongBody) {
+    direction  = "LONG";
+    entry      = resistance * 1.001;
+    tp         = resistance + range * 0.7;
+    sl         = resistance * 0.997;
+    entry_type = "instant";
+    strength   = strongBody && lowWick ? "strong" : "moderate";
+    reason     = `resistance breakout at ${round(resistance, 2)} — strong body ${(bodyPct * 100).toFixed(0)}%`;
+  } else if (breakSupport && strongBody) {
+    direction  = "SHORT";
+    entry      = support * 0.999;
+    tp         = support - range * 0.7;
+    sl         = support * 1.003;
+    entry_type = "instant";
+    strength   = strongBody && lowWick ? "strong" : "moderate";
+    reason     = `support breakdown at ${round(support, 2)} — strong body ${(bodyPct * 100).toFixed(0)}%`;
+  } else if (rsiVal > 70) {
+    direction = "SHORT"; entry = null;
+    reason = `RSI overbought (${rsiVal}) — potential breakdown`;
+    entry_type = "watching";
+  } else if (rsiVal < 30) {
+    direction = "LONG"; entry = null;
+    reason = `RSI oversold (${rsiVal}) — potential breakout`;
+    entry_type = "watching";
+  } else {
+    reason = "no valid breakout detected";
+  }
+
+  const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
+
+  return {
+    direction,
+    breakout_level: breakResist ? round(resistance, 2) : breakSupport ? round(support, 2) : null,
+    entry_type,
+    entry: round(entry, 2),
+    tp:    round(tp, 2),
+    sl:    round(sl, 2),
+    rr:    round(rr, 2),
+    strength,
+    reason,
+  };
+}
+
+// ── Liquidity Sweep Signal ─────────────────────────────────────
+function getLiquiditySweepSignal(payload) {
+  const { lastCandle, support, resistance, close: price } = payload;
+  const range = resistance - support;
+
+  const fullRange  = lastCandle.high - lastCandle.low;
+  if (fullRange === 0) return { direction: "WAIT", reason: "no range" };
+
+  const upperWick = lastCandle.high - Math.max(lastCandle.close, lastCandle.open);
+  const lowerWick = Math.min(lastCandle.close, lastCandle.open) - lastCandle.low;
+  const upperWickPct = upperWick / fullRange;
+  const lowerWickPct = lowerWick / fullRange;
+
+  // Liquidity sweep: spike above resistance then close back below
+  const upperSweep = lastCandle.high > resistance && lastCandle.close < resistance && upperWickPct > 0.4;
+  // Liquidity sweep: spike below support then close back above
+  const lowerSweep = lastCandle.low < support && lastCandle.close > support && lowerWickPct > 0.4;
+
+  let direction = "WAIT", entry = null, tp = null, sl = null, reason = "", liquidity_zone = null;
+
+  if (upperSweep) {
+    direction      = "SHORT";
+    liquidity_zone = round(resistance, 2);
+    entry          = price;
+    tp             = price - range * 0.55;
+    sl             = lastCandle.high * 1.001;
+    reason = `liquidity grab above resistance (${round(resistance, 2)}) — upper wick ${(upperWickPct * 100).toFixed(0)}% — reversal short`;
+  } else if (lowerSweep) {
+    direction      = "LONG";
+    liquidity_zone = round(support, 2);
+    entry          = price;
+    tp             = price + range * 0.55;
+    sl             = lastCandle.low * 0.999;
+    reason = `liquidity grab below support (${round(support, 2)}) — lower wick ${(lowerWickPct * 100).toFixed(0)}% — reversal long`;
+  } else {
+    reason = "no liquidity sweep detected";
+  }
+
+  const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
+
+  return {
+    direction,
+    liquidity_zone,
+    entry: round(entry, 2),
+    tp:    round(tp, 2),
+    sl:    round(sl, 2),
+    rr:    round(rr, 2),
+    reason,
+  };
+}
+
+// ── Structure Flip Signal ──────────────────────────────────────
+function getStructureFlipSignal(payload, prevStructure) {
+  const { structure, close: price, support, resistance, lastCandle, prevCandle } = payload;
+  const range = resistance - support;
+
+  // Structure flip detection
+  const bullFlip = (prevStructure === "LL" || prevStructure === "LH") &&
+                   (structure === "HL" || structure === "HH");
+  const bearFlip = (prevStructure === "HH" || prevStructure === "HL") &&
+                   (structure === "LH" || structure === "LL");
+
+  const body = Math.abs(lastCandle.close - lastCandle.open);
+  const fullRange = lastCandle.high - lastCandle.low;
+  const bodyPct = fullRange > 0 ? body / fullRange : 0;
+  const isEngulfing = bodyPct > 0.6 &&
+    ((lastCandle.close > lastCandle.open && lastCandle.close > prevCandle.open && lastCandle.open < prevCandle.close) ||
+     (lastCandle.close < lastCandle.open && lastCandle.close < prevCandle.open && lastCandle.open > prevCandle.close));
+
+  let direction = "WAIT", entry = null, tp = null, sl = null;
+  let reversal_type = "none", confidence = "low", reason = "";
+
+  if (bullFlip) {
+    direction    = "LONG";
+    reversal_type = `${prevStructure} → ${structure}`;
+    entry        = price;
+    tp           = price + range * 0.65;
+    sl           = support * 0.997;
+    confidence   = isEngulfing ? "high" : "medium";
+    reason = `structure flip ${reversal_type}${isEngulfing ? " + engulfing confirmation" : ""}`;
+  } else if (bearFlip) {
+    direction    = "SHORT";
+    reversal_type = `${prevStructure} → ${structure}`;
+    entry        = price;
+    tp           = price - range * 0.65;
+    sl           = resistance * 1.003;
+    confidence   = isEngulfing ? "high" : "medium";
+    reason = `structure flip ${reversal_type}${isEngulfing ? " + engulfing confirmation" : ""}`;
+  } else {
+    reason = `no structure flip (current: ${structure}, prior: ${prevStructure || "N/A"})`;
+  }
+
+  const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
+
+  return {
+    direction,
+    reversal_type,
+    entry: round(entry, 2),
+    tp:    round(tp, 2),
+    sl:    round(sl, 2),
+    rr:    round(rr, 2),
+    confidence,
+    reason,
+  };
+}
+
+// ── Signal Score (0–5 confluence) ─────────────────────────────
+function computeSignalScore(direction, payload, htfBias, momFilter) {
+  if (direction === "WAIT" || direction === "SKIP" || !direction) return 0;
+  let score = 0;
+  const { ema20, ema50, ema200, rsi: rsiVal, structure, close: price } = payload;
+
+  // 1. HTF bias alignment
+  if (htfBias === direction) score++;
+
+  // 2. Full EMA alignment
+  const emaUp   = ema20 > ema50 && ema50 > ema200;
+  const emaDown = ema20 < ema50 && ema50 < ema200;
+  if ((direction === "LONG" && emaUp) || (direction === "SHORT" && emaDown)) score++;
+
+  // 3. Strong momentum
+  const range = payload.resistance - payload.support;
+  const dynMom = (range / price) * 0.2;
+  if (momFilter > dynMom) score++;
+
+  // 4. RSI confluence
+  if (direction === "LONG"  && rsiVal < 60 && rsiVal > 25) score++;
+  if (direction === "SHORT" && rsiVal > 40 && rsiVal < 75) score++;
+
+  // 5. Structure alignment
+  const bullStruct = structure === "HH" || structure === "HL";
+  const bearStruct = structure === "LL" || structure === "LH";
+  if ((direction === "LONG" && bullStruct) || (direction === "SHORT" && bearStruct)) score++;
+
+  return score;
+}
+
+// ── Elite Setup (High Confluence Filter) ──────────────────────
+function getEliteSetupSignal(signals, payload, htfBias, momFilter) {
+  const candidates = [];
+
+  const check = (name, sig) => {
+    if (!sig || sig.direction === "WAIT" || sig.direction === "SKIP") return;
+    const score = computeSignalScore(sig.direction, payload, htfBias, momFilter);
+    if (score >= 3 && sig.rr >= 1.8) {
+      candidates.push({ name, score, ...sig });
+    }
+  };
+
+  check("Precision Entry",  signals.precision_entry);
+  check("Quick Strike",     signals.quick_strike);
+  check("Trend Rider",      signals.trend_rider);
+  check("Momentum Break",   signals.momentum_break);
+  check("Liquidity Sweep",  signals.liquidity_sweep);
+  check("Structure Flip",   signals.structure_flip);
+
+  if (candidates.length === 0) {
+    return {
+      active: false,
+      direction: "WAIT",
+      signal_type: "none",
+      entry: null, tp: null, sl: null, rr: null,
+      score: 0,
+      reason: "no elite setup — confluence below threshold",
+    };
+  }
+
+  // Pick best (highest score, then highest RR)
+  candidates.sort((a, b) => b.score - a.score || b.rr - a.rr);
+  const best = candidates[0];
+
+  return {
+    active: true,
+    direction: best.direction,
+    signal_type: best.name,
+    entry: best.entry,
+    tp:    best.tp,
+    sl:    best.sl,
+    rr:    round(best.rr, 2),
+    score: best.score,
+    reason: `Elite setup from ${best.name} — score ${best.score}/5 | ${best.reason}`,
+  };
+}
+
+// ── Build Full Multi-Strategy Signals ─────────────────────────
+function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
+  const momFilter = Math.abs(payload.close - payload.prevCandle.close) / payload.close;
+
+  // Renamed signals (premium branding)
+  const precision_entry = {
+    direction: sniperSignal.decision_now === "SKIP" ? "WAIT" : sniperSignal.decision_now,
+    entry: sniperSignal.decision_now === "LONG"
+      ? sniperSignal.sniper_long?.entry_zone?.[0]
+      : sniperSignal.sniper_short?.entry_zone?.[0],
+    tp: sniperSignal.decision_now === "LONG"
+      ? sniperSignal.sniper_long?.tp?.[0]
+      : sniperSignal.sniper_short?.tp?.[0],
+    sl: sniperSignal.decision_now === "LONG"
+      ? sniperSignal.sniper_long?.sl
+      : sniperSignal.sniper_short?.sl,
+    rr: null,
+    confidence: sniperSignal.confidence,
+    reason: sniperSignal.reason,
+    status: sniperSignal.decision_now === "SKIP" ? "WAIT" : "ACTIVE",
+  };
+  if (precision_entry.entry && precision_entry.tp && precision_entry.sl) {
+    precision_entry.rr = round(
+      Math.abs(precision_entry.tp - precision_entry.entry) /
+      Math.abs(precision_entry.entry - precision_entry.sl), 2
+    );
+  }
+
+  const scalperRaw   = getScalperRecommendation(payload);
+  const quick_strike = {
+    direction: scalperRaw.direction,
+    entry: scalperRaw.entry,
+    tp:    scalperRaw.tp,
+    sl:    scalperRaw.sl,
+    rr: scalperRaw.entry && scalperRaw.tp && scalperRaw.sl
+      ? round(Math.abs(scalperRaw.tp - scalperRaw.entry) / Math.abs(scalperRaw.entry - scalperRaw.sl), 2)
+      : null,
+    reason: scalperRaw.reason,
+    status: scalperRaw.direction !== "NONE" ? "ACTIVE" : "WAIT",
+  };
+
+  const trend_rider    = getTrendRiderSignal(payload, htfBias);
+  const momentum_break = getMomentumBreakSignal(payload);
+  const liquidity_sweep = getLiquiditySweepSignal(payload);
+  const structure_flip  = getStructureFlipSignal(payload, prevStructure);
+
+  const signals = {
+    precision_entry,
+    quick_strike,
+    trend_rider,
+    momentum_break,
+    liquidity_sweep,
+    structure_flip,
+  };
+
+  // Score each signal
+  Object.keys(signals).forEach(key => {
+    const sig = signals[key];
+    if (sig && sig.direction && sig.direction !== "WAIT") {
+      sig.score = computeSignalScore(sig.direction, payload, htfBias, momFilter);
+    } else {
+      sig.score = 0;
+    }
+  });
+
+  const elite_setup = getEliteSetupSignal(signals, payload, htfBias, momFilter);
+  const session     = getSession();
+
+  // Priority signal: best active signal
+  const activeSignals = Object.entries(signals)
+    .filter(([, s]) => s.direction && s.direction !== "WAIT" && s.rr >= 1.5)
+    .sort(([, a], [, b]) => (b.score || 0) - (a.score || 0) || (b.rr || 0) - (a.rr || 0));
+
+  const topSignal = activeSignals[0];
+  const priority_signal = topSignal ? {
+    type:       topSignal[0].replace(/_/g, " ").toUpperCase(),
+    action:     topSignal[1].direction,
+    entry:      topSignal[1].entry,
+    tp:         topSignal[1].tp,
+    sl:         topSignal[1].sl,
+    rr:         topSignal[1].rr,
+    score:      topSignal[1].score,
+    confidence: (topSignal[1].score >= 4) ? "high" : (topSignal[1].score >= 2) ? "medium" : "low",
+    reason:     topSignal[1].reason,
+  } : {
+    type: "NONE", action: "WAIT", entry: null, tp: null, sl: null,
+    score: 0, confidence: "low", reason: "no valid setup across all strategies",
+  };
+
+  return {
+    pair:      payload.pair,
+    timestamp: new Date().toISOString(),
+    signals,
+    elite_setup,
+    session,
+    priority_signal,
+    market_context: {
+      price:     payload.close,
+      structure: payload.structure,
+      htf_bias:  htfBias,
+      ema20:     payload.ema20,
+      ema50:     payload.ema50,
+      ema200:    payload.ema200,
+      rsi:       payload.rsi,
+      support:   payload.support,
+      resistance: payload.resistance,
+    },
+  };
+}
+
 // ── Priority Recommendation (Sniper vs Scalper) ────────────────
 function getPriorityRecommendation(signal) {
   const sniper = signal.recommendation;
@@ -1236,13 +1675,13 @@ async function processPair(symbol) {
     const priority = getPriorityRecommendation(signal);
     signal.priority = priority;
 
-    // Signal scoring
-    let score = 0;
-    if (signal.htf_bias === signal.decision_now) score++;
-    if (signal.confidence === "high") score++;
-    if (momFilter > dynamicMomentum) score++;
-    signal.score = score;
+    // Build multi-strategy signals
+    const prevStructure = state.latestSignal?.market_context?.structure || payload15m.structure;
+    const multiSignals  = buildMultiSignals(payload15m, htfBias, signal, prevStructure);
+    signal.multi        = multiSignals;
 
+    // Signal scoring (legacy + new)
+    signal.score = multiSignals.priority_signal.score || 0;
     if (signal.score < 1 && signal.decision_now !== "SKIP") {
       signal.confidence = "low";
       signal.reason += " | low score";
@@ -1274,10 +1713,11 @@ async function processPair(symbol) {
     broadcast({
       type: "multi_signal",
       data: {
-        pair: signal.pair,
+        pair:   signal.pair,
         symbol: symbol,
         signal,
-        market: payload15m
+        market: payload15m,
+        multi:  multiSignals,
       }
     });
 
