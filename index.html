@@ -228,10 +228,16 @@
     grid-column: 1 / -1;
     padding: 20px 24px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 16px;
     background: var(--bg2);
     border-bottom: 1px solid var(--border);
+  }
+
+  .decision-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .decision-badge {
@@ -1519,16 +1525,22 @@
 
   <!-- DECISION BANNER -->
   <div class="decision-panel" id="decision-panel">
-    <div class="decision-badge wait" id="decision-badge">WAITING</div>
-    <div class="decision-meta">
-      <div class="decision-reason" id="decision-reason">Waiting for TradingView webhook signal...</div>
-      <div class="decision-time" id="decision-time">——</div>
+    <!-- Header with badge, reason, and market badges -->
+    <div class="decision-header">
+      <div style="display:flex;align-items:center;gap:20px;flex:1">
+        <div class="decision-badge wait" id="decision-badge">WAITING</div>
+        <div class="decision-meta">
+          <div class="decision-reason" id="decision-reason">Waiting for TradingView webhook signal...</div>
+          <div class="decision-time" id="decision-time">——</div>
+        </div>
+      </div>
+      <div class="market-badges">
+        <span class="badge default" id="badge-bias">BIAS</span>
+        <span class="badge default" id="badge-condition">CONDITION</span>
+      </div>
     </div>
-    <div class="market-badges">
-      <span class="badge default" id="badge-bias">BIAS</span>
-      <span class="badge default" id="badge-condition">CONDITION</span>
-    </div>
-    <!-- SNIPER RECOMMENDATION -->
+
+    <!-- SNIPER RECOMMENDATION (detailed card) -->
     <div class="recommendation-panel" id="recommendation-panel" style="display:none">
       <div class="rec-label">🎯 SNIPER RECOMMENDATION</div>
       <div class="rec-direction" id="rec-direction">NONE</div>
@@ -1559,7 +1571,7 @@
       </div>
     </div>
 
-    <!-- RECOMMENDATIONS CONTAINER (HORIZONTAL LAYOUT) -->
+    <!-- RECOMMENDATIONS CONTAINER (SCALPER + PRIORITY) -->
     <div class="recommendations-container">
       <!-- SCALPER RECOMMENDATION CARD -->
       <div class="recommendation-card" id="scalper-panel" style="display:none">
