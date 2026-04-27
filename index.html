@@ -1207,6 +1207,7 @@ function connect() {
   ws.onopen = () => {
     setWsStatus('connected');
     log('ok', 'WebSocket connected — Apex Sniper live');
+    ws.isAlive = true;
   };
 
   ws.onmessage = (e) => {
@@ -1237,6 +1238,8 @@ function connect() {
   };
 
   ws.onerror = () => log('err', 'WebSocket error — check console');
+
+  ws.onpong = () => { ws.isAlive = true; };
 }
 
 // ── Simulate ──────────────────────────────────────────────────

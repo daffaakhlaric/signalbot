@@ -117,6 +117,8 @@ function botLog(level, message) {
 wss.on("connection", (ws) => {
   console.log("📡 Dashboard connected");
   botLog("info", "📡 Dashboard connected");
+  ws.isAlive = true;
+  ws.on("pong", () => { ws.isAlive = true; });
   if (latestPayload) ws.send(JSON.stringify({ type: "market_data", data: latestPayload }));
   if (latestSignal)  ws.send(JSON.stringify({ type: "signal", data: latestSignal }));
   if (signalHistory.length) ws.send(JSON.stringify({ type: "history", data: signalHistory }));
@@ -124,6 +126,16 @@ wss.on("connection", (ws) => {
   if (dryTrades.length) ws.send(JSON.stringify({ type: "dry_trades", data: dryTrades }));
   if (dryTradesHistory.length) ws.send(JSON.stringify({ type: "dry_history", data: dryTradesHistory }));
 });
+
+const heartbeat = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (!ws.isAlive) { ws.terminate(); return; }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on("close", () => clearInterval(heartbeat));
 
 // ── HTTP helper with timeout + friendly error messages ────────
 async function httpGet(url) {
