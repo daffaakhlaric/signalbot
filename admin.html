@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Apex Sniper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<style>
+:root {
+  --bg:      #0B0F14;
+  --card:    #121821;
+  --card2:   #0d1420;
+  --border:  rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --green:   #00FFA3;
+  --red:     #FF4D4D;
+  --blue:    #3B82F6;
+  --gold:    #FACC15;
+  --orange:  #f97316;
+  --purple:  #a855f7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 220px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+.sidebar-logo {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--green);
+}
+.sidebar-logo-sub {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  margin-top: 2px;
+}
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.nav-item.active { background: rgba(0,255,163,0.1); color: var(--green); }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+.nav-badge.zero { background: rgba(255,255,255,0.1); color: var(--muted); }
+.sidebar-footer {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
+.admin-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.admin-avatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--green), var(--blue));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+  flex-shrink: 0;
+}
+.admin-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.admin-role { font-size: 10px; color: var(--green); }
+.btn-logout {
+  width: 100%;
+  padding: 8px;
+  background: rgba(255,77,77,0.1);
+  border: 1px solid rgba(255,77,77,0.2);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-logout:hover { background: rgba(255,77,77,0.18); }
+
+/* ── Main ── */
+.main {
+  margin-left: 220px;
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(18,24,33,0.8);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.page-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+.page-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-sm {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-sm:hover { background: rgba(255,255,255,0.08); }
+.btn-sm.green { border-color: rgba(0,255,163,0.3); color: var(--green); background: rgba(0,255,163,0.06); }
+.btn-sm.green:hover { background: rgba(0,255,163,0.12); }
+
+.content {
+  padding: 24px 28px;
+  flex: 1;
+}
+
+/* ── Panels (Tab Content) ── */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Stat Cards ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+}
+.stat-value.green { color: var(--green); }
+.stat-value.gold  { color: var(--gold); }
+.stat-value.red   { color: var(--red); }
+.stat-value.blue  { color: var(--blue); }
+
+/* ── Table ── */
+.table-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.table-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.search-input {
+  padding: 7px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: rgba(0,255,163,0.3); }
+.search-input::placeholder { color: var(--muted); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+td {
+  padding: 12px 16px;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  flex-shrink: 0;
+}
+.user-name { font-weight: 600; font-size: 13px; }
+.user-email { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.user-phone { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+.joined-date { font-size: 12px; color: var(--muted); }
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.badge-pending  { background: rgba(250,204,21,0.12); border: 1px solid rgba(250,204,21,0.3); color: var(--gold); }
+.badge-verified { background: rgba(0,255,163,0.1);  border: 1px solid rgba(0,255,163,0.3);  color: var(--green); }
+.badge-rejected { background: rgba(255,77,77,0.1);  border: 1px solid rgba(255,77,77,0.3);  color: var(--red); }
+.badge-admin    { background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); color: var(--purple); }
+
+/* Action buttons */
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-verify {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(0,255,163,0.3);
+  background: rgba(0,255,163,0.08);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-verify:hover { background: rgba(0,255,163,0.18); }
+.btn-reject {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,77,77,0.3);
+  background: rgba(255,77,77,0.08);
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-reject:hover { background: rgba(255,77,77,0.18); }
+.btn-unverify {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-unverify:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.empty-desc { font-size: 13px; }
+
+/* Loading */
+.loading-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--muted);
+}
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0,255,163,0.2);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: toastIn 0.3s ease;
+  max-width: 300px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.toast-success { background: rgba(0,255,163,0.15); border: 1px solid rgba(0,255,163,0.3); color: var(--green); }
+.toast-error   { background: rgba(255,77,77,0.15);  border: 1px solid rgba(255,77,77,0.3);  color: var(--red); }
+@keyframes toastIn { from { opacity:0; transform: translateX(20px); } }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+}
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.modal-desc  { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.modal-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  margin-bottom: 16px;
+}
+.modal-input:focus { border-color: rgba(255,77,77,0.4); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.btn-confirm-reject {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: var(--red);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-confirm-reject:hover { background: #ff3333; }
+
+/* ── Signal Cards (Admin Signal View) ── */
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+.sig-card {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  transition: border-color 0.2s;
+}
+.sig-card:hover { border-color: var(--border2); }
+.sig-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.sig-pair {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sig-time { font-size: 11px; color: var(--muted); }
+.sig-dir {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+.sig-dir.LONG  { color: var(--green); }
+.sig-dir.SHORT { color: var(--red); }
+.sig-dir.SKIP  { color: var(--muted); }
+.sig-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.sig-label { font-size: 11px; color: var(--muted); }
+.sig-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text); }
+.sig-reason { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.4; border-top: 1px solid var(--border); padding-top: 8px; }
+.sig-source { font-size: 10px; color: var(--blue); margin-top: 4px; }
+.no-signals { text-align: center; padding: 48px; color: var(--muted); }
+
+/* Filter tabs */
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.filter-tab {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.filter-tab.active { background: rgba(0,255,163,0.1); border-color: rgba(0,255,163,0.3); color: var(--green); }
+.filter-tab.all.active { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); color: var(--blue); }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .sidebar { width: 56px; }
+  .sidebar .nav-item span.label { display: none; }
+  .sidebar-logo-sub, .sidebar-logo-title, .admin-info, .sidebar-logo { display: none; }
+  .main { margin-left: 56px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .topbar { padding: 12px 16px; }
+  .content { padding: 16px; }
+  table { font-size: 12px; }
+  td { padding: 10px 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Reject modal -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-title">❌ Tolak Pendaftaran</div>
+    <div class="modal-desc">Masukkan alasan penolakan (opsional). Akan ditampilkan ke user.</div>
+    <input class="modal-input" id="rejectReason" placeholder="Contoh: Pembayaran belum dikonfirmasi" maxlength="200">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRejectModal()">Batal</button>
+      <button class="btn-confirm-reject" onclick="confirmReject()">Tolak Pendaftaran</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-title">APEX</div>
+    <div class="sidebar-logo-sub">ADMIN PANEL</div>
+  </div>
+  <div class="sidebar-nav">
+    <button class="nav-item active" onclick="showPanel('dashboard')" id="nav-dashboard">
+      <span class="icon">📊</span>
+      <span class="label">Dashboard</span>
+    </button>
+    <button class="nav-item" onclick="showPanel('users')" id="nav-users">
+      <span class="icon">👥</span>
+      <span class="label">Semua User</span>
+      <span class="nav-badge zero" id="badge-all">0</span>
+    </button>
+    <button class="nav-item" onclick="showPanel('pending')" id="nav-pending">
+      <span class="icon">⏳</span>
+      <span class="label">Pending</span>
+      <span class="nav-badge" id="badge-pending">0</span>
+    </button>
+    <button class="nav-item" onclick="showPanel('signals')" id="nav-signals">
+      <span class="icon">⚡</span>
+      <span class="label">Signals</span>
+    </button>
+  </div>
+  <div class="sidebar-footer">
+    <div class="admin-info">
+      <div class="admin-avatar" id="adminAvatar">A</div>
+      <div>
+        <div class="admin-name" id="adminName">Admin</div>
+        <div class="admin-role">● ADMINISTRATOR</div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="handleLogout()">🚪 Keluar</button>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="pageTitle">Dashboard</div>
+      <div class="page-sub" id="pageSub">Ringkasan sistem Apex Sniper</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-sm green" onclick="refreshAll()">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Dashboard Panel ── -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-label">Total Member</div>
+          <div class="stat-value blue" id="stat-total">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Terverifikasi</div>
+          <div class="stat-value green" id="stat-verified">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending</div>
+          <div class="stat-value gold" id="stat-pending">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ditolak</div>
+          <div class="stat-value red" id="stat-rejected">–</div>
+        </div>
+      </div>
+
+      <!-- Pending users quick view -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">⏳ Menunggu Verifikasi</div>
+          <button class="btn-sm" onclick="showPanel('pending')">Lihat Semua →</button>
+        </div>
+        <div id="dashPendingTable">
+          <div class="loading-state"><div class="spinner"></div><br>Memuat data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── All Users Panel ── -->
+    <div class="panel" id="panel-users">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">👥 Semua Member</div>
+          <input type="text" class="search-input" placeholder="Cari nama/email..." oninput="filterUsers(this.value)" id="searchInput">
+        </div>
+        <div id="usersTableWrap">
+          <div class="loading-state"><div class="spinner"></div><br>Memuat data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pending Panel ── -->
+    <div class="panel" id="panel-pending">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">⏳ Pending Verifikasi</div>
+          <button class="btn-sm green" onclick="loadUsers()">🔄 Refresh</button>
+        </div>
+        <div id="pendingTableWrap">
+          <div class="loading-state"><div class="spinner"></div><br>Memuat data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Signals Panel ── -->
+    <div class="panel" id="panel-signals">
+      <div class="filter-tabs">
+        <button class="filter-tab all active" onclick="filterSignals('all', this)">Semua</button>
+        <button class="filter-tab" onclick="filterSignals('LONG', this)">🟢 LONG</button>
+        <button class="filter-tab" onclick="filterSignals('SHORT', this)">🔴 SHORT</button>
+        <button class="filter-tab" onclick="filterSignals('SKIP', this)">⬜ SKIP</button>
+      </div>
+      <div id="signalsGrid">
+        <div class="loading-state"><div class="spinner"></div><br>Memuat signals...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+const API = window.location.origin; // same origin as server.js
+let allUsers = [];
+let allSignals = [];
+let rejectTargetId = null;
+
+// ── Auth guard ──────────────────────────────────────────────
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+
+  const { data: profile } = await db
+    .from('profiles')
+    .select('role, full_name, email')
+    .eq('id', session.user.id)
+    .single();
+
+  if (!profile || profile.role !== 'admin') {
+    await db.auth.signOut();
+    window.location.href = '/login.html';
+    return;
+  }
+
+  document.getElementById('adminName').textContent = profile.full_name || profile.email;
+  document.getElementById('adminAvatar').textContent = (profile.full_name || profile.email)[0].toUpperCase();
+
+  await loadUsers();
+  await loadSignals();
+})();
+
+// ── Navigation ──────────────────────────────────────────────
+const PAGE_TITLES = {
+  dashboard: ['Dashboard', 'Ringkasan sistem Apex Sniper'],
+  users:     ['Semua Member', 'Kelola akun member terdaftar'],
+  pending:   ['Pending Verifikasi', 'Akun menunggu persetujuan admin'],
+  signals:   ['Signal History', 'Seluruh signal yang dihasilkan bot'],
+};
+
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  document.getElementById(`nav-${name}`).classList.add('active');
+  const [title, sub] = PAGE_TITLES[name] || ['', ''];
+  document.getElementById('pageTitle').textContent = title;
+  document.getElementById('pageSub').textContent   = sub;
+  if (name === 'signals') loadSignals();
+}
+
+// ── Load Users ──────────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const { data, error } = await db
+      .from('profiles')
+      .select('*')
+      .neq('role', 'admin')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    allUsers = data || [];
+    renderStats();
+    renderDashPending();
+    renderUsersTable(allUsers);
+    renderPendingTable();
+    updateBadges();
+  } catch (err) {
+    toast('error', '❌ Gagal memuat users: ' + err.message);
+  }
+}
+
+function renderStats() {
+  const total    = allUsers.length;
+  const verified = allUsers.filter(u => u.is_verified && !u.rejected).length;
+  const pending  = allUsers.filter(u => !u.is_verified && !u.rejected).length;
+  const rejected = allUsers.filter(u => u.rejected).length;
+
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-verified').textContent = verified;
+  document.getElementById('stat-pending').textContent  = pending;
+  document.getElementById('stat-rejected').textContent = rejected;
+}
+
+function updateBadges() {
+  const pending = allUsers.filter(u => !u.is_verified && !u.rejected).length;
+  const total   = allUsers.length;
+  const bPending = document.getElementById('badge-pending');
+  const bAll     = document.getElementById('badge-all');
+  bPending.textContent = pending;
+  bPending.className   = 'nav-badge' + (pending === 0 ? ' zero' : '');
+  bAll.textContent     = total;
+  bAll.className       = 'nav-badge zero';
+}
+
+const AVATAR_COLORS = ['#00FFA3','#3B82F6','#FACC15','#f97316','#a855f7','#06b6d4'];
+function avatarColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function userRow(u, showActions = true) {
+  const initials = (u.full_name || u.email || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const color    = avatarColor(u.email || u.id);
+  const joined   = new Date(u.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+
+  let statusBadge;
+  if (u.rejected)    statusBadge = `<span class="badge badge-rejected">✕ Ditolak</span>`;
+  else if (u.is_verified) statusBadge = `<span class="badge badge-verified">✓ Terverifikasi</span>`;
+  else               statusBadge = `<span class="badge badge-pending">⏳ Pending</span>`;
+
+  let actionBtns = '';
+  if (showActions) {
+    if (!u.is_verified && !u.rejected) {
+      actionBtns = `
+        <button class="btn-verify" onclick="verifyUser('${u.id}','${escHtml(u.full_name)}')">✓ Verifikasi</button>
+        <button class="btn-reject" onclick="openRejectModal('${u.id}','${escHtml(u.full_name)}')">✕ Tolak</button>`;
+    } else if (u.is_verified && !u.rejected) {
+      actionBtns = `
+        <button class="btn-unverify" onclick="unverifyUser('${u.id}','${escHtml(u.full_name)}')">Batalkan Verifikasi</button>
+        <button class="btn-reject" onclick="openRejectModal('${u.id}','${escHtml(u.full_name)}')">✕ Tolak</button>`;
+    } else {
+      actionBtns = `<button class="btn-verify" onclick="verifyUser('${u.id}','${escHtml(u.full_name)}')">↩ Pulihkan</button>`;
+    }
+  }
+
+  return `<tr data-name="${escHtml((u.full_name||'').toLowerCase())}" data-email="${escHtml((u.email||'').toLowerCase())}">
+    <td><div class="user-cell">
+      <div class="user-avatar" style="background:${color};color:#000">${initials}</div>
+      <div><div class="user-name">${escHtml(u.full_name || '–')}</div>
+           <div class="user-email">${escHtml(u.email || '–')}</div></div>
+    </div></td>
+    <td><div class="user-phone">${escHtml(u.phone || '–')}</div></td>
+    <td>${statusBadge}</td>
+    <td><div class="joined-date">${joined}</div></td>
+    ${showActions ? `<td><div class="actions">${actionBtns}</div></td>` : ''}
+  </tr>`;
+}
+
+function renderUsersTable(users) {
+  const wrap = document.getElementById('usersTableWrap');
+  if (!users.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">Belum ada member</div></div>`;
+    return;
+  }
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Member</th><th>No. HP</th><th>Status</th><th>Bergabung</th><th>Aksi</th>
+    </tr></thead>
+    <tbody>${users.map(u => userRow(u)).join('')}</tbody>
+  </table>`;
+}
+
+function renderPendingTable() {
+  const wrap   = document.getElementById('pendingTableWrap');
+  const pending = allUsers.filter(u => !u.is_verified && !u.rejected);
+  if (!pending.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Tidak ada yang pending</div><div class="empty-desc">Semua user sudah diverifikasi.</div></div>`;
+    return;
+  }
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Member</th><th>No. HP</th><th>Status</th><th>Bergabung</th><th>Aksi</th>
+    </tr></thead>
+    <tbody>${pending.map(u => userRow(u)).join('')}</tbody>
+  </table>`;
+}
+
+function renderDashPending() {
+  const wrap    = document.getElementById('dashPendingTable');
+  const pending = allUsers.filter(u => !u.is_verified && !u.rejected).slice(0, 5);
+  if (!pending.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Tidak ada yang menunggu</div></div>`;
+    return;
+  }
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Member</th><th>No. HP</th><th>Status</th><th>Bergabung</th><th>Aksi</th>
+    </tr></thead>
+    <tbody>${pending.map(u => userRow(u)).join('')}</tbody>
+  </table>`;
+}
+
+function filterUsers(q) {
+  const rows = document.querySelectorAll('#usersTableWrap tbody tr');
+  q = q.toLowerCase();
+  rows.forEach(row => {
+    const name  = row.dataset.name  || '';
+    const email = row.dataset.email || '';
+    row.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+  });
+}
+
+// ── Verify / Reject ─────────────────────────────────────────
+async function verifyUser(id, name) {
+  try {
+    const { error } = await db
+      .from('profiles')
+      .update({ is_verified: true, rejected: false, reject_reason: null })
+      .eq('id', id);
+    if (error) throw error;
+    toast('success', `✅ ${name} berhasil diverifikasi`);
+    await loadUsers();
+  } catch (err) { toast('error', '❌ ' + err.message); }
+}
+
+async function unverifyUser(id, name) {
+  try {
+    const { error } = await db
+      .from('profiles')
+      .update({ is_verified: false })
+      .eq('id', id);
+    if (error) throw error;
+    toast('success', `⚠️ Verifikasi ${name} dibatalkan`);
+    await loadUsers();
+  } catch (err) { toast('error', '❌ ' + err.message); }
+}
+
+function openRejectModal(id, name) {
+  rejectTargetId = id;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.add('show');
+  document.getElementById('rejectModal').dataset.name = name;
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.remove('show');
+  rejectTargetId = null;
+}
+
+async function confirmReject() {
+  if (!rejectTargetId) return;
+  const reason = document.getElementById('rejectReason').value.trim();
+  const name   = document.getElementById('rejectModal').dataset.name;
+  try {
+    const { error } = await db
+      .from('profiles')
+      .update({ rejected: true, is_verified: false, reject_reason: reason || null })
+      .eq('id', rejectTargetId);
+    if (error) throw error;
+    toast('success', `✕ ${name} ditolak`);
+    closeRejectModal();
+    await loadUsers();
+  } catch (err) { toast('error', '❌ ' + err.message); }
+}
+
+// ── Signals ─────────────────────────────────────────────────
+let signalFilter = 'all';
+
+async function loadSignals() {
+  try {
+    const res  = await fetch(`${API}/history`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    allSignals = await res.json();
+    renderSignals();
+  } catch (err) {
+    document.getElementById('signalsGrid').innerHTML =
+      `<div class="no-signals">⚠️ Gagal memuat signals: ${err.message}<br><small>Pastikan server berjalan di port yang sama.</small></div>`;
+  }
+}
+
+function filterSignals(dir, btn) {
+  signalFilter = dir;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderSignals();
+}
+
+function renderSignals() {
+  const grid = document.getElementById('signalsGrid');
+  let sigs   = allSignals;
+
+  if (signalFilter !== 'all') {
+    sigs = sigs.filter(s => s.decision_now === signalFilter);
+  }
+
+  if (!sigs.length) {
+    grid.innerHTML = `<div class="no-signals">📭 Tidak ada signal untuk filter ini.</div>`;
+    return;
+  }
+
+  grid.className = 'signal-grid';
+  grid.innerHTML = sigs.slice(0, 60).map(sig => {
+    const dir = sig.decision_now || 'SKIP';
+    const time = sig.timestamp ? new Date(sig.timestamp).toLocaleString('id-ID') : '–';
+    const price = sig.price ? sig.price.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '–';
+    const pair  = sig.pair || 'BTCUSDT';
+    const src   = sig.source || '';
+    const reason = sig.reason || '–';
+    const score  = sig.score !== undefined ? sig.score : '–';
+    const htf    = sig.htf_bias || '–';
+
+    let sl = '–', tp1 = '–';
+    if (dir === 'LONG')  { sl = sig.sniper_long?.sl;   tp1 = sig.sniper_long?.tp?.[0]; }
+    if (dir === 'SHORT') { sl = sig.sniper_short?.sl;  tp1 = sig.sniper_short?.tp?.[0]; }
+
+    const fmt = v => v != null ? parseFloat(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '–';
+
+    return `<div class="sig-card">
+      <div class="sig-header">
+        <div>
+          <div class="sig-pair">${pair}</div>
+          <div class="sig-time">${time}</div>
+        </div>
+        <div class="sig-dir ${dir}">${dir}</div>
+      </div>
+      <div class="sig-row"><span class="sig-label">Price</span><span class="sig-val">$${price}</span></div>
+      <div class="sig-row"><span class="sig-label">TP1</span><span class="sig-val">$${fmt(tp1)}</span></div>
+      <div class="sig-row"><span class="sig-label">SL</span><span class="sig-val">$${fmt(sl)}</span></div>
+      <div class="sig-row"><span class="sig-label">HTF Bias</span><span class="sig-val">${htf}</span></div>
+      <div class="sig-row"><span class="sig-label">Score</span><span class="sig-val">${score}/5</span></div>
+      <div class="sig-reason">${reason}</div>
+      ${src ? `<div class="sig-source">📡 ${src.toUpperCase()}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Utilities ───────────────────────────────────────────────
+function toast(type, msg) {
+  const div = document.createElement('div');
+  div.className = `toast toast-${type}`;
+  div.textContent = msg;
+  document.getElementById('toastContainer').appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+async function handleLogout() {
+  await db.auth.signOut();
+  window.location.href = '/login.html';
+}
+
+async function refreshAll() {
+  await loadUsers();
+  await loadSignals();
+  toast('success', '🔄 Data diperbarui');
+}
+
+// Close modal on overlay click
+document.getElementById('rejectModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRejectModal();
+});
+</script>
+</body>
+</html>

@@ -6,6 +6,27 @@
 <title>Apex Sniper — Multi-Strategy Signal Terminal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Auth guard -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<script>
+(async function() {
+  try {
+    const { createClient } = supabase;
+    const _db = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    const { data: { session } } = await _db.auth.getSession();
+    if (!session) { window.location.href = '/login.html'; return; }
+    const { data: profile } = await _db.from('profiles').select('role,is_verified').eq('id', session.user.id).single();
+    if (!profile || (!profile.is_verified && profile.role !== 'admin')) {
+      await _db.auth.signOut();
+      window.location.href = '/login.html';
+    }
+    if (profile.role === 'admin') {
+      window.location.href = '/admin.html';
+    }
+  } catch(e) { /* supabase not configured yet — allow access */ }
+})();
+</script>
 <style>
 :root {
   --bg:      #0B0F14;

@@ -29,6 +29,15 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
+// Inject Supabase config dari env ke frontend (anon key aman untuk di-expose)
+app.get('/supabase-config.js', (_req, res) => {
+  res.type('application/javascript');
+  res.send(
+    `window.SUPABASE_URL='${process.env.SUPABASE_URL || ''}';` +
+    `window.SUPABASE_ANON_KEY='${process.env.SUPABASE_ANON_KEY || ''}';`
+  );
+});
+
 // Serve the dashboard (index.html + any assets in project root)
 app.use(express.static(path.join(__dirname)));
 

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftar Member — Apex Sniper Signal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<style>
+:root {
+  --bg:      #0B0F14;
+  --card:    #121821;
+  --card2:   #0d1420;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --green:   #00FFA3;
+  --red:     #FF4D4D;
+  --blue:    #3B82F6;
+  --gold:    #FACC15;
+  --orange:  #f97316;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 48px;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(0,255,163,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(59,130,246,0.05) 0%, transparent 50%);
+}
+.wrap {
+  width: 100%;
+  max-width: 500px;
+}
+.logo {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.logo-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  letter-spacing: 3px;
+  color: var(--green);
+  text-shadow: 0 0 20px rgba(0,255,163,0.4);
+}
+.logo-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.card-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+.price-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(250,204,21,0.08);
+  border: 1px solid rgba(250,204,21,0.25);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.price-badge .price {
+  font-family: 'Space Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.price-badge .label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.form-group {
+  margin-bottom: 16px;
+}
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 7px;
+}
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="tel"] {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+input:focus {
+  border-color: rgba(0,255,163,0.4);
+  box-shadow: 0 0 0 3px rgba(0,255,163,0.08);
+}
+input::placeholder { color: var(--muted); }
+input.error { border-color: rgba(255,77,77,0.5); }
+.input-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.input-hint.err { color: var(--red); }
+
+/* T&C Section */
+.tnc-box {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.tnc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+.tnc-header:hover { background: rgba(255,255,255,0.03); }
+.tnc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tnc-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(59,130,246,0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+.tnc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tnc-title-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.tnc-chevron {
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.tnc-chevron.open { transform: rotate(180deg); }
+.tnc-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+}
+.tnc-content.open { max-height: 500px; }
+.tnc-scroll {
+  height: 300px;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #94a3b8;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.tnc-scroll::-webkit-scrollbar { width: 4px; }
+.tnc-scroll::-webkit-scrollbar-track { background: transparent; }
+.tnc-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.tnc-scroll h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  margin: 18px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tnc-scroll h3:first-child { margin-top: 4px; }
+.tnc-scroll p { margin-bottom: 8px; }
+.tnc-scroll ul {
+  padding-left: 18px;
+  margin-bottom: 8px;
+}
+.tnc-scroll ul li { margin-bottom: 3px; }
+.tnc-scroll .highlight {
+  color: var(--gold);
+  font-weight: 600;
+}
+.tnc-scroll .danger { color: var(--red); font-weight: 600; }
+
+/* Checkbox */
+.check-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(0,255,163,0.04);
+  border: 1px solid rgba(0,255,163,0.15);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 20px;
+}
+.check-group:hover { background: rgba(0,255,163,0.07); }
+.check-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  background: none;
+}
+.check-group input:focus { box-shadow: none; border-color: transparent; }
+.check-label {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.check-label a {
+  color: var(--green);
+  text-decoration: none;
+}
+.check-label a:hover { text-decoration: underline; }
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+.btn-primary {
+  background: var(--green);
+  color: #000;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #00e694;
+  box-shadow: 0 0 24px rgba(0,255,163,0.35);
+}
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.link-row {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+.link-row a {
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 600;
+}
+.link-row a:hover { text-decoration: underline; }
+
+.alert {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 18px;
+  display: none;
+  line-height: 1.5;
+}
+.alert-error   { background: rgba(255,77,77,0.1);   border: 1px solid rgba(255,77,77,0.3);   color: #ff7070; }
+.alert-success { background: rgba(0,255,163,0.08); border: 1px solid rgba(0,255,163,0.25); color: var(--green); }
+.alert.show { display: block; }
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Success state */
+.success-screen {
+  display: none;
+  text-align: center;
+  padding: 20px 0;
+}
+.success-screen.show { display: block; }
+.success-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+.success-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 10px;
+}
+.success-desc {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 320px;
+  margin: 0 auto 24px;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+}
+.step-num {
+  width: 22px;
+  height: 22px;
+  background: rgba(0,255,163,0.15);
+  color: var(--green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.step-text { color: var(--muted); line-height: 1.5; }
+.step-text strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-title">APEX SNIPER</div>
+    <div class="logo-sub">MEMBER REGISTRATION · LIFETIME ACCESS</div>
+  </div>
+
+  <div class="card">
+    <!-- Form view -->
+    <div id="formView">
+      <div class="card-title">Daftar Member</div>
+      <div class="card-sub">Bergabung dan dapatkan akses signal trading eksklusif BTC/USDT real-time</div>
+
+      <div class="price-badge">
+        <div>
+          <div class="price">Rp10.000.000</div>
+          <div class="label">Lifetime Access · One-Time Payment</div>
+        </div>
+        <div style="font-size:20px;">♾️</div>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <form id="registerForm" onsubmit="handleRegister(event)" novalidate>
+        <div class="form-group">
+          <label>Nama Lengkap</label>
+          <input type="text" id="fullName" placeholder="Nama sesuai identitas" required>
+          <div class="input-hint" id="nameHint"></div>
+        </div>
+        <div class="form-group">
+          <label>Nomor HP / WhatsApp</label>
+          <input type="tel" id="phone" placeholder="08xx xxxx xxxx" required>
+          <div class="input-hint" id="phoneHint"></div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="email@example.com" required>
+          <div class="input-hint" id="emailHint"></div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Minimal 8 karakter" required>
+          <div class="input-hint" id="passHint"></div>
+        </div>
+        <div class="form-group">
+          <label>Konfirmasi Password</label>
+          <input type="password" id="confirmPass" placeholder="Ulangi password" required>
+          <div class="input-hint" id="confirmHint"></div>
+        </div>
+
+        <!-- T&C -->
+        <div class="tnc-box">
+          <div class="tnc-header" onclick="toggleTnc()">
+            <div class="tnc-header-left">
+              <div class="tnc-icon">📜</div>
+              <div>
+                <div class="tnc-title">Syarat & Ketentuan Member</div>
+                <div class="tnc-title-sub">Klik untuk baca sebelum mendaftar</div>
+              </div>
+            </div>
+            <div class="tnc-chevron" id="tncChevron">▼</div>
+          </div>
+          <div class="tnc-content" id="tncContent">
+            <div class="tnc-scroll" id="tncScroll">
+              <h3>📌 1. Definisi Layanan</h3>
+              <p>Layanan ini adalah sistem <strong>Signal Bot Trading BTC</strong> yang menyediakan:</p>
+              <ul>
+                <li>Rekomendasi entry (LONG / SHORT)</li>
+                <li>Area entry & invalidation</li>
+                <li>Target profit (TP) &amp; Stop Loss (SL)</li>
+                <li>Market structure analysis (HH, HL, LL, LH)</li>
+                <li>Notifikasi real-time berdasarkan kondisi market</li>
+              </ul>
+              <p>Signal disediakan berbasis analisis algoritma + teknikal, <span class="danger">bukan jaminan profit pasti</span>.</p>
+
+              <h3>👤 2. Keanggotaan (Membership)</h3>
+              <p>Dengan mendaftar sebagai member, Anda mendapatkan:</p>
+              <ul>
+                <li>Akses ke dashboard signal eksklusif</li>
+                <li>Update signal real-time</li>
+                <li>Insight market BTC/USDT</li>
+                <li>Akses fitur premium (SNIPER MODE / SAFE SIGNAL / dll)</li>
+              </ul>
+              <p>Jenis membership: <span class="highlight">Lifetime Access (One-Time Payment)</span> — Tidak ada biaya bulanan.</p>
+
+              <h3>💳 3. Biaya & Pembayaran</h3>
+              <ul>
+                <li>Harga membership: <span class="highlight">Rp10.000.000 (lifetime)</span></li>
+                <li>Pembayaran bersifat <span class="danger">final & tidak dapat dikembalikan (non-refundable)</span></li>
+                <li>Akses diberikan setelah pembayaran terverifikasi</li>
+              </ul>
+
+              <h3>⚠️ 4. Risiko & Disclaimer</h3>
+              <p>Dengan menggunakan layanan ini, Anda memahami bahwa:</p>
+              <ul>
+                <li>Trading cryptocurrency memiliki risiko tinggi</li>
+                <li>Profit dan loss adalah tanggung jawab masing-masing user</li>
+                <li>Signal <span class="danger">bukan financial advice</span></li>
+                <li>Tidak ada jaminan 100% win rate</li>
+                <li>Performa masa lalu tidak menjamin hasil di masa depan</li>
+              </ul>
+              <p>Kami tidak bertanggung jawab atas kerugian finansial yang terjadi.</p>
+
+              <h3>📊 5. Penggunaan Signal</h3>
+              <p>Member <strong>wajib</strong>:</p>
+              <ul>
+                <li>Menggunakan risk management pribadi</li>
+                <li>Tidak menggunakan leverage berlebihan tanpa pemahaman</li>
+                <li>Tidak menyalahgunakan signal untuk manipulasi atau distribusi ilegal</li>
+              </ul>
+              <p><span class="danger">Dilarang keras:</span></p>
+              <ul>
+                <li>Menyebarkan signal ke publik / pihak lain</li>
+                <li>Menjual ulang signal tanpa izin</li>
+                <li>Sharing akun dengan pihak lain</li>
+              </ul>
+              <p>Pelanggaran dapat menyebabkan <span class="danger">pemutusan akses tanpa refund</span>.</p>
+
+              <h3>🖥️ 6. Akses & Sistem</h3>
+              <ul>
+                <li>Akses tersedia selama sistem aktif</li>
+                <li>Maintenance dapat dilakukan sewaktu-waktu</li>
+                <li>Kami tidak menjamin uptime 100% tanpa gangguan</li>
+              </ul>
+
+              <h3>🔄 7. Perubahan Layanan</h3>
+              <p>Kami berhak untuk mengupdate fitur, mengubah sistem signal, menambahkan atau menghapus fitur tanpa pemberitahuan sebelumnya.</p>
+
+              <h3>🔒 8. Keamanan Akun</h3>
+              <ul>
+                <li>User bertanggung jawab atas keamanan akun masing-masing</li>
+                <li>Dilarang membagikan login</li>
+                <li>Aktivitas mencurigakan dapat menyebabkan pembatasan akses</li>
+              </ul>
+
+              <h3>🚫 9. Terminasi</h3>
+              <p>Kami berhak menonaktifkan akun jika: melanggar aturan, terindikasi abuse / sharing ilegal, atau menggunakan layanan secara tidak semestinya.</p>
+
+              <h3>✅ 10. Persetujuan</h3>
+              <p>Dengan mendaftar, Anda dianggap telah membaca seluruh syarat & ketentuan, memahami risiko trading, dan <span class="highlight">menyetujui semua kebijakan tanpa pengecualian</span>.</p>
+            </div>
+          </div>
+        </div>
+
+        <label class="check-group" for="agreeCheck">
+          <input type="checkbox" id="agreeCheck" onchange="onCheckChange()">
+          <div class="check-label">
+            Saya telah membaca, memahami, dan menyetujui seluruh
+            <a href="#" onclick="toggleTnc(); return false;">Syarat &amp; Ketentuan</a>
+            layanan Apex Sniper Signal Bot
+          </div>
+        </label>
+
+        <button type="submit" class="btn btn-primary" id="regBtn" disabled>
+          Daftar Sekarang
+        </button>
+      </form>
+
+      <div class="link-row">
+        Sudah punya akun? <a href="/login.html">Masuk di sini</a>
+      </div>
+    </div>
+
+    <!-- Success view -->
+    <div class="success-screen" id="successView">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Pendaftaran Berhasil!</div>
+      <div class="success-desc">
+        Akun kamu sudah terdaftar. Tunggu verifikasi dari admin untuk bisa login.
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><strong>Cek email kamu</strong> untuk konfirmasi alamat email dari Apex Sniper.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">Admin akan <strong>memverifikasi akun</strong> kamu dalam 1×24 jam.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">Setelah diverifikasi, kamu bisa <strong>login dan akses signal</strong> eksklusif.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">Lakukan pembayaran <strong>Rp10.000.000</strong> sesuai info yang dikirim admin.</div>
+        </div>
+      </div>
+      <a href="/login.html">
+        <button class="btn btn-primary" style="max-width:240px; margin:0 auto;">
+          Ke Halaman Login
+        </button>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+function toggleTnc() {
+  const content  = document.getElementById('tncContent');
+  const chevron  = document.getElementById('tncChevron');
+  const isOpen   = content.classList.toggle('open');
+  chevron.classList.toggle('open', isOpen);
+}
+
+function onCheckChange() {
+  const checked = document.getElementById('agreeCheck').checked;
+  document.getElementById('regBtn').disabled = !checked;
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('alert');
+  el.className = `alert alert-${type} show`;
+  el.innerHTML = msg;
+}
+
+function setFieldError(id, msg) {
+  const field = document.getElementById(id);
+  const hint  = document.getElementById(id.replace(/^./, c => c.toUpperCase()).replace('$', '') + 'Hint') ||
+                document.getElementById(id + 'Hint');
+  if (field)  field.classList.toggle('error', !!msg);
+  if (hint) {
+    hint.textContent = msg || '';
+    hint.className = 'input-hint' + (msg ? ' err' : '');
+  }
+}
+
+function validate() {
+  let ok = true;
+  const fullName   = document.getElementById('fullName').value.trim();
+  const phone      = document.getElementById('phone').value.trim();
+  const email      = document.getElementById('email').value.trim();
+  const password   = document.getElementById('password').value;
+  const confirmPass= document.getElementById('confirmPass').value;
+
+  setFieldError('fullName', '');
+  setFieldError('phone', '');
+  setFieldError('email', '');
+  setFieldError('password', '');
+  setFieldError('confirmPass', '');
+
+  if (!fullName || fullName.length < 3) {
+    setFieldError('fullName', 'Nama lengkap minimal 3 karakter');
+    ok = false;
+  }
+  if (!phone || !/^(\+62|62|0)[0-9]{8,13}$/.test(phone.replace(/\s/g,''))) {
+    setFieldError('phone', 'Nomor HP tidak valid (format: 08xx atau +62xx)');
+    ok = false;
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setFieldError('email', 'Format email tidak valid');
+    ok = false;
+  }
+  if (!password || password.length < 8) {
+    setFieldError('password', 'Password minimal 8 karakter');
+    ok = false;
+  }
+  if (password !== confirmPass) {
+    setFieldError('confirmPass', 'Password tidak cocok');
+    ok = false;
+  }
+  return ok;
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  if (!validate()) return;
+
+  const fullName = document.getElementById('fullName').value.trim();
+  const phone    = document.getElementById('phone').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('regBtn');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Mendaftarkan...';
+
+  try {
+    // 1. Buat akun di Supabase Auth
+    const { data, error } = await db.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, phone }
+      }
+    });
+    if (error) throw error;
+
+    // 2. Insert profil ke tabel profiles
+    const { error: pErr } = await db.from('profiles').insert({
+      id:        data.user.id,
+      full_name: fullName,
+      phone:     phone,
+      email:     email,
+      role:      'user',
+      is_verified: false,
+    });
+
+    if (pErr) {
+      // Kalau email sudah ada
+      if (pErr.code === '23505') {
+        throw new Error('Email sudah terdaftar. Coba login.');
+      }
+      throw pErr;
+    }
+
+    // Sign out setelah register — tunggu verifikasi admin
+    await db.auth.signOut();
+
+    // Tampilkan success screen
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('successView').classList.add('show');
+
+  } catch (err) {
+    const msg = err.message || 'Pendaftaran gagal';
+    if (msg.includes('already registered') || msg.includes('already been registered')) {
+      showAlert('error', '❌ Email sudah terdaftar. Silakan <a href="/login.html">login</a>.');
+    } else if (msg.includes('Password should')) {
+      showAlert('error', '❌ Password terlalu lemah. Gunakan kombinasi huruf, angka, dan simbol.');
+    } else {
+      showAlert('error', '❌ ' + msg);
+    }
+    btn.disabled = false;
+    btn.innerHTML = 'Daftar Sekarang';
+    document.getElementById('agreeCheck').checked && (btn.disabled = false);
+  }
+}
+</script>
+</body>
+</html>
