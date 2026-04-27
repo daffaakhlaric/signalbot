@@ -52,6 +52,9 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 // ── Signal Generation Mode ─────────────────────────────────
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
+// ── Entry Mode: SAFE=closed candle only, AGGRESSIVE=realtime ─
+const ENTRY_MODE = (process.env.ENTRY_MODE || "SAFE").toUpperCase(); // SAFE | AGGRESSIVE
+
 // ── Force Entry Mode ───────────────────────────────────────
 const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
 
@@ -920,28 +923,32 @@ function selectBestSignal(signals, elite_setup) {
     if (fallback) {
       const [key, sig] = fallback;
       return {
-        type:       key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-        direction:  sig.direction,
-        entry:      sig.entry,
-        tp:         sig.tp,
-        sl:         sig.sl,
-        rr:         round(sig.rr || 0, 2),
-        score:      sig.score || 1,
-        confidence: "low",
-        reason:     "fallback signal (low confluence)",
+        type:        key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        direction:   sig.direction,
+        entry:       sig.entry,
+        tp:          sig.tp,
+        sl:          sig.sl,
+        rr:          round(sig.rr || 0, 2),
+        score:       sig.score || 1,
+        confidence:  "low",
+        status:      "CONFIRMED",
+        entry_timing: "next_candle",
+        reason:      "fallback signal (low confluence)",
       };
     }
 
     return {
-      type:       "NONE",
-      direction:  "WAIT",
-      entry:      null,
-      tp:         null,
-      sl:         null,
-      rr:         null,
-      score:      0,
-      confidence: "low",
-      reason:     "no valid setup — all signals below threshold",
+      type:        "NONE",
+      direction:   "WAIT",
+      entry:       null,
+      tp:          null,
+      sl:          null,
+      rr:          null,
+      score:       0,
+      confidence:  "low",
+      status:      "CONFIRMED",
+      entry_timing: "next_candle",
+      reason:      "no valid setup — all signals below threshold",
     };
   }
 
@@ -964,6 +971,8 @@ function selectBestSignal(signals, elite_setup) {
     rr:         round(best.rr, 2),
     score:      best.score,
     confidence,
+    status:     "CONFIRMED",
+    entry_timing: "next_candle",
     reason:     best.reason,
   };
 }
@@ -1623,8 +1632,8 @@ const round = (v, d = 2) =>
   v == null || Number.isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
 
 function buildMarketPayload(candles) {
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2];
+  const lastClosed = candles[candles.length - 2];
+  const prevClosed = candles[candles.length - 3];
   const closes = candles.map((c) => c.close);
   const highs  = candles.map((c) => c.high);
   const lows   = candles.map((c) => c.low);
@@ -1636,11 +1645,11 @@ function buildMarketPayload(candles) {
   return {
     pair:       SYMBOLS[0].replace("-", ""),
     timeframe:  INTERVAL,
-    open:       last.open,
-    high:       last.high,
-    low:        last.low,
-    close:      last.close,
-    volume:     round(last.volume, 4),
+    open:       lastClosed.open,
+    high:       lastClosed.high,
+    low:        lastClosed.low,
+    close:      lastClosed.close,
+    volume:     round(lastClosed.volume, 4),
     ema20:      round(ema(closes, 20)),
     ema50:      round(ema(closes, 50)),
     ema200:     round(ema(closes, 200)),
@@ -1648,17 +1657,17 @@ function buildMarketPayload(candles) {
     structure:  detectStructure(highs, lows),
     support:    round(support),
     resistance: round(resistance),
-    barTime:    last.time,
-    timestamp:  new Date(last.time).toISOString(),
-    lastCandle: last,
-    prevCandle: prev,
+    barTime:    lastClosed.time,
+    timestamp:  new Date(lastClosed.time).toISOString(),
+    lastCandle: lastClosed,
+    prevCandle: prevClosed,
   };
 }
 
 // ── Build market payload for a specific symbol ──────────────
 function buildMarketPayloadForSymbol(candles, symbol) {
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2];
+  const lastClosed = candles[candles.length - 2];
+  const prevClosed = candles[candles.length - 3];
   const closes = candles.map((c) => c.close);
   const highs  = candles.map((c) => c.high);
   const lows   = candles.map((c) => c.low);
@@ -1670,11 +1679,11 @@ function buildMarketPayloadForSymbol(candles, symbol) {
   return {
     pair:       symbol.replace("-", ""),
     timeframe:  INTERVAL,
-    open:       last.open,
-    high:       last.high,
-    low:        last.low,
-    close:      last.close,
-    volume:     round(last.volume, 4),
+    open:       lastClosed.open,
+    high:       lastClosed.high,
+    low:        lastClosed.low,
+    close:      lastClosed.close,
+    volume:     round(lastClosed.volume, 4),
     ema20:      round(ema(closes, 20)),
     ema50:      round(ema(closes, 50)),
     ema200:     round(ema(closes, 200)),
@@ -1682,10 +1691,10 @@ function buildMarketPayloadForSymbol(candles, symbol) {
     structure:  detectStructure(highs, lows),
     support:    round(support),
     resistance: round(resistance),
-    barTime:    last.time,
-    timestamp:  new Date(last.time).toISOString(),
-    lastCandle: last,
-    prevCandle: prev,
+    barTime:    lastClosed.time,
+    timestamp:  new Date(lastClosed.time).toISOString(),
+    lastCandle: lastClosed,
+    prevCandle: prevClosed,
   };
 }
 
