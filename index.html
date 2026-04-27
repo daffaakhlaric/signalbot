@@ -704,55 +704,6 @@
   .sr-structure.HH, .sr-structure.HL { color: var(--green); background: rgba(0,255,136,0.1); }
   .sr-structure.LH, .sr-structure.LL { color: var(--red); background: rgba(255,59,92,0.1); }
 
-  /* ── Signal History ── */
-  .history-panel {
-    grid-column: 1 / -1;
-    background: linear-gradient(145deg, #171a21, #12151c);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--card-shadow);
-    padding: 20px;
-    transition: box-shadow 0.3s ease;
-  }
-
-  .history-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .history-table th {
-    font-size: 8px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .history-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    vertical-align: middle;
-  }
-
-  .history-table tr:hover td { background: var(--bg3); }
-
-  .decision-pill {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 12px;
-  }
-
-  .decision-pill.LONG  { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
-  .decision-pill.SHORT { background: rgba(255,59,92,0.1);  color: var(--red);   border: 1px solid rgba(255,59,92,0.3); }
-  .decision-pill.SKIP  { background: rgba(88,96,105,0.1);  color: var(--muted); border: 1px solid rgba(88,96,105,0.3); }
 
   /* ── Simulate Button ── */
   .simulate-panel {
@@ -926,15 +877,6 @@
       width: 80px;
     }
 
-    .history-table {
-      font-size: 10px;
-    }
-
-    .history-table th,
-    .history-table td {
-      padding: 6px 8px;
-    }
-
     .recommendations-container {
       flex-direction: column;
     }
@@ -1052,145 +994,6 @@
     }
   }
 
-  /* ── Positions Panel ── */
-  .positions-panel {
-    grid-column: 1 / -1;
-    background: linear-gradient(145deg, #171a21, #12151c);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--card-shadow);
-    padding: 20px;
-  }
-
-  .pos-table,
-  .dry-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 8px;
-  }
-
-  .pos-table th,
-  .dry-table th {
-    font-size: 8px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .pos-table td,
-  .dry-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    vertical-align: middle;
-  }
-
-  .pos-table tr:hover td,
-  .dry-table tr:hover td {
-    background: var(--bg3);
-  }
-
-  .pos-pill,
-  .dry-pill {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 12px;
-  }
-
-  .pos-pill.long,
-  .dry-pill.long {
-    background: rgba(0,255,136,0.1);
-    color: var(--green);
-    border: 1px solid rgba(0,255,136,0.3);
-  }
-
-  .pos-pill.short,
-  .dry-pill.short {
-    background: rgba(255,59,92,0.1);
-    color: var(--red);
-    border: 1px solid rgba(255,59,92,0.3);
-  }
-
-  .pos-pill.none,
-  .dry-pill.none {
-    background: rgba(88,96,105,0.1);
-    color: var(--muted);
-    border: 1px solid rgba(88,96,105,0.3);
-  }
-
-  .pos-pill.win {
-    background: rgba(0,255,136,0.15);
-    color: var(--green);
-    border: 1px solid var(--green);
-  }
-
-  .dry-pill.lose {
-    background: rgba(255,59,92,0.15);
-    color: var(--red);
-    border: 1px solid var(--red);
-  }
-
-  .dry-pill.win {
-    background: rgba(0,255,136,0.15);
-    color: var(--green);
-    border: 1px solid var(--green);
-  }
-
-  .dry-run-panel {
-    grid-column: 1 / -1;
-    background: linear-gradient(145deg, #171a21, #12151c);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--card-shadow);
-    padding: 20px;
-  }
-
-  .dry-run-summary {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-
-  .dry-stat {
-    background: linear-gradient(145deg, rgba(31,36,48,0.8), rgba(20,23,30,0.9));
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 18px;
-    transition: all 0.2s ease;
-  }
-
-  .dry-stat:hover {
-    transform: translateY(-1px);
-    border-color: var(--border2);
-  }
-
-  .dry-stat-label {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-
-  .dry-stat-value {
-    font-size: 16px;
-    font-weight: 700;
-    font-family: 'Space Mono', monospace;
-    color: var(--text);
-  }
-
-  .dry-stat-value.green { color: var(--green); }
-  .dry-stat-value.red   { color: var(--red); }
-  .dry-stat-value.yellow { color: var(--yellow); }
 
   /* ── Sniper Recommendation ── */
   .recommendation-panel {
@@ -1626,10 +1429,6 @@
     font-weight: 700;
   }
 
-  .pos-value { font-family: 'Space Mono', monospace; font-weight: 700; }
-  .pos-value.green { color: var(--green); }
-  .pos-value.red   { color: var(--red); }
-  .pos-value.yellow { color: var(--yellow); }
 
   /* ── Glow text helpers ── */
   .glow-green { color: var(--green); text-shadow: var(--glow-g); }
@@ -1655,10 +1454,6 @@
     background: linear-gradient(135deg, rgba(15,17,23,0.97), rgba(12,14,20,1));
   }
 
-  /* ── History panel row hover ── */
-  .history-table tr:hover td {
-    background: rgba(31,36,48,0.6);
-  }
 
   /* ── rec-compact item borders ── */
   .rec-compact div {
@@ -1971,104 +1766,6 @@
     </div>
   </div>
 
-  <!-- TRADE HISTORY & OPEN POSITIONS -->
-  <div class="panel history-panel">
-    <div class="panel-title">Trade History</div>
-
-    <!-- Open Positions Card -->
-    <div id="open-positions-card" style="background:linear-gradient(145deg,rgba(31,36,48,0.8),rgba(20,23,30,0.9));border:1px solid var(--border2);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;box-shadow:var(--card-shadow);display:none">
-      <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">📍 OPEN POSITIONS</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-        <div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Side</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)" id="pos-side">—</div>
-        </div>
-        <div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Entry</div>
-          <div style="font-size:14px;font-weight:700;color:var(--yellow)" id="pos-entry">—</div>
-        </div>
-        <div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Current P&L</div>
-          <div style="font-size:14px;font-weight:700" id="pos-pnl">—</div>
-        </div>
-        <div>
-          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">Margin Used</div>
-          <div style="font-size:14px;font-weight:700;color:var(--cyan)" id="pos-margin">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Closed Trades Table -->
-    <div id="history-container">
-      <div class="empty-state">
-        <div class="icon">📊</div>
-        <div>No trades yet. Enable dry run or wait for signal...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- POSITIONS PANEL -->
-  <div class="panel positions-panel">
-    <div class="panel-title">My Positions (BingX)</div>
-    <div id="positions-container">
-      <div class="empty-state">
-        <div class="icon">📂</div>
-        <div>No positions data. Add BINGX_API_KEY to .env</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- DRY RUN PANEL -->
-  <div class="panel dry-run-panel">
-    <div class="panel-title">🎮 Simulator Settings</div>
-    <div class="dry-run-summary">
-      <div class="dry-stat">
-        <div class="dry-stat-label">Balance</div>
-        <div class="dry-stat-value yellow">$100</div>
-      </div>
-      <div class="dry-stat">
-        <div class="dry-stat-label">Margin / Trade</div>
-        <div class="dry-stat-value cyan">$5</div>
-      </div>
-      <div class="dry-stat">
-        <div class="dry-stat-label">Leverage</div>
-        <div class="dry-stat-value green">150x</div>
-      </div>
-      <div class="dry-stat">
-        <div class="dry-stat-label">Profit Target</div>
-        <div class="dry-stat-value green">100%</div>
-      </div>
-    </div>
-
-    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
-      <div class="panel-title" style="margin-bottom:12px">Performance</div>
-      <div class="dry-run-summary">
-        <div class="dry-stat">
-          <div class="dry-stat-label">Total Trades</div>
-          <div class="dry-stat-value" id="dr-total">0</div>
-        </div>
-        <div class="dry-stat">
-          <div class="dry-stat-label">Wins</div>
-          <div class="dry-stat-value green" id="dr-wins">0</div>
-        </div>
-        <div class="dry-stat">
-          <div class="dry-stat-label">Losses</div>
-          <div class="dry-stat-value red" id="dr-loss">0</div>
-        </div>
-        <div class="dry-stat">
-          <div class="dry-stat-label">Total PnL</div>
-          <div class="dry-stat-value yellow" id="dr-pnl">$0</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="dry-trades-container" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
-      <div class="empty-state">
-        <div class="icon">🎯</div>
-        <div>No open trades</div>
-      </div>
-    </div>
-  </div>
 
 </div><!-- /main -->
 
