@@ -591,7 +591,13 @@ function getTrendRiderSignal(payload, htfBias) {
       strength = "waiting";
     }
   } else {
-    reason = "no EMA alignment for trend";
+    const inferredDir = payload.ema20 > payload.ema50 ? "LONG" : "SHORT";
+    direction = inferredDir;
+    entry = payload.ema20;
+    tp    = payload.ema20 + (inferredDir === "LONG" ? range * 0.6 : -range * 0.6);
+    sl    = payload.ema50 * (inferredDir === "LONG" ? 0.998 : 1.002);
+    reason = `no EMA alignment for trend — waiting for setup (plan)`;
+    strength = "waiting";
   }
 
   const rr = (entry && tp && sl)
@@ -646,15 +652,32 @@ function getMomentumBreakSignal(payload) {
     strength   = strongBody && lowWick ? "strong" : "moderate";
     reason     = `support breakdown at ${round(support, 2)} — strong body ${(bodyPct * 100).toFixed(0)}%`;
   } else if (rsiVal > 70) {
-    direction = "SHORT"; entry = null;
-    reason = `RSI overbought (${rsiVal}) — potential breakdown`;
-    entry_type = "watching";
+    direction = "SHORT";
+    entry = resistance * 1.001;
+    tp    = resistance + range * 0.7;
+    sl    = resistance * 0.997;
+    reason = `RSI overbought (${rsiVal}) — potential breakdown (plan)`;
+    entry_type = "waiting";
+    strength = "waiting";
   } else if (rsiVal < 30) {
-    direction = "LONG"; entry = null;
-    reason = `RSI oversold (${rsiVal}) — potential breakout`;
-    entry_type = "watching";
+    direction = "LONG";
+    entry = support * 0.999;
+    tp    = support - range * 0.7;
+    sl    = support * 1.003;
+    reason = `RSI oversold (${rsiVal}) — potential breakout (plan)`;
+    entry_type = "waiting";
+    strength = "waiting";
   } else {
-    reason = "no valid breakout detected";
+    const inferredDir = payload.close > (support + resistance) / 2 ? "SHORT" : "LONG";
+    direction = inferredDir;
+    entry = inferredDir === "LONG" ? support * 0.999 : resistance * 1.001;
+    tp    = inferredDir === "LONG"
+      ? support + range * 0.7
+      : resistance - range * 0.7;
+    sl    = inferredDir === "LONG" ? support * 0.997 : resistance * 1.003;
+    entry_type = "waiting";
+    strength = "waiting";
+    reason = `no valid breakout detected — waiting breakout setup (plan)`;
   }
 
   const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
@@ -707,7 +730,13 @@ function getLiquiditySweepSignal(payload) {
     sl             = lastCandle.low * 0.999;
     reason = `liquidity grab below support (${round(support, 2)}) — lower wick ${(lowerWickPct * 100).toFixed(0)}% — reversal long`;
   } else {
-    reason = "no liquidity sweep detected";
+    const inferredDir = payload.close > (support + resistance) / 2 ? "SHORT" : "LONG";
+    direction = inferredDir;
+    entry = payload.close;
+    tp    = inferredDir === "LONG" ? payload.close + range * 0.5 : payload.close - range * 0.5;
+    sl    = inferredDir === "LONG" ? support : resistance;
+    reason = `no sweep yet — waiting liquidity sweep (plan)`;
+    liquidity_zone = null;
   }
 
   const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
@@ -761,7 +790,14 @@ function getStructureFlipSignal(payload, prevStructure) {
     confidence   = isEngulfing ? "high" : "medium";
     reason = `structure flip ${reversal_type}${isEngulfing ? " + engulfing confirmation" : ""}`;
   } else {
-    reason = `no structure flip (current: ${structure}, prior: ${prevStructure || "N/A"})`;
+    const inferredDir = structure === "HH" || structure === "HL" ? "LONG" : "SHORT";
+    direction    = inferredDir;
+    entry        = price;
+    tp           = inferredDir === "LONG" ? price + range * 0.5 : price - range * 0.5;
+    sl           = inferredDir === "LONG" ? support : resistance;
+    reversal_type = "none";
+    confidence   = "low";
+    reason = `no flip yet — current structure ${structure} (plan)`;
   }
 
   const rr = (entry && tp && sl) ? Math.abs(tp - entry) / Math.abs(entry - sl) : 0;
@@ -1039,6 +1075,21 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
       sig.score = computeSignalScore(sig.direction, payload, htfBias, momFilter);
     } else {
       sig.score = 0;
+    }
+  });
+
+  // Global plan-mode fix — ensure every signal has entry/tp/sl even if WAIT
+  Object.values(signals).forEach(sig => {
+    if (!sig.entry && sig.direction !== "WAIT") {
+      sig.entry = payload.close;
+    }
+    if (!sig.tp && sig.entry) {
+      sig.tp = sig.direction === "LONG"
+        ? sig.entry + range * 0.5
+        : sig.entry - range * 0.5;
+    }
+    if (!sig.sl && sig.entry) {
+      sig.sl = sig.direction === "LONG" ? payload.support : payload.resistance;
     }
   });
 
