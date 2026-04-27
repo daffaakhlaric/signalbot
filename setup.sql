@@ -6,9 +6,9 @@
 -- 1. Buat tabel profiles
 CREATE TABLE IF NOT EXISTS public.profiles (
   id           UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  full_name    TEXT NOT NULL,
-  phone        TEXT NOT NULL,
-  email        TEXT NOT NULL,
+  full_name    TEXT NOT NULL DEFAULT '',
+  phone        TEXT NOT NULL DEFAULT '',
+  email        TEXT NOT NULL DEFAULT '',
   role         TEXT NOT NULL DEFAULT 'user',
   is_verified  BOOLEAN NOT NULL DEFAULT FALSE,
   rejected     BOOLEAN NOT NULL DEFAULT FALSE,
@@ -28,32 +28,59 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER;
 
--- 4. RLS Policies
+-- ============================================================
+-- 4. Trigger: auto-buat profil saat user register
+--    Ini menghindari masalah RLS saat INSERT dari frontend
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, phone, email, role, is_verified)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+    NEW.email,
+    'user',
+    FALSE
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================
+-- 5. RLS Policies
+-- ============================================================
 
 -- User bisa lihat profil sendiri
+DROP POLICY IF EXISTS "user_read_own" ON public.profiles;
 CREATE POLICY "user_read_own" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
 -- Admin bisa lihat semua profil
+DROP POLICY IF EXISTS "admin_read_all" ON public.profiles;
 CREATE POLICY "admin_read_all" ON public.profiles
   FOR SELECT USING (public.is_admin());
 
--- User bisa insert profil sendiri saat register
-CREATE POLICY "user_insert_own" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
--- Admin bisa update semua profil (verifikasi)
+-- Admin bisa update semua profil (verifikasi/tolak)
+DROP POLICY IF EXISTS "admin_update_all" ON public.profiles;
 CREATE POLICY "admin_update_all" ON public.profiles
   FOR UPDATE USING (public.is_admin());
 
--- User bisa update profil sendiri (kecuali role & is_verified)
+-- User bisa update profil sendiri
+DROP POLICY IF EXISTS "user_update_own" ON public.profiles;
 CREATE POLICY "user_update_own" ON public.profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
 -- ============================================================
--- 5. Set Admin Role untuk akun daffa.akhlaric52@gmail.com
---    Jalankan setelah admin mendaftar lewat halaman register
+-- 6. Set Admin Role untuk akun daffa.akhlaric52@gmail.com
+--    Jalankan SETELAH admin mendaftar lewat halaman register
 -- ============================================================
 UPDATE public.profiles
 SET role = 'admin', is_verified = TRUE

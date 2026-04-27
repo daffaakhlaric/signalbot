@@ -664,7 +664,7 @@ async function handleRegister(e) {
   btn.innerHTML = '<span class="spinner"></span>Mendaftarkan...';
 
   try {
-    // 1. Buat akun di Supabase Auth
+    // Daftar ke Supabase Auth — profil dibuat otomatis oleh database trigger
     const { data, error } = await db.auth.signUp({
       email,
       password,
@@ -673,24 +673,7 @@ async function handleRegister(e) {
       }
     });
     if (error) throw error;
-
-    // 2. Insert profil ke tabel profiles
-    const { error: pErr } = await db.from('profiles').insert({
-      id:        data.user.id,
-      full_name: fullName,
-      phone:     phone,
-      email:     email,
-      role:      'user',
-      is_verified: false,
-    });
-
-    if (pErr) {
-      // Kalau email sudah ada
-      if (pErr.code === '23505') {
-        throw new Error('Email sudah terdaftar. Coba login.');
-      }
-      throw pErr;
-    }
+    if (!data.user) throw new Error('Gagal membuat akun. Coba lagi.');
 
     // Sign out setelah register — tunggu verifikasi admin
     await db.auth.signOut();
