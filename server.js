@@ -853,21 +853,29 @@ function getEliteSetupSignal(signals, payload, htfBias, momFilter) {
   };
 }
 
-// ── Select Single Best Signal (unified decisive output) ────────
-function selectBestSignal(signals, elite_setup) {
-  // Priority: Elite=0, Precision Entry=1, Momentum/Liquidity=2, Trend Rider=3, Quick Strike=4
-  const PRIORITY = {
-    precision_entry:  1,
-    momentum_break:   2,
-    liquidity_sweep:  2,
-    trend_rider:      3,
-    quick_strike:     4,
-  };
+// ── Adaptive Thresholds Per Signal Type ───────────────────────
+const SIGNAL_THRESHOLDS = {
+  precision_entry: { rr: 1.5, score: 2 },
+  momentum_break:   { rr: 1.5, score: 2 },
+  liquidity_sweep:  { rr: 1.5, score: 2 },
+  trend_rider:      { rr: 1.5, score: 2 },
+  quick_strike:     { rr: 1.3, score: 1 },
+};
 
+const PRIORITY = {
+  precision_entry:  1,
+  momentum_break:   2,
+  liquidity_sweep:  2,
+  trend_rider:      3,
+  quick_strike:     4,
+};
+
+// ── Select Single Best Signal (adaptive, fallback-enabled) ─────
+function selectBestSignal(signals, elite_setup) {
   const candidates = [];
 
-  // Elite setup is pre-filtered (score>=3, rr>=1.8) — add if it clears the bar too
-  if (elite_setup?.active && (elite_setup.rr || 0) >= 1.5 && (elite_setup.score || 0) >= 2) {
+  // Elite setup — highest tier
+  if (elite_setup?.active && (elite_setup.rr || 0) >= 1.8 && (elite_setup.score || 0) >= 3) {
     candidates.push({
       type:      elite_setup.signal_type || "Elite Setup",
       direction: elite_setup.direction,
@@ -881,12 +889,15 @@ function selectBestSignal(signals, elite_setup) {
     });
   }
 
-  // All other signals — apply filter: RR>=1.5, score>=2, direction active
+  // Adaptive filter per signal type
   Object.entries(signals).forEach(([key, sig]) => {
     if (!sig) return;
     if (!sig.direction || sig.direction === "WAIT" || sig.direction === "SKIP") return;
-    if ((sig.rr   || 0) < 1.5) return;
-    if ((sig.score || 0) < 2)  return;
+
+    const thresh = SIGNAL_THRESHOLDS[key] || { rr: 1.5, score: 2 };
+    if ((sig.rr   || 0) < thresh.rr)   return;
+    if ((sig.score || 0) < thresh.score) return;
+
     candidates.push({
       type:      key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
       direction: sig.direction,
@@ -900,7 +911,27 @@ function selectBestSignal(signals, elite_setup) {
     });
   });
 
+  // Fallback: best available without strict filters
   if (candidates.length === 0) {
+    const fallback = Object.entries(signals)
+      .filter(([_, s]) => s && s.direction && s.direction !== "WAIT" && s.direction !== "SKIP")
+      .sort((a, b) => (b[1].rr || 0) - (a[1].rr || 0))[0];
+
+    if (fallback) {
+      const [key, sig] = fallback;
+      return {
+        type:       key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        direction:  sig.direction,
+        entry:      sig.entry,
+        tp:         sig.tp,
+        sl:         sig.sl,
+        rr:         round(sig.rr || 0, 2),
+        score:      sig.score || 1,
+        confidence: "low",
+        reason:     "fallback signal (low confluence)",
+      };
+    }
+
     return {
       type:       "NONE",
       direction:  "WAIT",
@@ -910,11 +941,11 @@ function selectBestSignal(signals, elite_setup) {
       rr:         null,
       score:      0,
       confidence: "low",
-      reason:     "no valid setup — all signals below threshold (RR<1.5 or score<2)",
+      reason:     "no valid setup — all signals below threshold",
     };
   }
 
-  // Sort: highest score → highest RR → lowest priority number (most reliable type first)
+  // Sort: highest score → highest RR → lowest priority
   candidates.sort((a, b) =>
     (b.score - a.score) ||
     ((b.rr || 0) - (a.rr || 0)) ||
@@ -1149,12 +1180,8 @@ function generateSniperSignal(payload) {
     reason: "no valid trigger"
   });
 
-  // 1. Session filter
-  if (!isTradingSession(utcHour)) {
-    const s = defaultSignal();
-    s.reason = "outside trading session";
-    return s;
-  }
+  // 1. Session warning (mark low confidence, don't skip)
+  const sessionWarning = !isTradingSession(utcHour);
 
   // 2. Mid-range filter (adjust width based on MODE)
   const midLowAdj = support + range * thresholds.midRangeWidth;
@@ -1218,8 +1245,8 @@ function generateSniperSignal(payload) {
       tp: [round(tp1Short), round(tp2Short)],
       sl: round(slShort)
     },
-    confidence: "low",
-    reason
+    confidence: sessionWarning ? "low" : (decision !== "SKIP" ? "high" : "low"),
+    reason: sessionWarning ? `outside trading session | ${reason}` : reason
   };
 
   return signal;
