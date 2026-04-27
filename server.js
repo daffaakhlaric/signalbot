@@ -1262,6 +1262,14 @@ async function processPair(symbol) {
     state.signalHistory.unshift(signal);
     if (state.signalHistory.length > 50) state.signalHistory.pop();
 
+    // Also update global state for first pair (BTC-USDT) for backward compatibility
+    if (symbol === SYMBOLS[0]) {
+      latestSignal = signal;
+      latestPayload = { ...payload15m, receivedAt: new Date().toISOString() };
+      signalHistory.unshift(signal);
+      if (signalHistory.length > 50) signalHistory.pop();
+    }
+
     // Broadcast multi-pair signal
     broadcast({
       type: "multi_signal",

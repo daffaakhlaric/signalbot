@@ -857,6 +857,27 @@
     .history-table td {
       padding: 6px 8px;
     }
+
+    .recommendations-container {
+      flex-direction: column;
+    }
+
+    .recommendation-card {
+      min-width: 100%;
+    }
+
+    .rec-compact {
+      grid-template-columns: 1fr;
+    }
+
+    .countdown-timer {
+      flex-direction: row;
+      justify-content: space-between;
+    }
+
+    #countdown-value {
+      font-size: 16px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -904,6 +925,34 @@
 
     .log-panel {
       max-height: 80px;
+    }
+
+    .recommendations-container {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .recommendation-card {
+      min-width: 100%;
+      padding: 8px 10px;
+    }
+
+    .recommendation-card .rec-direction {
+      font-size: 18px;
+    }
+
+    .rec-compact {
+      grid-template-columns: 1fr;
+      gap: 4px 6px;
+    }
+
+    .countdown-timer {
+      font-size: 12px;
+      padding: 8px 10px;
+    }
+
+    #countdown-value {
+      font-size: 14px;
     }
   }
 
@@ -1104,6 +1153,113 @@
     line-height: 1.5;
   }
 
+  /* ── Recommendations Container (Horizontal) ── */
+  .recommendations-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 0 0 8px 0;
+  }
+
+  .recommendations-container::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .recommendations-container::-webkit-scrollbar-track {
+    background: var(--bg2);
+    border-radius: 2px;
+  }
+
+  .recommendations-container::-webkit-scrollbar-thumb {
+    background: var(--border2);
+    border-radius: 2px;
+  }
+
+  .recommendation-card {
+    flex-shrink: 0;
+    min-width: 220px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.05) 0%, rgba(0,212,255,0.05) 100%);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .recommendation-card .rec-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .recommendation-card .rec-direction {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+  }
+
+  .rec-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 8px;
+    font-size: 9px;
+  }
+
+  .rec-compact div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(0,255,136,0.1);
+  }
+
+  .rec-key {
+    color: var(--muted);
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .rec-val {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 9px;
+  }
+
+  /* ── Countdown Timer ── */
+  .countdown-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,140,0,0.08) 100%);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  #countdown-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  #countdown-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--yellow);
+    letter-spacing: 1px;
+    min-width: 60px;
+    text-align: center;
+  }
+
   .rec-areas {
     display: flex;
     gap: 12px;
@@ -1218,117 +1374,44 @@
       </div>
     </div>
 
-    <!-- SCALPER RECOMMENDATION CARD -->
-    <div class="recommendation-panel" id="scalper-panel" style="display:none">
-      <div class="rec-label">⚡ SCALPER RECOMMENDATION</div>
-      <div class="rec-direction" id="scalper-direction">NONE</div>
-      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">
-        <div style="font-size:10px;color:var(--text);flex:1" id="scalper-reason">—</div>
-      </div>
-      <div class="rec-areas" style="margin-top:12px">
-        <div class="rec-area short-area">
-          <div class="rec-area-label">ENTRY</div>
-          <div class="rec-area-val" id="scalper-entry">—</div>
-        </div>
-        <div class="rec-area long-area">
-          <div class="rec-area-label">TP (8.4%)</div>
-          <div class="rec-area-val" id="scalper-tp">—</div>
+    <!-- RECOMMENDATIONS CONTAINER (HORIZONTAL LAYOUT) -->
+    <div class="recommendations-container">
+      <!-- SCALPER RECOMMENDATION CARD -->
+      <div class="recommendation-card" id="scalper-panel" style="display:none">
+        <div class="rec-label">⚡ SCALPER</div>
+        <div class="rec-direction" id="scalper-direction">NONE</div>
+        <div style="font-size:9px;color:var(--text);margin-top:8px" id="scalper-reason">—</div>
+        <div class="rec-compact">
+          <div><span class="rec-key">ENTRY</span><span class="rec-val" id="scalper-entry">—</span></div>
+          <div><span class="rec-key">TP</span><span class="rec-val" id="scalper-tp">—</span></div>
+          <div><span class="rec-key">SL</span><span class="rec-val" id="scalper-sl">—</span></div>
+          <div><span class="rec-key">RR</span><span class="rec-val" id="scalper-rr">—</span></div>
         </div>
       </div>
-      <div class="rec-areas" style="margin-top:10px">
-        <div class="rec-area short-area">
-          <div class="rec-area-label">SL (8%)</div>
-          <div class="rec-area-val" id="scalper-sl">—</div>
-        </div>
-        <div class="rec-area long-area">
-          <div class="rec-area-label">RR RATIO</div>
-          <div class="rec-area-val" id="scalper-rr">—</div>
+
+      <!-- PRIORITY RECOMMENDATION CARD -->
+      <div class="recommendation-card" id="priority-panel" style="display:none">
+        <div class="rec-label">🎲 PRIORITY</div>
+        <div class="rec-direction" id="priority-type">NONE</div>
+        <div style="font-size:9px;color:var(--text);margin-top:8px" id="priority-reason">—</div>
+        <div class="rec-compact">
+          <div><span class="rec-key">ACTION</span><span class="rec-val" id="priority-action">—</span></div>
+          <div><span class="rec-key">ENTRY</span><span class="rec-val" id="priority-entry">—</span></div>
+          <div><span class="rec-key">TP</span><span class="rec-val" id="priority-tp">—</span></div>
+          <div><span class="rec-key">SL</span><span class="rec-val" id="priority-sl">—</span></div>
         </div>
       </div>
     </div>
 
-    <!-- PRIORITY RECOMMENDATION CARD -->
-    <div class="recommendation-panel" id="priority-panel" style="display:none">
-      <div class="rec-label">🎲 PRIORITY EXECUTION</div>
-      <div class="rec-direction" id="priority-type">NONE</div>
-      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">
-        <div style="font-size:10px;color:var(--text);flex:1" id="priority-reason">—</div>
-      </div>
-      <div class="rec-areas" style="margin-top:12px">
-        <div class="rec-area short-area">
-          <div class="rec-area-label">ACTION</div>
-          <div class="rec-area-val" id="priority-action">—</div>
-        </div>
-        <div class="rec-area long-area">
-          <div class="rec-area-label">ENTRY</div>
-          <div class="rec-area-val" id="priority-entry">—</div>
-        </div>
-      </div>
-      <div class="rec-areas" style="margin-top:10px">
-        <div class="rec-area short-area">
-          <div class="rec-area-label">TP</div>
-          <div class="rec-area-val" id="priority-tp">—</div>
-        </div>
-        <div class="rec-area long-area">
-          <div class="rec-area-label">SL</div>
-          <div class="rec-area-val" id="priority-sl">—</div>
-        </div>
-      </div>
+    <!-- COUNTDOWN TIMER -->
+    <div class="countdown-timer">
+      <span id="countdown-label">Next Candle</span>
+      <span id="countdown-value">00:00</span>
     </div>
   </div>
 
   <!-- SIGNAL CARDS -->
   <div class="signal-grid">
-
-    <!-- LONG SAFE -->
-    <div class="signal-card long-safe" id="card-long-safe">
-      <div class="signal-label">Safe Signal</div>
-      <div class="signal-type">✅ LONG SAFE</div>
-      <div class="signal-row">
-        <span class="signal-key">ENTRY</span>
-        <span class="signal-val entry" id="ls-entry">—</span>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">TYPE</span>
-        <span class="signal-val" style="font-size:9px;color:var(--muted)" id="ls-type">reclaim breakout</span>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">TP 1 / 2</span>
-        <div class="tp-list">
-          <span class="tp-item" id="ls-tp1">—</span>
-          <span class="tp-item" id="ls-tp2">—</span>
-        </div>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">STOP LOSS</span>
-        <span class="signal-val sl" id="ls-sl">—</span>
-      </div>
-    </div>
-
-    <!-- SHORT SAFE -->
-    <div class="signal-card short-safe" id="card-short-safe">
-      <div class="signal-label">Safe Signal</div>
-      <div class="signal-type">🔴 SHORT SAFE</div>
-      <div class="signal-row">
-        <span class="signal-key">ENTRY</span>
-        <span class="signal-val entry" id="ss-entry">—</span>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">TYPE</span>
-        <span class="signal-val" style="font-size:9px;color:var(--muted)" id="ss-type">rejection</span>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">TP 1 / 2</span>
-        <div class="tp-list">
-          <span class="tp-item" id="ss-tp1">—</span>
-          <span class="tp-item" id="ss-tp2">—</span>
-        </div>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">STOP LOSS</span>
-        <span class="signal-val sl" id="ss-sl">—</span>
-      </div>
-    </div>
 
     <!-- SNIPER LONG -->
     <div class="signal-card sniper-long" id="card-sniper-long">
@@ -1631,6 +1714,41 @@ function getPairKey(pair) {
   if (!pair) return "BTCUSDT";
   return String(pair).replace("-", "").toUpperCase();
 }
+
+// ── 15-Minute Countdown Timer ──────────────────────────
+function updateCountdown() {
+  const now = new Date();
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
+
+  // Find next 15-minute boundary (0, 15, 30, 45)
+  let nextMinute;
+  if (minutes < 15) nextMinute = 15;
+  else if (minutes < 30) nextMinute = 30;
+  else if (minutes < 45) nextMinute = 45;
+  else nextMinute = 0; // next hour
+
+  // Calculate seconds until next boundary
+  let secsUntil;
+  if (nextMinute === 0) {
+    // Next hour
+    secsUntil = (60 - minutes) * 60 - seconds;
+  } else {
+    secsUntil = (nextMinute - minutes) * 60 - seconds;
+  }
+
+  const mins = Math.floor(secsUntil / 60);
+  const secs = secsUntil % 60;
+
+  const countdownEl = document.getElementById('countdown-value');
+  if (countdownEl) {
+    countdownEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+}
+
+// Start countdown timer
+updateCountdown();
+setInterval(updateCountdown, 1000);
 
 function renderTabs() {
   const container = document.getElementById("pair-tabs");
