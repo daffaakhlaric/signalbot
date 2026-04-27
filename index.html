@@ -878,6 +878,14 @@
     #countdown-value {
       font-size: 16px;
     }
+
+    .chart-section {
+      grid-template-columns: 1fr;
+    }
+
+    .chart-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 480px) {
@@ -1244,6 +1252,183 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
+  /* ── Chart & Pairs Section ── */
+  .chart-section {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    grid-column: 1 / -1;
+  }
+
+  .chart-area {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .chart-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--green);
+  }
+
+  .chart-timeframe {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .chart-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.03) 0%, rgba(0,212,255,0.03) 100%);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .chart-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .stat-label {
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── Pairs Panel ── */
+  .pairs-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .pairs-panel .panel-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .pairs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pair-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(0,255,136,0.05) 0%, rgba(0,212,255,0.05) 100%);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pair-item:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 8px rgba(0,255,136,0.2);
+  }
+
+  .pair-icon {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--yellow);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .pair-info {
+    flex: 1;
+  }
+
+  .pair-name {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .pair-price {
+    font-size: 11px;
+    color: var(--green);
+    margin-top: 2px;
+  }
+
+  .pair-badge {
+    display: inline-block;
+    padding: 3px 6px;
+    background: rgba(0,212,255,0.15);
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .pair-badge.active {
+    background: rgba(0,255,136,0.15);
+    color: var(--green);
+    border-color: var(--green);
+  }
+
   #countdown-label {
     font-size: 9px;
     color: var(--muted);
@@ -1410,54 +1595,60 @@
     </div>
   </div>
 
-  <!-- SIGNAL CARDS -->
-  <div class="signal-grid">
-
-    <!-- SNIPER LONG -->
-    <div class="signal-card sniper-long" id="card-sniper-long">
-      <div class="signal-label">🎯 Sniper Aggressive</div>
-      <div class="signal-type">SNIPER LONG</div>
-      <div class="signal-row">
-        <span class="signal-key">ZONE</span>
-        <span class="signal-val zone" id="sl-zone">—</span>
+  <!-- CHART & PAIRS SECTION -->
+  <div class="chart-section">
+    <!-- PRICE CHART AREA -->
+    <div class="chart-area">
+      <div class="chart-header">
+        <span class="chart-title" id="chart-pair-name">BTC/USDT</span>
+        <span class="chart-timeframe" id="chart-timeframe">15m</span>
       </div>
-      <div class="signal-row">
-        <span class="signal-key">TP 1 / 2</span>
-        <div class="tp-list">
-          <span class="tp-item" id="sl-tp1">—</span>
-          <span class="tp-item" id="sl-tp2">—</span>
+      <div class="chart-placeholder" id="chart-placeholder">
+        <div class="chart-loading">📊 Loading chart data...</div>
+      </div>
+      <div class="chart-stats">
+        <div class="stat-item">
+          <span class="stat-label">24H Change</span>
+          <span class="stat-value" id="chart-change">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Volume</span>
+          <span class="stat-value" id="chart-volume">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">High</span>
+          <span class="stat-value" id="chart-high">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Low</span>
+          <span class="stat-value" id="chart-low">—</span>
         </div>
       </div>
-      <div class="signal-row">
-        <span class="signal-key">STOP LOSS</span>
-        <span class="signal-val sl" id="sl-sl">—</span>
-      </div>
-      <div class="trigger-text" id="sl-trigger">Waiting for trigger condition...</div>
     </div>
 
-    <!-- SNIPER SHORT -->
-    <div class="signal-card sniper-short" id="card-sniper-short">
-      <div class="signal-label">🎯 Sniper Aggressive</div>
-      <div class="signal-type">SNIPER SHORT</div>
-      <div class="signal-row">
-        <span class="signal-key">ZONE</span>
-        <span class="signal-val zone" id="ss2-zone">—</span>
-      </div>
-      <div class="signal-row">
-        <span class="signal-key">TP 1 / 2</span>
-        <div class="tp-list">
-          <span class="tp-item" id="ss2-tp1">—</span>
-          <span class="tp-item" id="ss2-tp2">—</span>
+    <!-- PAIRS PORTFOLIO PANEL -->
+    <div class="pairs-panel">
+      <div class="panel-title">Available Pairs</div>
+      <div class="pairs-list" id="pairs-list">
+        <div class="pair-item" data-pair="BTCUSDT">
+          <div class="pair-icon">₿</div>
+          <div class="pair-info">
+            <div class="pair-name">BTC/USDT</div>
+            <div class="pair-price" id="pair-btc-price">—</div>
+          </div>
+          <div class="pair-badge active">Active</div>
+        </div>
+        <div class="pair-item" data-pair="AXSUSDT">
+          <div class="pair-icon">⚡</div>
+          <div class="pair-info">
+            <div class="pair-name">AXS/USDT</div>
+            <div class="pair-price" id="pair-axs-price">—</div>
+          </div>
+          <div class="pair-badge">Ready</div>
         </div>
       </div>
-      <div class="signal-row">
-        <span class="signal-key">STOP LOSS</span>
-        <span class="signal-val sl" id="ss2-sl">—</span>
-      </div>
-      <div class="trigger-text" id="ss2-trigger">Waiting for trigger condition...</div>
     </div>
-
-  </div><!-- /signal-grid -->
+  </div><!-- /chart-section -->
 
   <!-- MARKET DATA PANEL -->
   <div class="panel market-panel">
@@ -2085,6 +2276,24 @@ function renderMarketData(d) {
   if (d.pair) setText('src-symbol', d.pair);
 
   if (d.close) document.getElementById('live-price').textContent = '$' + Number(d.close).toLocaleString();
+
+  // Update chart section
+  if (d.pair) {
+    const pairName = d.pair === 'BTCUSDT' ? 'BTC/USDT' : d.pair === 'AXSUSDT' ? 'AXS/USDT' : d.pair;
+    setText('chart-pair-name', pairName);
+    setText('chart-timeframe', tfStr);
+    setText('chart-change', '+0.00%'); // TODO: calculate 24h change
+    setText('chart-volume', d.volume ? Number(d.volume).toFixed(2) : '—');
+    setText('chart-high', fmt(d.high));
+    setText('chart-low', fmt(d.low));
+
+    // Update pair prices in the pairs panel
+    if (d.pair === 'BTCUSDT') {
+      setText('pair-btc-price', '$' + Number(d.close).toLocaleString('en-US', { maximumFractionDigits: 2 }));
+    } else if (d.pair === 'AXSUSDT') {
+      setText('pair-axs-price', '$' + Number(d.close).toFixed(4));
+    }
+  }
 
   // Pre-fill simulate input with latest real price (only if user hasn't typed anything)
   const simInput = document.getElementById('sim-price');
