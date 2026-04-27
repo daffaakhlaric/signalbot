@@ -853,6 +853,90 @@ function getEliteSetupSignal(signals, payload, htfBias, momFilter) {
   };
 }
 
+// ── Select Single Best Signal (unified decisive output) ────────
+function selectBestSignal(signals, elite_setup) {
+  // Priority: Elite=0, Precision Entry=1, Momentum/Liquidity=2, Trend Rider=3, Quick Strike=4
+  const PRIORITY = {
+    precision_entry:  1,
+    momentum_break:   2,
+    liquidity_sweep:  2,
+    trend_rider:      3,
+    quick_strike:     4,
+  };
+
+  const candidates = [];
+
+  // Elite setup is pre-filtered (score>=3, rr>=1.8) — add if it clears the bar too
+  if (elite_setup?.active && (elite_setup.rr || 0) >= 1.5 && (elite_setup.score || 0) >= 2) {
+    candidates.push({
+      type:      elite_setup.signal_type || "Elite Setup",
+      direction: elite_setup.direction,
+      entry:     elite_setup.entry,
+      tp:        elite_setup.tp,
+      sl:        elite_setup.sl,
+      rr:        elite_setup.rr,
+      score:     elite_setup.score,
+      reason:    elite_setup.reason,
+      _priority: 0,
+    });
+  }
+
+  // All other signals — apply filter: RR>=1.5, score>=2, direction active
+  Object.entries(signals).forEach(([key, sig]) => {
+    if (!sig) return;
+    if (!sig.direction || sig.direction === "WAIT" || sig.direction === "SKIP") return;
+    if ((sig.rr   || 0) < 1.5) return;
+    if ((sig.score || 0) < 2)  return;
+    candidates.push({
+      type:      key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      direction: sig.direction,
+      entry:     sig.entry,
+      tp:        sig.tp,
+      sl:        sig.sl,
+      rr:        sig.rr,
+      score:     sig.score,
+      reason:    sig.reason,
+      _priority: PRIORITY[key] ?? 5,
+    });
+  });
+
+  if (candidates.length === 0) {
+    return {
+      type:       "NONE",
+      direction:  "WAIT",
+      entry:      null,
+      tp:         null,
+      sl:         null,
+      rr:         null,
+      score:      0,
+      confidence: "low",
+      reason:     "no valid setup — all signals below threshold (RR<1.5 or score<2)",
+    };
+  }
+
+  // Sort: highest score → highest RR → lowest priority number (most reliable type first)
+  candidates.sort((a, b) =>
+    (b.score - a.score) ||
+    ((b.rr || 0) - (a.rr || 0)) ||
+    (a._priority - b._priority)
+  );
+
+  const best = candidates[0];
+  const confidence = best.score >= 4 ? "high" : best.score >= 2 ? "medium" : "low";
+
+  return {
+    type:       best.type,
+    direction:  best.direction,
+    entry:      best.entry,
+    tp:         best.tp,
+    sl:         best.sl,
+    rr:         round(best.rr, 2),
+    score:      best.score,
+    confidence,
+    reason:     best.reason,
+  };
+}
+
 // ── Build Full Multi-Strategy Signals ─────────────────────────
 function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
   const momFilter = Math.abs(payload.close - payload.prevCandle.close) / payload.close;
@@ -918,37 +1002,17 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
     }
   });
 
-  const elite_setup = getEliteSetupSignal(signals, payload, htfBias, momFilter);
-  const session     = getSession();
-
-  // Priority signal: best active signal
-  const activeSignals = Object.entries(signals)
-    .filter(([, s]) => s.direction && s.direction !== "WAIT" && s.rr >= 1.5)
-    .sort(([, a], [, b]) => (b.score || 0) - (a.score || 0) || (b.rr || 0) - (a.rr || 0));
-
-  const topSignal = activeSignals[0];
-  const priority_signal = topSignal ? {
-    type:       topSignal[0].replace(/_/g, " ").toUpperCase(),
-    action:     topSignal[1].direction,
-    entry:      topSignal[1].entry,
-    tp:         topSignal[1].tp,
-    sl:         topSignal[1].sl,
-    rr:         topSignal[1].rr,
-    score:      topSignal[1].score,
-    confidence: (topSignal[1].score >= 4) ? "high" : (topSignal[1].score >= 2) ? "medium" : "low",
-    reason:     topSignal[1].reason,
-  } : {
-    type: "NONE", action: "WAIT", entry: null, tp: null, sl: null,
-    score: 0, confidence: "low", reason: "no valid setup across all strategies",
-  };
+  const elite_setup  = getEliteSetupSignal(signals, payload, htfBias, momFilter);
+  const session      = getSession();
+  const best_signal  = selectBestSignal(signals, elite_setup);
 
   return {
-    pair:      payload.pair,
-    timestamp: new Date().toISOString(),
+    pair:        payload.pair,
+    timestamp:   new Date().toISOString(),
+    best_signal,
     signals,
     elite_setup,
     session,
-    priority_signal,
     market_context: {
       price:     payload.close,
       structure: payload.structure,
@@ -1681,7 +1745,7 @@ async function processPair(symbol) {
     signal.multi        = multiSignals;
 
     // Signal scoring (legacy + new)
-    signal.score = multiSignals.priority_signal.score || 0;
+    signal.score = multiSignals.best_signal.score || 0;
     if (signal.score < 1 && signal.decision_now !== "SKIP") {
       signal.confidence = "low";
       signal.reason += " | low score";

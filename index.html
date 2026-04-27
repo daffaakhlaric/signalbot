@@ -652,7 +652,7 @@ header {
     <div class="card elite-card WAIT" id="elite-card">
       <div class="elite-top">
         <div class="elite-badge-wrap">
-          <span class="elite-tag">⚡ Elite Setup</span>
+          <span class="elite-tag" id="elite-tag">⚡ Best Signal</span>
           <div class="elite-direction WAIT" id="elite-dir">WAIT</div>
         </div>
         <div class="elite-meta">
@@ -1017,26 +1017,26 @@ const SIGNAL_KEYS = ['precision_entry','quick_strike','trend_rider','momentum_br
 function renderMulti(multi) {
   if (!multi) return;
 
-  // Elite card
-  const elite = multi.elite_setup;
+  // ── BEST SIGNAL hero card ──────────────────────────────────────
+  const best  = multi.best_signal;
   const ecard = el('elite-card');
-  if (elite) {
-    const dir = elite.direction || 'WAIT';
+  if (best) {
+    const dir = best.direction || 'WAIT';
     ecard.className = 'card elite-card ' + dir;
-    el('elite-dir').textContent = dir;
-    el('elite-dir').className   = 'elite-direction ' + dir;
-    el('elite-reason').textContent = elite.reason || '—';
-    el('elite-entry').textContent  = elite.entry  ? fmt(elite.entry)  : '——';
-    el('elite-tp').textContent     = elite.tp     ? fmt(elite.tp)     : '——';
-    el('elite-sl').textContent     = elite.sl     ? fmt(elite.sl)     : '——';
-    el('elite-rr').textContent     = elite.rr     ? 'RR ' + elite.rr + ':1' : 'RR ——';
-    el('elite-type-lbl').textContent = elite.signal_type || '——';
+    el('elite-dir').textContent    = dir;
+    el('elite-dir').className      = 'elite-direction ' + dir;
+    el('elite-reason').textContent = best.reason || '—';
+    el('elite-entry').textContent  = best.entry  ? fmt(best.entry)  : '——';
+    el('elite-tp').textContent     = best.tp     ? fmt(best.tp)     : '——';
+    el('elite-sl').textContent     = best.sl     ? fmt(best.sl)     : '——';
+    el('elite-rr').textContent     = best.rr     ? 'RR ' + best.rr + ':1' : 'RR ——';
+    el('elite-type-lbl').textContent = best.type || '——';
 
-    const score = elite.score || 0;
-    const conf  = score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low';
+    const score = best.score || 0;
+    const conf  = best.confidence || (score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low');
     const confEl = el('elite-conf');
     confEl.textContent = conf.toUpperCase();
-    confEl.className = 'conf-badge ' + conf;
+    confEl.className   = 'conf-badge ' + conf;
     el('elite-score-lbl').textContent = 'SCORE ' + score + '/5';
 
     const pips = el('elite-score-bar').querySelectorAll('.score-pip');
@@ -1047,6 +1047,10 @@ function renderMulti(multi) {
     el('elite-time').textContent = multi.timestamp
       ? '⏱ ' + new Date(multi.timestamp).toLocaleTimeString()
       : '——';
+
+    // Tag shows winning signal type, or scanning if no setup
+    const tagEl = el('elite-tag');
+    if (tagEl) tagEl.textContent = dir === 'WAIT' ? '⌛ Scanning…' : '⚡ ' + (best.type || 'Best Signal');
   }
 
   // Market context from multi
