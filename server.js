@@ -47,7 +47,7 @@ const DATA_SOURCE = (process.env.DATA_SOURCE || "auto").toLowerCase();
 const FALLBACK_ORDER = ["bybit", "okx", "binance", "bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
-const SYMBOLS = (process.env.SYMBOLS || "BTC-USDT,AXS-USDT").split(",").map(s => s.trim());
+const SYMBOLS = ["BTC-USDT"];
 const INTERVAL = process.env.INTERVAL || "15m";
 const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
 const KLINE_LIMIT = 250;                                      // enough for EMA200
