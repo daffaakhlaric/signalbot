@@ -1282,6 +1282,12 @@ function drawDecisionLines(decision) {
 
 function syncDecisionToChart(decision) {
   drawDecisionLines(decision);
+  drawNecklineLine(decision);
+}
+
+function drawNecklineLine(decision) {
+  if (!candleSeries || !decision?.extra?.neckline) return;
+  upsertLine('neckline', decision.extra.neckline, '#3B82F6', { lineWidth: 2, lineStyle: 2, title: 'NECKLINE' });
 }
 
 // Drag events (attach after chart init)
@@ -1994,10 +2000,12 @@ function connect() {
         // Update trade card (auto/manual execution)
         updateTradeCard(data);
 
-        // Update APEX decision card
-        const decision = buildDecisionFromSignals(data);
-        updateDecisionCard(decision);
-        syncDecisionToChart(decision);
+        // ── APEX DECISION: use server decision (single source of truth) ──
+        const serverDecision = data.decision;
+        if (serverDecision) {
+          updateApexDecision(serverDecision);
+          syncDecisionToChart(serverDecision);
+        }
 
         return;
       }
@@ -2081,48 +2089,13 @@ async function simulate() {
 
 connect();
 
-// ── APEX DECISION CARD ───────────────────────────────────────
-function buildDecisionFromSignals(data) {
-  if (!data?.multi?.signals) {
-    return { status: "WAIT", reason: "no signal data" };
-  }
-
-  const signals = data.multi.signals;
-  const list = Object.values(signals).filter(s =>
-    s && s.direction && s.entry && s.tp && s.sl && s.rr
-  );
-
-  if (!list.length) {
-    return { status: "WAIT", reason: "no valid setup" };
-  }
-
-  let best = list[0];
-  for (const s of list) {
-    if ((s.score || 0) > (best.score || 0)) best = s;
-  }
-
-  if ((best.score || 0) < 2 || best.rr < 1.5) {
-    return { status: "WAIT", reason: "low confluence" };
-  }
-
-  return {
-    status: "ENTRY",
-    direction: best.direction,
-    entry: best.entry,
-    tp: best.tp,
-    sl: best.sl,
-    rr: best.rr,
-    score: best.score,
-    reason: best.reason || best.type || "multi-strategy confluence"
-  };
-}
-
-function updateDecisionCard(s) {
+// ── APEX DECISION (single source of truth from server) ────────
+function updateApexDecision(dec) {
   const card = el('decisionCard');
   if (!card) return;
 
-  if (s.status === "WAIT") {
-    card.style.display = s.reason !== "" ? 'block' : 'none';
+  if (!dec || dec.status === "WAIT") {
+    card.style.display = dec?.reason ? 'block' : 'none';
     el('decStatus').textContent = '🟡 WAIT';
     el('decStatus').style.color = '#FACC15';
     el('decDirection').textContent = '——';
@@ -2131,22 +2104,25 @@ function updateDecisionCard(s) {
     el('decSL').textContent = '——';
     el('decRR').textContent = '——';
     el('decScore').textContent = '——';
-    el('decReason').textContent = s.reason || 'waiting for setup…';
+    el('decReason').textContent = dec?.reason || 'waiting for setup…';
     return;
   }
 
   card.style.display = 'block';
-  el('decStatus').textContent = '🟢 ENTRY';
+  el('decStatus').textContent = '🟢 ' + (dec.status || 'ENTRY');
   el('decStatus').style.color = '#00FFA3';
-  el('decDirection').textContent = s.direction || '——';
-  el('decDirection').style.color = s.direction === 'LONG' ? 'var(--green)' : s.direction === 'SHORT' ? 'var(--red)' : '#fff';
-  el('decEntry').textContent = s.entry ? fmt(s.entry) : '——';
-  el('decTP').textContent = s.tp ? fmt(s.tp) : '——';
-  el('decSL').textContent = s.sl ? fmt(s.sl) : '——';
-  el('decRR').textContent = s.rr ? s.rr + ':1' : '——';
-  el('decScore').textContent = s.score ? s.score + '/5' : '——';
-  el('decReason').textContent = s.reason || '';
+  el('decDirection').textContent = dec.direction || '——';
+  el('decDirection').style.color = dec.direction === 'LONG' ? 'var(--green)' : dec.direction === 'SHORT' ? 'var(--red)' : '#fff';
+  el('decEntry').textContent = dec.entry ? fmt(dec.entry) : '——';
+  el('decTP').textContent = dec.tp ? fmt(dec.tp) : '——';
+  el('decSL').textContent = dec.sl ? fmt(dec.sl) : '——';
+  el('decRR').textContent = dec.rr ? dec.rr + ':1' : '——';
+  el('decScore').textContent = dec.confidence || '——';
+  el('decReason').textContent = (dec.source ? `[${dec.source}] ` : '') + (dec.reason || '');
 }
+
+// Backward compat alias
+const updateDecisionCard = updateApexDecision;
 
 // ── AUTO/MANUAL TRADE SYSTEM ─────────────────────────────────
 let AUTO = false;

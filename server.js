@@ -5,6 +5,7 @@
 // ============================================================
 
 require("dotenv").config();
+const { buildDecision } = require("./engine/decisionEngine.js");
 const dns = require("node:dns");
 // Prefer IPv4 to avoid "fetch failed" when IPv6 is not routable (common on Windows / ISP).
 dns.setDefaultResultOrder("ipv4first");
@@ -1228,13 +1229,27 @@ function selectBestSignal(signals, elite_setup) {
 }
 
 // ── Build Full Multi-Strategy Signals ─────────────────────────
-function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
+function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure, patternSignal) {
   const momFilter = Math.abs(payload.close - payload.prevCandle.close) / payload.close;
   const range = payload.resistance - payload.support;
 
   // Renamed signals (premium branding)
   const isPlan = sniperSignal.decision_now === "SKIP";
   const midPrice = (payload.support + payload.resistance) / 2;
+
+  // Pattern signal from pattern engine
+  const pattern_sig = patternSignal?.status === "ENTRY" ? {
+    direction: patternSignal.direction,
+    entry: patternSignal.entry,
+    tp: patternSignal.tp,
+    sl: patternSignal.sl,
+    rr: patternSignal.rr,
+    score: patternSignal.score || 3,
+    reason: patternSignal.reason,
+    status: "ENTRY",
+    type: patternSignal.pattern,
+    source: "PATTERN",
+  } : null;
 
   const precision_entry = {
     direction: isPlan
@@ -1864,9 +1879,6 @@ function rsi(closes, period = 14) {
   return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
-const round = (v, d = 2) =>
-  v == null || Number.isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
-
 function buildMarketPayload(candles) {
   const lastClosed = candles[candles.length - 2];
   const prevClosed = candles[candles.length - 3];
@@ -2057,13 +2069,21 @@ async function processPair(symbol) {
     signal.pattern_signal = patternResult;
     signal.scalper = scalper;
 
-    // Get priority recommendation
+    // ── BUILD FINAL DECISION ──────────────────────────────────
+    const sniperRec = getSniperRecommendation(signal, payload1m);
+    const decision = buildDecision({
+      candles: candles1m,
+      sniper: sniperRec,
+      payload: payload1m,
+    });
+
+    // ── Get priority recommendation ────────────────────────────
     const priority = getPriorityRecommendation(signal);
     signal.priority = priority;
 
     // Build multi-strategy signals
     const prevStructure = state.latestSignal?.market_context?.structure || payload1m.structure;
-    const multiSignals  = buildMultiSignals(payload1m, htfBias, signal, prevStructure);
+    const multiSignals  = buildMultiSignals(payload1m, htfBias, signal, prevStructure, patternResult);
     signal.multi        = multiSignals;
 
     console.log("MULTI SIGNAL:", {
@@ -2097,25 +2117,37 @@ async function processPair(symbol) {
     signal.updated_at = new Date().toISOString();
     signal.bar_time = payload1m.barTime;
 
-    // Format signal untuk frontend (match UI expectation)
+    // ── FORMAT FINAL DECISION SIGNAL ──────────────────────────
+    const apexDecision = {
+      decision_now: decision.direction,
+      status: decision.status,
+      entry: decision.entry,
+      tp: decision.tp,
+      sl: decision.sl,
+      rr: decision.rr,
+      confidence: decision.confidence,
+      reason: decision.reason,
+      source: decision.source,
+      extra: decision.extra || {},
+    };
+
+    // Format signal for frontend (match UI expectation)
     const formatted = {
       pair: symbol,
-      decision_now: signal.decision_now,
+      decision_now: apexDecision.decision_now,
       price: signal.price,
+      apex_decision: apexDecision,
       best_signal: {
-        direction: signal.decision_now,
-        entry: signal.decision_now === "LONG"
-          ? signal.sniper_long?.entry_zone?.[0]
-          : signal.sniper_short?.entry_zone?.[0],
-        tp: signal.decision_now === "LONG"
-          ? signal.sniper_long?.tp?.[0]
-          : signal.sniper_short?.tp?.[0],
-        sl: signal.decision_now === "LONG"
-          ? signal.sniper_long?.sl
-          : signal.sniper_short?.sl,
-        rr: 1.5,
-        score: signal.decision_now === "SKIP" ? 0 : 2,
-        reason: signal.reason
+        direction: apexDecision.decision_now,
+        entry: apexDecision.entry,
+        tp: apexDecision.tp,
+        sl: apexDecision.sl,
+        rr: apexDecision.rr || 1.5,
+        score: apexDecision.status === "ENTRY" ? 4 : 0,
+        reason: apexDecision.reason,
+        source: apexDecision.source,
+        pattern: apexDecision.extra?.patternType || null,
+        neckline: apexDecision.extra?.neckline || null,
       }
     };
 
@@ -2137,6 +2169,7 @@ async function processPair(symbol) {
       confirmed: state.confirmedSignal,
       multi: multiSignals,
       pattern: patternResult.status === "ENTRY" ? patternResult : null,
+      decision: apexDecision, // 🔥 FINAL DECISION
     };
 
     // Broadcast on EVERY loop
