@@ -1071,6 +1071,7 @@ function selectBestSignal(signals, elite_setup) {
 // ── Build Full Multi-Strategy Signals ─────────────────────────
 function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
   const momFilter = Math.abs(payload.close - payload.prevCandle.close) / payload.close;
+  const range = payload.resistance - payload.support;
 
   // Renamed signals (premium branding)
   const isPlan = sniperSignal.decision_now === "SKIP";
