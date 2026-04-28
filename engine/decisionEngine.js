@@ -1,5 +1,7 @@
-const round = (v, d = 2) =>
-  v == null || isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
+const round = function(v, d) {
+  d = d || 2;
+  return v == null || isNaN(v) ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+};
 
 function getPivots(data, left, right) {
   left = left || 3;
@@ -32,7 +34,19 @@ function detectDoubleTop(candles) {
   var neckline = necklineCand.reduce(function(a, b) { return a.price < b.price ? a : b; });
 
   var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
   var breakConfirmed = last.close >= neckline.price;
+
+  // RETEST LOGIC: price pulled back to neckline after initial break
+  var retestPassed = false;
+  if (breakConfirmed && prev) {
+    // Check if price retested neckline (close near neckline but not below)
+    var retestTolerance = neckline.price * 0.001;
+    var priceRetested = last.close >= (neckline.price - retestTolerance) && last.close <= (neckline.price + retestTolerance);
+    var prevWasBelow = prev.close < neckline.price;
+    // Retest passes if price came back to neckline zone and bounced
+    retestPassed = priceRetested && !prevWasBelow && last.close > last.open;
+  }
 
   var entry = last.close;
   var height = h2.price - neckline.price;
@@ -50,7 +64,8 @@ function detectDoubleTop(candles) {
     sl: round(sl, 2),
     rr: round(rr, 2),
     confidence: 0.85,
-    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2)
+    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2),
+    retestPassed: retestPassed
   };
 }
 
@@ -71,7 +86,17 @@ function detectDoubleBottom(candles) {
   var neckline = necklineCand.reduce(function(a, b) { return a.price > b.price ? a : b; });
 
   var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
   var breakConfirmed = last.close <= neckline.price;
+
+  // RETEST LOGIC
+  var retestPassed = false;
+  if (breakConfirmed && prev) {
+    var retestTolerance = neckline.price * 0.001;
+    var priceRetested = last.close <= (neckline.price + retestTolerance) && last.close >= (neckline.price - retestTolerance);
+    var prevWasAbove = prev.close > neckline.price;
+    retestPassed = priceRetested && !prevWasAbove && last.close < last.open;
+  }
 
   var entry = last.close;
   var height = neckline.price - l2.price;
@@ -89,7 +114,8 @@ function detectDoubleBottom(candles) {
     sl: round(sl, 2),
     rr: round(rr, 2),
     confidence: 0.85,
-    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2)
+    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2),
+    retestPassed: retestPassed
   };
 }
 
@@ -169,6 +195,25 @@ function isConfirmationCandle(candles, dir) {
   return false;
 }
 
+function isRetestPhase(candles, direction, neckline) {
+  if (!neckline) return false;
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  if (!last || !prev) return false;
+
+  var tolerance = neckline.price * 0.002;
+  var nearNeckline = direction === "SHORT"
+    ? last.close >= neckline.price - tolerance && last.close <= neckline.price + tolerance
+    : last.close <= neckline.price + tolerance && last.close >= neckline.price - tolerance;
+
+  // Price touched neckline but hasn't confirmed break yet
+  var touchedNeckline = direction === "SHORT"
+    ? prev.close >= neckline.price && last.close < neckline.price
+    : prev.close <= neckline.price && last.close > neckline.price;
+
+  return nearNeckline && !touchedNeckline;
+}
+
 function buildDecision(opts) {
   var candles = opts.candles;
   var sniper = opts.sniper;
@@ -179,21 +224,66 @@ function buildDecision(opts) {
     return { status: "WAIT", direction: "NEUTRAL", confidence: "LOW", source: "NONE", reason: "insufficient data" };
   }
 
+  // Run pattern detection
   var patterns = [
     detectDoubleTop(candles),
     detectDoubleBottom(candles),
     detectTriangle(candles)
   ].filter(Boolean);
 
-  var validPatterns = patterns.filter(function(p) { return p.status === "ENTRY"; });
-  if (validPatterns.length > 0) {
-    var best = validPatterns.reduce(function(a, b) {
+  var entryPatterns = patterns.filter(function(p) { return p.status === "ENTRY"; });
+
+  // ══════════════════════════════════════════════════════════
+  // PRIORITY 1: PATTERN ENTRY — HARD OVERRIDE
+  // ══════════════════════════════════════════════════════════
+  if (entryPatterns.length > 0) {
+    var best = entryPatterns.reduce(function(a, b) {
       var scoreA = (a.confidence || 0) + Math.min(1, (a.rr || 0) / 3);
       var scoreB = (b.confidence || 0) + Math.min(1, (b.rr || 0) / 3);
       return scoreA > scoreB ? a : b;
     });
 
+    // Check retest phase — if not passed, keep as PLAN
+    if (best.retestPassed === false && best.neckline) {
+      // Check if currently in retest phase
+      if (isRetestPhase(candles, best.direction, { price: best.neckline })) {
+        return {
+          status: "WAIT",
+          direction: best.direction,
+          confidence: "MEDIUM",
+          source: "PATTERN",
+          reason: "retest in progress @ " + round(best.neckline, 2),
+          extra: {
+            neckline: best.neckline,
+            patternType: best.type,
+            retestPhase: true
+          }
+        };
+      }
+    }
+
     var confirmed = isConfirmationCandle(candles, best.direction);
+
+    // CONFLICT CHECK: pattern vs sniper
+    if (sniper && sniper.preferred) {
+      if (
+        (best.direction === "LONG" && sniper.preferred === "SHORT") ||
+        (best.direction === "SHORT" && sniper.preferred === "LONG")
+      ) {
+        return {
+          status: "WAIT",
+          direction: "NEUTRAL",
+          confidence: "LOW",
+          source: "PATTERN",
+          reason: "pattern vs sniper conflict — " + best.direction + " pattern but sniper signals " + sniper.preferred,
+          extra: {
+            neckline: best.neckline || null,
+            patternType: best.type,
+            conflict: true
+          }
+        };
+      }
+    }
 
     return {
       status: confirmed ? "ENTRY" : "PLAN",
@@ -208,11 +298,15 @@ function buildDecision(opts) {
       extra: {
         neckline: best.neckline || null,
         patternType: best.type,
-        confirmed: confirmed
+        confirmed: confirmed,
+        retestPassed: best.retestPassed || false
       }
     };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PRIORITY 2: SNIPER ACTIVE — only if no valid pattern entry
+  // ══════════════════════════════════════════════════════════
   if (sniper && (sniper.status && sniper.status.indexOf("ACTIVE") !== -1 || sniper.status && sniper.status.indexOf("READY") !== -1)) {
     var preferred = sniper.preferred;
     if (preferred === "LONG" || preferred === "SHORT") {
@@ -232,6 +326,9 @@ function buildDecision(opts) {
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PRIORITY 3: PATTERN PLAN (waiting for break)
+  // ══════════════════════════════════════════════════════════
   var planPatterns = patterns.filter(function(p) { return p.status === "PLAN"; });
   if (planPatterns.length > 0) {
     var bp = planPatterns[0];
@@ -243,11 +340,15 @@ function buildDecision(opts) {
       reason: bp.reason,
       extra: {
         neckline: bp.neckline || null,
-        patternType: bp.type
+        patternType: bp.type,
+        planWaiting: true
       }
     };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PRIORITY 4: WAIT — no valid setup
+  // ══════════════════════════════════════════════════════════
   return {
     status: "WAIT",
     direction: "NEUTRAL",

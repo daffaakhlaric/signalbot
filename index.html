@@ -1277,7 +1277,17 @@ function drawDecisionLines(decision) {
   }
 
   const lastTime = currentCandles[currentCandles.length - 1]?.time / 1000;
-  if (lastTime) animateEntryPulse(lastTime);
+  if (lastTime) {
+    animateEntryPulse(lastTime);
+    // ENTRY MARKER
+    candleSeries.setMarkers([{
+      time: lastTime,
+      position: decision.direction === 'LONG' ? 'belowBar' : 'aboveBar',
+      color: decision.direction === 'LONG' ? '#00FFA3' : '#FF4D4D',
+      shape: 'arrowUp',
+      text: (decision.source || '') + (decision.extra?.patternType ? ' ' + decision.extra.patternType : '')
+    }]);
+  }
 }
 
 function syncDecisionToChart(decision) {
