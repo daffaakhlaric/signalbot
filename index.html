@@ -1095,7 +1095,14 @@ function initChart() {
 
   chart.timeScale().fitContent();
   el('chart-card').style.display = 'block';
+  el('chart-card').style.visibility = 'visible';
   renderTfButtons();
+  setTimeout(() => {
+    if (chart) {
+      const c = el('chart-container');
+      if (c) chart.resize(c.clientWidth, 320);
+    }
+  }, 100);
 }
 
 function renderTfButtons() {
@@ -1550,7 +1557,14 @@ function connect() {
           }));
           console.log("CHART DATA SAMPLE:", JSON.stringify(chartData[0]));
           candleSeries.setData(chartData);
-          if (chart) chart.timeScale().fitContent();
+          if (chart) {
+            chart.timeScale().fitContent();
+            requestAnimationFrame(() => {
+              if (chart && el('chart-card').style.display !== 'none') {
+                chart.resize(el('chart-container').clientWidth, 320);
+              }
+            });
+          }
         }
         return;
       }
