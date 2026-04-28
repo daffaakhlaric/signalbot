@@ -703,9 +703,56 @@ header {
   </div>
 </header>
 
-<!-- Pair Tabs -->
-<div id="pair-tabs-bar" style="display:none">
-  <div id="pair-tabs"></div>
+<!-- APEX DECISION CARD -->
+<div id="decisionCard" style="
+  background: linear-gradient(135deg, #0B0F14, #111827);
+  padding:16px 20px;
+  border-radius:12px;
+  width:100%;
+  max-width:600px;
+  color:#fff;
+  border:1px solid rgba(255,255,255,0.08);
+  margin:16px auto 0;
+  display:none;
+">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="font-weight:700;font-size:13px;letter-spacing:1px">⚡ APEX DECISION</div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;align-items:center;min-width:60px">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">STATUS</div>
+        <div id="decStatus" style="font-size:11px;font-weight:700;color:#FACC15">——</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;min-width:60px">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">DIR</div>
+        <div id="decDirection" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:#fff">——</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">ENTRY</div>
+          <div id="decEntry" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#FACC15">——</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">TP</div>
+          <div id="decTP" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#00FFA3">——</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">SL</div>
+          <div id="decSL" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#FF4D4D">——</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">RR</div>
+          <div id="decRR" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#aaa">——</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">SCORE</div>
+          <div id="decScore" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#aaa">——</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="decReason" style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">—</div>
 </div>
 
 <!-- ── DASHBOARD ── -->
@@ -1798,6 +1845,10 @@ function connect() {
         // Update trade card (auto/manual execution)
         updateTradeCard(data);
 
+        // Update APEX decision card
+        const decision = buildDecisionFromSignals(data);
+        updateDecisionCard(decision);
+
         return;
       }
       if (msg.type === 'price_update') {
@@ -1880,6 +1931,73 @@ async function simulate() {
 
 connect();
 
+// ── APEX DECISION CARD ───────────────────────────────────────
+function buildDecisionFromSignals(data) {
+  if (!data?.multi?.signals) {
+    return { status: "WAIT", reason: "no signal data" };
+  }
+
+  const signals = data.multi.signals;
+  const list = Object.values(signals).filter(s =>
+    s && s.direction && s.entry && s.tp && s.sl && s.rr
+  );
+
+  if (!list.length) {
+    return { status: "WAIT", reason: "no valid setup" };
+  }
+
+  let best = list[0];
+  for (const s of list) {
+    if ((s.score || 0) > (best.score || 0)) best = s;
+  }
+
+  if ((best.score || 0) < 2 || best.rr < 1.5) {
+    return { status: "WAIT", reason: "low confluence" };
+  }
+
+  return {
+    status: "ENTRY",
+    direction: best.direction,
+    entry: best.entry,
+    tp: best.tp,
+    sl: best.sl,
+    rr: best.rr,
+    score: best.score,
+    reason: best.reason || best.type || "multi-strategy confluence"
+  };
+}
+
+function updateDecisionCard(s) {
+  const card = el('decisionCard');
+  if (!card) return;
+
+  if (s.status === "WAIT") {
+    card.style.display = s.reason !== "" ? 'block' : 'none';
+    el('decStatus').textContent = '🟡 WAIT';
+    el('decStatus').style.color = '#FACC15';
+    el('decDirection').textContent = '——';
+    el('decEntry').textContent = '——';
+    el('decTP').textContent = '——';
+    el('decSL').textContent = '——';
+    el('decRR').textContent = '——';
+    el('decScore').textContent = '——';
+    el('decReason').textContent = s.reason || 'waiting for setup…';
+    return;
+  }
+
+  card.style.display = 'block';
+  el('decStatus').textContent = '🟢 ENTRY';
+  el('decStatus').style.color = '#00FFA3';
+  el('decDirection').textContent = s.direction || '——';
+  el('decDirection').style.color = s.direction === 'LONG' ? 'var(--green)' : s.direction === 'SHORT' ? 'var(--red)' : '#fff';
+  el('decEntry').textContent = s.entry ? fmt(s.entry) : '——';
+  el('decTP').textContent = s.tp ? fmt(s.tp) : '——';
+  el('decSL').textContent = s.sl ? fmt(s.sl) : '——';
+  el('decRR').textContent = s.rr ? s.rr + ':1' : '——';
+  el('decScore').textContent = s.score ? s.score + '/5' : '——';
+  el('decReason').textContent = s.reason || '';
+}
+
 // ── AUTO/MANUAL TRADE SYSTEM ─────────────────────────────────
 let AUTO = false;
 let latestConfirmed = null;
@@ -1914,7 +2032,7 @@ function updateTradeCard(signal) {
   if (!card) return;
 
   const confirmed = signal?.confirmed;
-  if (!confirmed || confirmed.status !== 'VALID') {
+  if (!confirmed) {
     card.style.display = 'none';
     return;
   }
@@ -1933,12 +2051,16 @@ function updateTradeCard(signal) {
   dirEl.textContent = dir;
   dirEl.style.color = dir === 'LONG' ? 'var(--green)' : dir === 'SHORT' ? 'var(--red)' : 'var(--muted)';
 
-  entryEl.textContent = confirmed.entry ? fmt(confirmed.entry) : '——';
-  tpEl.textContent = confirmed.tp ? fmt(confirmed.tp) : '——';
-  slEl.textContent = confirmed.sl ? fmt(confirmed.sl) : '——';
+  const entryPrice = confirmed.entry || confirmed.sniper_long?.entry_zone?.[0] || confirmed.sniper?.entry_zone?.[0];
+  const tpPrice = confirmed.tp || confirmed.sniper_long?.tp?.[0] || confirmed.sniper?.tp?.[0];
+  const slPrice = confirmed.sl || confirmed.sniper_long?.sl || confirmed.sniper?.sl;
+
+  entryEl.textContent = entryPrice ? fmt(entryPrice) : '——';
+  tpEl.textContent = tpPrice ? fmt(tpPrice) : '——';
+  slEl.textContent = slPrice ? fmt(slPrice) : '——';
   reasonEl.textContent = confirmed.reason || 'Confirmed signal';
 
-  const isValid = confirmed.status === 'VALID';
+  const isValid = confirmed.status === 'VALID' || confirmed.decision_now === 'LONG' || confirmed.decision_now === 'SHORT';
   statusEl.textContent = isValid ? 'VALID' : 'INVALID';
   statusEl.style.background = isValid ? 'rgba(0,255,163,0.1)' : 'rgba(255,77,77,0.1)';
   statusEl.style.color = isValid ? '#00FFA3' : '#FF4D4D';

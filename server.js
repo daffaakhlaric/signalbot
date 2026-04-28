@@ -1882,9 +1882,11 @@ async function processPair(symbol) {
       // Confirm previous sniper signal if exists
       if (state.sniperSignal && state.sniperSignal.decision_now !== "SKIP") {
         const confirmed = confirmEntry(state.sniperSignal, payload1m);
+        const isValid = confirmed.decision_now !== "SKIP";
         state.confirmedSignal = {
           ...confirmed,
           type: "CONFIRMED",
+          status: isValid ? "VALID" : "INVALID",
           confirmedAt: Date.now(),
           sniperTime: state.sniperSignal.candleTime,
         };
