@@ -1,4 +1,4 @@
-// ── Decision Engine (PRO) — Single Source of Truth ───────────
+// ── Decision Engine (MASTER BRAIN) — Single Source of Truth ───
 const round = function(v, d) {
   d = d || 2;
   return v == null || isNaN(v) ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
@@ -17,6 +17,223 @@ function getPivots(data, left, right) {
   }
   return pivots;
 }
+
+// ══════════════════════════════════════════════════════════
+// SMC DETECTION ENGINE
+// ══════════════════════════════════════════════════════════
+
+function detectLiquiditySweep(candles) {
+  if (candles.length < 3) return null;
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  var prev2 = candles[candles.length - 3];
+  if (!last || !prev || !prev2) return null;
+
+  // Short sweep: spike above prev high then reject below
+  if (prev.high > prev2.high) {
+    if (last.high > prev.high && last.close < prev.high && last.close < last.open) {
+      return {
+        type: "LIQUIDITY_SWEEP",
+        status: "ENTRY",
+        direction: "SHORT",
+        entry: round(last.close, 2),
+        tp: round(last.close - (prev.high - prev.low) * 0.5, 2),
+        sl: round(last.high * 1.001, 2),
+        rr: 1.5,
+        confidence: 0.75,
+        pattern: "LIQUIDITY_SWEEP",
+        reason: "liquidity sweep short"
+      };
+    }
+  }
+
+  // Long sweep: spike below prev low then bounce above
+  if (prev.low < prev2.low) {
+    if (last.low < prev.low && last.close > prev.low && last.close > last.open) {
+      return {
+        type: "LIQUIDITY_SWEEP",
+        status: "ENTRY",
+        direction: "LONG",
+        entry: round(last.close, 2),
+        tp: round(last.close + (prev.high - prev.low) * 0.5, 2),
+        sl: round(last.low * 0.999, 2),
+        rr: 1.5,
+        confidence: 0.75,
+        pattern: "LIQUIDITY_SWEEP",
+        reason: "liquidity sweep long"
+      };
+    }
+  }
+
+  return null;
+}
+
+function detectInducement(candles) {
+  if (candles.length < 2) return null;
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  if (!last || !prev) return null;
+
+  // Short inducement: push above prev high, reject down
+  if (last.high > prev.high && last.close < prev.close && last.close < last.open) {
+    return {
+      type: "INDUCEMENT_SHORT",
+      status: "ENTRY",
+      direction: "SHORT",
+      confidence: 0.7,
+      pattern: "INDUCEMENT",
+      reason: "inducement short"
+    };
+  }
+
+  // Long inducement: push below prev low, bounce up
+  if (last.low < prev.low && last.close > prev.close && last.close > last.open) {
+    return {
+      type: "INDUCEMENT_LONG",
+      status: "ENTRY",
+      direction: "LONG",
+      confidence: 0.7,
+      pattern: "INDUCEMENT",
+      reason: "inducement long"
+    };
+  }
+
+  return null;
+}
+
+function detectBOS(candles) {
+  if (candles.length < 10) return null;
+  var last = candles[candles.length - 1];
+  var prevCandles = candles.slice(-10, -1);
+  var prevHigh = Math.max.apply(null, prevCandles.map(function(c) { return c.high; }));
+  var prevLow = Math.min.apply(null, prevCandles.map(function(c) { return c.low; }));
+
+  if (last.close > prevHigh) {
+    return {
+      type: "BOS",
+      status: "ENTRY",
+      direction: "LONG",
+      confidence: 0.8,
+      pattern: "BOS",
+      reason: "BOS upside"
+    };
+  }
+  if (last.close < prevLow) {
+    return {
+      type: "BOS",
+      status: "ENTRY",
+      direction: "SHORT",
+      confidence: 0.8,
+      pattern: "BOS",
+      reason: "BOS downside"
+    };
+  }
+  return null;
+}
+
+function detectCHoCH(candles, structure) {
+  if (candles.length < 10 || !structure) return null;
+  var last = candles[candles.length - 1];
+  var prevCandles = candles.slice(-10, -1);
+  var prevLow = Math.min.apply(null, prevCandles.map(function(c) { return c.low; }));
+  var prevHigh = Math.max.apply(null, prevCandles.map(function(c) { return c.high; }));
+
+  if (structure === "HH" && last.close < prevLow) {
+    return {
+      type: "CHOCH",
+      status: "ENTRY",
+      direction: "SHORT",
+      confidence: 0.75,
+      pattern: "CHOCH",
+      reason: "structure flip HH -> bear"
+    };
+  }
+  if (structure === "LL" && last.close > prevHigh) {
+    return {
+      type: "CHOCH",
+      status: "ENTRY",
+      direction: "LONG",
+      confidence: 0.75,
+      pattern: "CHOCH",
+      reason: "structure flip LL -> bull"
+    };
+  }
+  return null;
+}
+
+function getSMCEntry(smc) {
+  var sweep = smc.sweep;
+  var inducement = smc.inducement;
+  var bos = smc.bos;
+  var choch = smc.choch;
+
+  // Priority: sweep+choch > sweep+bos > inducement+sweep > single
+  if (sweep && choch && sweep.direction === choch.direction) {
+    return {
+      status: "ENTRY",
+      direction: sweep.direction,
+      entry: sweep.entry || sweep.price,
+      tp: sweep.tp,
+      sl: sweep.sl,
+      rr: sweep.rr || 1.5,
+      confidence: 0.95,
+      source: "SMC_ENGINE",
+      reason: "sweep + choch confirmed",
+      extra: { sweep: true, choch: true, patternType: "SMC_COMBO" }
+    };
+  }
+
+  if (sweep && bos && sweep.direction === bos.direction) {
+    return {
+      status: "ENTRY",
+      direction: sweep.direction,
+      entry: sweep.entry || sweep.price,
+      tp: sweep.tp,
+      sl: sweep.sl,
+      rr: sweep.rr || 1.5,
+      confidence: 0.9,
+      source: "SMC_ENGINE",
+      reason: "sweep + BOS confirmed",
+      extra: { sweep: true, bos: true, patternType: "SMC_COMBO" }
+    };
+  }
+
+  if (inducement && sweep && inducement.direction === sweep.direction) {
+    return {
+      status: "ENTRY",
+      direction: sweep.direction,
+      entry: sweep.entry || sweep.price,
+      tp: sweep.tp,
+      sl: sweep.sl,
+      rr: sweep.rr || 1.5,
+      confidence: 0.88,
+      source: "SMC_ENGINE",
+      reason: "inducement + sweep confirmed",
+      extra: { inducement: true, sweep: true, patternType: "SMC_COMBO" }
+    };
+  }
+
+  if (bos && choch && bos.direction === choch.direction) {
+    return {
+      status: "ENTRY",
+      direction: bos.direction,
+      entry: bos.price || bos.entry,
+      tp: bos.tp,
+      sl: bos.sl,
+      rr: 1.5,
+      confidence: 0.85,
+      source: "SMC_ENGINE",
+      reason: "BOS + CHOCH confirmed",
+      extra: { bos: true, choch: true, patternType: "SMC_COMBO" }
+    };
+  }
+
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════
+// PATTERN DETECTION ENGINE (CLASSIC SMC PATTERNS)
+// ══════════════════════════════════════════════════════════
 
 function detectDoubleTopPro(candles) {
   var pivots = getPivots(candles);
@@ -37,7 +254,7 @@ function detectDoubleTopPro(candles) {
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
 
-  // BEARISH breakdown — price closes BELOW neckline for SHORT
+  // BEARISH breakdown — price closes BELOW neckline
   var breakConfirmed = last.close < neckline.price;
 
   var retestZone = neckline.price * 0.001;
@@ -97,7 +314,7 @@ function detectDoubleBottomPro(candles) {
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
 
-  // BULLISH breakout — price closes ABOVE neckline for LONG
+  // BULLISH breakout — price closes ABOVE neckline
   var breakConfirmed = last.close > neckline.price;
 
   var retestZone = neckline.price * 0.001;
@@ -153,7 +370,6 @@ function detectTrianglePro(candles) {
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
 
-  // LONG breakout: close ABOVE upper + fake breakout filter
   if (last.close > upper) {
     if (prev && last.high > upper && last.close < upper) {
       return {
@@ -170,7 +386,6 @@ function detectTrianglePro(candles) {
     };
   }
 
-  // SHORT breakdown: close BELOW lower + fake breakdown filter
   if (last.close < lower) {
     if (prev && last.low < lower && last.close > lower) {
       return {
@@ -187,7 +402,6 @@ function detectTrianglePro(candles) {
     };
   }
 
-  // Liquidity sweep near upper/lower
   if (prev) {
     if (last.high > upper && last.close < upper && last.close < last.open) {
       return {
@@ -209,44 +423,6 @@ function detectTrianglePro(candles) {
     type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
     reason: "waiting triangle breakout", confidence: 0.5
   };
-}
-
-function detectLiquiditySweep(candles) {
-  if (candles.length < 3) return null;
-  var last = candles[candles.length - 1];
-  var prev = candles[candles.length - 2];
-  var prev2 = candles[candles.length - 3];
-  if (!last || !prev || !prev2) return null;
-
-  // Short sweep: spike above prev high then reject
-  if (prev.high > prev2.high) {
-    if (last.high > prev.high && last.close < prev.high && last.close < last.open) {
-      return {
-        type: "LIQUIDITY_SWEEP", status: "ENTRY", direction: "SHORT",
-        entry: round(last.close, 2),
-        tp: round(last.close - (prev.high - prev.low) * 0.5, 2),
-        sl: round(last.high * 1.001, 2),
-        rr: 1.5, confidence: 0.7, pattern: "LIQUIDITY_SWEEP",
-        reason: "liquidity sweep short"
-      };
-    }
-  }
-
-  // Long sweep: spike below prev low then bounce
-  if (prev.low < prev2.low) {
-    if (last.low < prev.low && last.close > prev.low && last.close > last.open) {
-      return {
-        type: "LIQUIDITY_SWEEP", status: "ENTRY", direction: "LONG",
-        entry: round(last.close, 2),
-        tp: round(last.close + (prev.high - prev.low) * 0.5, 2),
-        sl: round(last.low * 0.999, 2),
-        rr: 1.5, confidence: 0.7, pattern: "LIQUIDITY_SWEEP",
-        reason: "liquidity sweep long"
-      };
-    }
-  }
-
-  return null;
 }
 
 function isConfirmationCandle(candles, dir) {
@@ -276,31 +452,85 @@ function isConfirmationCandle(candles, dir) {
   return false;
 }
 
+// ══════════════════════════════════════════════════════════
+// BUILD DECISION — MASTER FUNCTION
+// ══════════════════════════════════════════════════════════
+
 function buildDecision(opts) {
   var candles = opts.candles;
   var sniper = opts.sniper;
   var payload = opts.payload;
   var htfBias = opts.htfBias || "NEUTRAL";
+  var structure = payload.structure || "NA";
   var range = payload.resistance - payload.support;
 
   if (!candles || candles.length < 20) {
     return { status: "WAIT", direction: "NEUTRAL", confidence: "LOW", source: "NONE", reason: "insufficient data" };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // SMC ENGINE — PRIORITY 1 (KING)
+  // ══════════════════════════════════════════════════════════
+  var sweep = detectLiquiditySweep(candles);
+  var inducement = detectInducement(candles);
+  var bos = detectBOS(candles);
+  var choch = detectCHoCH(candles, structure);
+
+  var smcEntry = getSMCEntry({ sweep: sweep, inducement: inducement, bos: bos, choch: choch });
+
+  if (smcEntry && smcEntry.status === "ENTRY") {
+    // HTF conflict check
+    if (htfBias !== "NEUTRAL" && htfBias !== smcEntry.direction) {
+      return {
+        status: "WAIT",
+        direction: "NEUTRAL",
+        confidence: "LOW",
+        source: "SMC_ENGINE",
+        reason: "HTF conflict: " + smcEntry.direction + " vs HTF " + htfBias,
+        extra: { htfConflict: true }
+      };
+    }
+
+    // Sniper conflict check
+    if (sniper && sniper.preferred && sniper.preferred !== smcEntry.direction) {
+      return {
+        status: "WAIT",
+        direction: "NEUTRAL",
+        confidence: "LOW",
+        source: "SMC_ENGINE",
+        reason: "sniper conflict: " + smcEntry.direction + " vs " + sniper.preferred,
+        extra: { conflict: true }
+      };
+    }
+
+    // SMART ENTRY MODE: use SAFE confirmation for SMC
+    var confirmed = isConfirmationCandle(candles, smcEntry.direction);
+    return {
+      status: confirmed ? "ENTRY" : "PLAN",
+      direction: smcEntry.direction,
+      entry: smcEntry.entry,
+      tp: smcEntry.tp,
+      sl: smcEntry.sl,
+      rr: smcEntry.rr,
+      confidence: confirmed ? "HIGH" : "MEDIUM",
+      source: "SMC_ENGINE",
+      reason: smcEntry.reason,
+      extra: smcEntry.extra || {}
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // PATTERN ENGINE — PRIORITY 2 (CLASSIC PATTERNS)
+  // ══════════════════════════════════════════════════════════
   var patterns = [
     detectDoubleTopPro(candles),
     detectDoubleBottomPro(candles),
     detectTrianglePro(candles),
-    detectLiquiditySweep(candles),
   ].filter(Boolean);
 
   var entryPatterns = patterns.filter(function(p) { return p.status === "ENTRY"; });
   var planPatterns = patterns.filter(function(p) { return p.status === "PLAN"; });
 
-  // ══════════════════════════════════════════════════════════
-  // PRIORITY 1: PATTERN IS KING — absolute override
-  // When pattern confirms ENTRY, it overrides sniper completely
-  // ══════════════════════════════════════════════════════════
   if (entryPatterns.length > 0) {
     var best = entryPatterns.reduce(function(a, b) {
       var scoreA = (a.confidence || 0) + Math.min(1, (a.rr || 0) / 3);
@@ -310,35 +540,27 @@ function buildDecision(opts) {
 
     var confirmed = isConfirmationCandle(candles, best.direction);
 
-    // CONFLICT FILTER: sniper direction vs pattern direction
-    if (sniper && sniper.preferred && sniper.preferred !== best.direction) {
-      return {
-        status: "WAIT",
-        direction: "NEUTRAL",
-        confidence: "LOW",
-        source: "PATTERN",
-        reason: "conflict: " + best.direction + " pattern but sniper " + sniper.preferred + " — waiting resolution",
-        extra: {
-          neckline: best.neckline || null,
-          patternType: best.pattern || best.type,
-          conflict: true
-        }
-      };
-    }
-
-    // HTF FILTER: reject counter-trend pattern entries
+    // HTF conflict check
     if (htfBias !== "NEUTRAL" && htfBias !== best.direction) {
       return {
         status: "WAIT",
         direction: "NEUTRAL",
         confidence: "LOW",
         source: "PATTERN",
-        reason: "HTF conflict: " + best.direction + " pattern vs HTF " + htfBias + " — waiting",
-        extra: {
-          neckline: best.neckline || null,
-          patternType: best.pattern || best.type,
-          htfConflict: true
-        }
+        reason: "HTF conflict: " + best.direction + " vs HTF " + htfBias,
+        extra: { neckline: best.neckline || null, patternType: best.pattern || best.type, htfConflict: true }
+      };
+    }
+
+    // Sniper conflict check
+    if (sniper && sniper.preferred && sniper.preferred !== best.direction) {
+      return {
+        status: "WAIT",
+        direction: "NEUTRAL",
+        confidence: "LOW",
+        source: "PATTERN",
+        reason: "conflict: " + best.direction + " pattern but sniper " + sniper.preferred,
+        extra: { neckline: best.neckline || null, patternType: best.pattern || best.type, conflict: true }
       };
     }
 
@@ -362,7 +584,7 @@ function buildDecision(opts) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // PRIORITY 2: SNIPER ACTIVE — only if no pattern ENTRY
+  // SNIPER ENGINE — PRIORITY 3 (only if no SMC + no Pattern)
   // ══════════════════════════════════════════════════════════
   if (sniper && (sniper.status && sniper.status.indexOf("ACTIVE") !== -1 || sniper.status && sniper.status.indexOf("READY") !== -1)) {
     var preferred = sniper.preferred;
@@ -384,7 +606,7 @@ function buildDecision(opts) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // PRIORITY 3: PATTERN PLAN — waiting for break
+  // PATTERN PLAN — PRIORITY 4 (waiting for confirmation)
   // ══════════════════════════════════════════════════════════
   if (planPatterns.length > 0) {
     var bp = planPatterns[0];
