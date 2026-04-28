@@ -1846,7 +1846,6 @@ async function processPair(symbol) {
 
     // FIX 3: Debug log state update
     console.log("STATE UPDATE", symbol, {
-      hasSignal: !!multiSignals,
       hasPayload: !!payload15m,
       payload15m: !!payload15m,
       close: payload15m?.close
