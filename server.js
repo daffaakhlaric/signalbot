@@ -1889,19 +1889,41 @@ async function processPair(symbol) {
     signal.updated_at = new Date().toISOString();
     signal.bar_time = payload1m.barTime;
 
-    state.latestSignal = signal;
-    state.signalHistory.unshift(signal);
+    // Format signal untuk frontend (match UI expectation)
+    const formatted = {
+      pair: symbol,
+      decision_now: signal.decision_now,
+      price: signal.price,
+      best_signal: {
+        direction: signal.decision_now,
+        entry: signal.decision_now === "LONG"
+          ? signal.sniper_long?.entry_zone?.[0]
+          : signal.sniper_short?.entry_zone?.[0],
+        tp: signal.decision_now === "LONG"
+          ? signal.sniper_long?.tp?.[0]
+          : signal.sniper_short?.tp?.[0],
+        sl: signal.decision_now === "LONG"
+          ? signal.sniper_long?.sl
+          : signal.sniper_short?.sl,
+        rr: 1.5,
+        score: signal.decision_now === "SKIP" ? 0 : 2,
+        reason: signal.reason
+      }
+    };
+
+    state.latestSignal = formatted;
+    state.signalHistory.unshift(formatted);
     if (state.signalHistory.length > 50) state.signalHistory.pop();
 
     // Also update global state for first pair (BTC-USDT) for backward compatibility
     if (symbol === SYMBOLS[0]) {
-      latestSignal = signal;
+      latestSignal = formatted;
       latestPayload = { ...payload1m, receivedAt: new Date().toISOString() };
-      signalHistory.unshift(signal);
+      signalHistory.unshift(formatted);
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
-    // Broadcast on EVERY loop (FIX 2: no conditions)
+    // Broadcast on EVERY loop
     broadcast({
       type: "market_data",
       pair: symbol,
@@ -1910,7 +1932,7 @@ async function processPair(symbol) {
     broadcast({
       type: "signal",
       pair: symbol,
-      data: multiSignals
+      data: formatted
     });
 
     simulateDryTrade(signal, payload1m);
