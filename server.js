@@ -139,6 +139,14 @@ wss.on("connection", (ws) => {
     if (state?.latestSignal) {
       ws.send(JSON.stringify({ type: "signal", pair: symbol, data: state.latestSignal }));
     }
+    // FIX 3: Fallback if no signal yet
+    if (!state?.latestSignal) {
+      ws.send(JSON.stringify({
+        type: "signal",
+        pair: symbol,
+        data: { status: "NO_DATA", pair: symbol }
+      }));
+    }
   });
 
   // Legacy global state fallback
@@ -1836,6 +1844,14 @@ async function processPair(symbol) {
       botLog("info", `📊 ${symbol} new bar — @ ${payload15m.close} | Structure: ${payload15m.structure}`);
     }
 
+    // FIX 3: Debug log state update
+    console.log("STATE UPDATE", symbol, {
+      hasSignal: !!multiSignals,
+      hasPayload: !!payload15m,
+      payload15m: !!payload15m,
+      close: payload15m?.close
+    });
+
     let signal = generateSniperSignal(payload15m);
     signal = confirmEntry(signal, payload15m);
     signal = validateSignal(signal);
@@ -1924,23 +1940,17 @@ async function processPair(symbol) {
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
-    // Broadcast only when new candle closes (not every poll)
-    const isNewCandle = payload15m.barTime !== state.lastBroadcastBarTime;
-    if (isNewCandle) {
-      state.lastBroadcastBarTime = payload15m.barTime;
-
-      // Broadcast multi-pair signal
-      broadcast({
-        type: "multi_signal",
-        data: {
-          pair:   signal.pair,
-          symbol: symbol,
-          signal,
-          market: payload15m,
-          multi:  multiSignals,
-        }
-      });
-    }
+    // Broadcast on EVERY loop (FIX 2: no conditions)
+    broadcast({
+      type: "market_data",
+      pair: symbol,
+      data: payload15m
+    });
+    broadcast({
+      type: "signal",
+      pair: symbol,
+      data: multiSignals
+    });
 
     simulateDryTrade(signal, payload15m);
     checkDryTrades(payload15m.close);
