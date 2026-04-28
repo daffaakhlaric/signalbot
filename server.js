@@ -1827,32 +1827,32 @@ async function processPair(symbol) {
     const state = pairState[symbol];
     if (!state) return;
 
-    const [candles15m, candles1h] = await Promise.all([
-      fetchKlines(symbol, "15m", KLINE_LIMIT),
+    const [candles1m, candles1h] = await Promise.all([
+      fetchKlines(symbol, INTERVAL, KLINE_LIMIT),
       fetchKlines(symbol, "1h",  KLINE_LIMIT),
     ]);
 
-    if (candles15m.length < 20) return;
+    if (candles1m.length < 20) return;
 
-    const payload15m = buildMarketPayloadForSymbol(candles15m, symbol);
+    const payload1m = buildMarketPayloadForSymbol(candles1m, symbol);
     const payload1h  = buildMarketPayloadForSymbol(candles1h, symbol);
-    state.latestPayload = payload15m;
+    state.latestPayload = payload1m;
 
     // Real-time analysis
-    if (payload15m.barTime !== state.lastAnalyzedBarTime) {
-      state.lastAnalyzedBarTime = payload15m.barTime;
-      botLog("info", `📊 ${symbol} new bar — @ ${payload15m.close} | Structure: ${payload15m.structure}`);
+    if (payload1m.barTime !== state.lastAnalyzedBarTime) {
+      state.lastAnalyzedBarTime = payload1m.barTime;
+      botLog("info", `📊 ${symbol} new bar — @ ${payload1m.close} | Structure: ${payload1m.structure}`);
     }
 
     // FIX 3: Debug log state update
     console.log("STATE UPDATE", symbol, {
-      hasPayload: !!payload15m,
-      payload15m: !!payload15m,
-      close: payload15m?.close
+      hasPayload: !!payload1m,
+      payload1m: !!payload1m,
+      close: payload1m?.close
     });
 
-    let signal = generateSniperSignal(payload15m);
-    signal = confirmEntry(signal, payload15m);
+    let signal = generateSniperSignal(payload1m);
+    signal = confirmEntry(signal, payload1m);
     signal = validateSignal(signal);
     signal = checkCooldown(signal);
 
@@ -1860,9 +1860,9 @@ async function processPair(symbol) {
     signal.htf_bias = htfBias;
     signal.htf_structure = payload1h.structure;
 
-    const momFilter = Math.abs(payload15m.close - payload15m.prevCandle.close) / payload15m.close;
-    const range = payload15m.resistance - payload15m.support;
-    const dynamicMomentum = (range / payload15m.close) * 0.2;
+    const momFilter = Math.abs(payload1m.close - payload1m.prevCandle.close) / payload1m.close;
+    const range = payload1m.resistance - payload1m.support;
+    const dynamicMomentum = (range / payload1m.close) * 0.2;
 
     const isAutoTrigger = signal.reason.includes("real-time trigger");
     if (
@@ -1889,16 +1889,16 @@ async function processPair(symbol) {
     }
 
     signal.timestamp = new Date().toISOString();
-    signal.price = payload15m.close;
-    signal.pair = payload15m.pair;
+    signal.price = payload1m.close;
+    signal.pair = payload1m.pair;
     signal.source = activeSource || DATA_SOURCE;
 
     // Get sniper recommendation
-    const recommendation = getSniperRecommendation(signal, payload15m);
+    const recommendation = getSniperRecommendation(signal, payload1m);
     signal.recommendation = recommendation;
 
     // Get scalper recommendation
-    const scalper = getScalperRecommendation(payload15m);
+    const scalper = getScalperRecommendation(payload1m);
     signal.scalper = scalper;
 
     // Get priority recommendation
@@ -1906,8 +1906,8 @@ async function processPair(symbol) {
     signal.priority = priority;
 
     // Build multi-strategy signals
-    const prevStructure = state.latestSignal?.market_context?.structure || payload15m.structure;
-    const multiSignals  = buildMultiSignals(payload15m, htfBias, signal, prevStructure);
+    const prevStructure = state.latestSignal?.market_context?.structure || payload1m.structure;
+    const multiSignals  = buildMultiSignals(payload1m, htfBias, signal, prevStructure);
     signal.multi        = multiSignals;
 
     // Signal scoring (legacy + new)
@@ -1925,7 +1925,7 @@ async function processPair(symbol) {
     }
 
     signal.updated_at = new Date().toISOString();
-    signal.bar_time = payload15m.barTime;
+    signal.bar_time = payload1m.barTime;
 
     state.latestSignal = signal;
     state.signalHistory.unshift(signal);
@@ -1934,7 +1934,7 @@ async function processPair(symbol) {
     // Also update global state for first pair (BTC-USDT) for backward compatibility
     if (symbol === SYMBOLS[0]) {
       latestSignal = signal;
-      latestPayload = { ...payload15m, receivedAt: new Date().toISOString() };
+      latestPayload = { ...payload1m, receivedAt: new Date().toISOString() };
       signalHistory.unshift(signal);
       if (signalHistory.length > 50) signalHistory.pop();
     }
@@ -1943,7 +1943,7 @@ async function processPair(symbol) {
     broadcast({
       type: "market_data",
       pair: symbol,
-      data: payload15m
+      data: payload1m
     });
     broadcast({
       type: "signal",
@@ -1951,8 +1951,8 @@ async function processPair(symbol) {
       data: multiSignals
     });
 
-    simulateDryTrade(signal, payload15m);
-    checkDryTrades(payload15m.close);
+    simulateDryTrade(signal, payload1m);
+    checkDryTrades(payload1m.close);
   } catch (err) {
     botLog("err", `❌ ${symbol} error: ${err.message}`);
   }
