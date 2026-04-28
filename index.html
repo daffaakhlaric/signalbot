@@ -1157,30 +1157,36 @@ function renderChartSignal() {
   const priceScale = chart.priceScale('');
 
   // entry line
-  if (entryLine) { chart.removePriceLine(entryLine); entryLine = null; }
-  if (tpLine)    { chart.removePriceLine(tpLine);    tpLine = null; }
-  if (slLine)    { chart.removePriceLine(slLine);    slLine = null; }
+  if (entryLine) { try { chart.removePriceLine(entryLine); } catch(e){} entryLine = null; }
+  if (tpLine)    { try { chart.removePriceLine(tpLine); } catch(e){} tpLine = null; }
+  if (slLine)    { try { chart.removePriceLine(slLine); } catch(e){} slLine = null; }
 
   if (sig.entry && sig.direction !== 'WAIT') {
     const color = sig.direction === 'LONG' ? '#00FFA3' : '#FF4D4D';
-    entryLine = chart.addPriceLine({
-      price: sig.entry, color,
-      lineWidth: 2, lineStyle: 2,
-      axisLabelVisible: true, textColor: color,
-    });
-    if (sig.tp) {
-      tpLine = chart.addPriceLine({
-        price: sig.tp, color: '#22c55e',
-        lineWidth: 1, lineStyle: 0,
-        axisLabelVisible: true, textColor: '#22c55e',
-      });
-    }
-    if (sig.sl) {
-      slLine = chart.addPriceLine({
-        price: sig.sl, color: '#ef4444',
-        lineWidth: 1, lineStyle: 0,
-        axisLabelVisible: true, textColor: '#ef4444',
-      });
+    try {
+      if (candleSeries && typeof candleSeries.createPriceLine === 'function') {
+        entryLine = candleSeries.createPriceLine({
+          price: sig.entry, color,
+          lineWidth: 2, lineStyle: 2,
+          axisLabelVisible: true, textColor: color,
+        });
+        if (sig.tp) {
+          tpLine = candleSeries.createPriceLine({
+            price: sig.tp, color: '#22c55e',
+            lineWidth: 1, lineStyle: 0,
+            axisLabelVisible: true, textColor: '#22c55e',
+          });
+        }
+        if (sig.sl) {
+          slLine = candleSeries.createPriceLine({
+            price: sig.sl, color: '#ef4444',
+            lineWidth: 1, lineStyle: 0,
+            axisLabelVisible: true, textColor: '#ef4444',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("PriceLine error:", e.message);
     }
 
     // marker
