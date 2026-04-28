@@ -1772,6 +1772,7 @@ function buildMarketPayloadForSymbol(candles, symbol) {
     timestamp:  new Date(lastClosed.time).toISOString(),
     lastCandle: lastClosed,
     prevCandle: prevClosed,
+    candles:    candles, // 🔥 FOR CHART
   };
 }
 
