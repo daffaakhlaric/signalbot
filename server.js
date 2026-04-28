@@ -63,7 +63,7 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
 // ── Entry Mode: SAFE=closed candle only, AGGRESSIVE=realtime ─
-const ENTRY_MODE = "AGGRESSIVE"; // 🔥 FORCE AGGRESSIVE
+const ENTRY_MODE = "AGGRESSIVE"; // pattern-aware in buildDecision
 
 // ── Force Entry Mode ───────────────────────────────────────
 const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
