@@ -1388,18 +1388,6 @@ function generateSniperSignal(payload) {
 function validateSignal(signal) {
   return signal; // 🔥 BYPASS ALL VALIDATION FOR DEBUG
 }
-    signal.reason += " | invalid LONG TP";
-  } else if (!isLong && tp > entry) {
-    signal.decision_now = "SKIP";
-    signal.reason += " | invalid SHORT TP";
-  }
-
-  signal.confidence = rr >= 1.8 ? "high" : "medium";
-  if (signal.confidence === "medium") {
-    signal.reason += " | medium confidence";
-  }
-  return signal;
-}
 
 // ── Cooldown System ────────────────────────────────────────────
 let lastTradeTime = 0;
