@@ -1153,6 +1153,7 @@ let   activePair = 'BTCUSDT';
 // ── helpers ──────────────────────────────────────────────────
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 const el  = id => document.getElementById(id);
+const round = (v, d = 2) => v == null || isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
 
 // ── Countdown ─────────────────────────────────────────────────
 function updateCountdown() {
@@ -1176,6 +1177,167 @@ let activeTf = '15m';
 let zoneLines = { longLow: null, longHigh: null, shortLow: null, shortHigh: null };
 let tradeLines = { entry: null, tp: null, sl: null };
 let heatSeries = [];
+
+// ── Decision Overlay (clean, no leak) ─────────────────────
+let decisionOverlay = {
+  entryLine: null,
+  tpLine: null,
+  slLine: null,
+  zoneArea: null,
+  rrProfit: null,
+  rrLoss: null,
+  markers: []
+};
+
+let dragState = null;
+let currentDecision = null;
+let pulseInterval = null;
+
+function nearestLineType(e) {
+  if (!candleSeries) return null;
+  const y = e.offsetY;
+  const p = candleSeries.coordinateToPrice(y);
+  if (!p || !currentDecision) return null;
+  const dEntry = Math.abs(p - (currentDecision.entry || 0));
+  const dTP = Math.abs(p - (currentDecision.tp || 0));
+  const dSL = Math.abs(p - (currentDecision.sl || 0));
+  const min = Math.min(dEntry, dTP, dSL);
+  if (min === dEntry) return 'entry';
+  if (min === dTP) return 'tp';
+  if (min === dSL) return 'sl';
+  return null;
+}
+
+function clearDecisionOverlay() {
+  if (!chart || !candleSeries) return;
+  [decisionOverlay.entryLine, decisionOverlay.tpLine, decisionOverlay.slLine].forEach(l => {
+    if (l) { try { candleSeries.removePriceLine(l); } catch(e){} }
+  });
+  [decisionOverlay.zoneArea, decisionOverlay.rrProfit, decisionOverlay.rrLoss].forEach(s => {
+    if (s) { try { chart.removeSeries(s); } catch(e){} }
+  });
+  try { candleSeries.setMarkers([]); } catch(e){}
+  clearInterval(pulseInterval);
+  pulseInterval = null;
+  decisionOverlay = { entryLine: null, tpLine: null, slLine: null, zoneArea: null, rrProfit: null, rrLoss: null, markers: [] };
+}
+
+function computeZone(decision) {
+  const risk = Math.abs(decision.entry - decision.sl);
+  return { low: decision.entry - risk * 0.2, high: decision.entry + risk * 0.2 };
+}
+
+function animateEntryPulse(time) {
+  clearInterval(pulseInterval);
+  let toggle = false;
+  pulseInterval = setInterval(() => {
+    if (!candleSeries || !decisionOverlay.entryLine) return;
+    toggle = !toggle;
+    try {
+      candleSeries.setMarkers([{
+        time,
+        position: 'belowBar',
+        color: toggle ? '#FACC15' : '#FFD54F',
+        shape: 'circle',
+        text: 'ENTRY'
+      }]);
+    } catch(e){}
+  }, 500);
+}
+
+function drawDecisionLines(decision) {
+  if (!candleSeries) return;
+  clearDecisionOverlay();
+  currentDecision = decision;
+  if (decision.status !== 'ENTRY') return;
+
+  decisionOverlay.entryLine = candleSeries.createPriceLine({
+    price: decision.entry, color: '#FACC15', lineWidth: 2, axisLabelVisible: true, textColor: '#FACC15', title: 'ENTRY'
+  });
+  decisionOverlay.tpLine = candleSeries.createPriceLine({
+    price: decision.tp, color: '#22c55e', lineWidth: 2, axisLabelVisible: true, textColor: '#22c55e', title: 'TP'
+  });
+  decisionOverlay.slLine = candleSeries.createPriceLine({
+    price: decision.sl, color: '#ef4444', lineWidth: 2, axisLabelVisible: true, textColor: '#ef4444', title: 'SL'
+  });
+
+  const zone = computeZone(decision);
+  const t0 = currentCandles[0]?.time / 1000;
+  const t1 = currentCandles[currentCandles.length - 1]?.time / 1000;
+  if (t0 && t1) {
+    decisionOverlay.zoneArea = chart.addAreaSeries({
+      topColor: 'rgba(250,204,21,0.12)', bottomColor: 'rgba(250,204,21,0.02)',
+      lineColor: 'transparent', priceLineVisible: false, lastValueVisible: false
+    });
+    decisionOverlay.zoneArea.setData([
+      { time: t0, value: zone.high }, { time: t1, value: zone.low }
+    ]);
+
+    decisionOverlay.rrProfit = chart.addAreaSeries({
+      topColor: 'rgba(0,255,163,0.2)', bottomColor: 'rgba(0,255,163,0.03)',
+      lineColor: 'transparent', priceLineVisible: false, lastValueVisible: false
+    });
+    decisionOverlay.rrProfit.setData([
+      { time: t0, value: decision.tp }, { time: t1, value: decision.entry }
+    ]);
+
+    decisionOverlay.rrLoss = chart.addAreaSeries({
+      topColor: 'rgba(255,77,77,0.2)', bottomColor: 'rgba(255,77,77,0.03)',
+      lineColor: 'transparent', priceLineVisible: false, lastValueVisible: false
+    });
+    decisionOverlay.rrLoss.setData([
+      { time: t0, value: decision.entry }, { time: t1, value: decision.sl }
+    ]);
+  }
+
+  const lastTime = currentCandles[currentCandles.length - 1]?.time / 1000;
+  if (lastTime) animateEntryPulse(lastTime);
+}
+
+function syncDecisionToChart(decision) {
+  drawDecisionLines(decision);
+}
+
+// Drag events (attach after chart init)
+function attachDragEvents() {
+  const container = document.getElementById('chart-container');
+  if (!container) return;
+
+  container.removeEventListener('mousedown', handleMouseDown);
+  container.removeEventListener('mouseup', handleMouseUp);
+  container.removeEventListener('mouseleave', handleMouseLeave);
+
+  container.addEventListener('mousedown', handleMouseDown);
+  container.addEventListener('mouseup', handleMouseUp);
+  container.addEventListener('mouseleave', handleMouseLeave);
+
+  if (chart) {
+    chart.unsubscribeCrosshairMove(handleCrosshair);
+    chart.subscribeCrosshairMove(handleCrosshair);
+  }
+}
+
+function handleMouseDown(e) {
+  dragState = nearestLineType(e);
+}
+
+function handleMouseUp() {
+  dragState = null;
+}
+
+function handleMouseLeave() {
+  dragState = null;
+}
+
+function handleCrosshair(param) {
+  if (!dragState || !param.point || !currentDecision || !candleSeries) return;
+  const price = candleSeries.coordinateToPrice(param.point.y);
+  if (!price) return;
+  if (dragState === 'entry') currentDecision.entry = round(price, 2);
+  if (dragState === 'tp') currentDecision.tp = round(price, 2);
+  if (dragState === 'sl') currentDecision.sl = round(price, 2);
+  syncDecisionToChart(currentDecision);
+}
 
 function upsertLine(key, price, color, opts = {}) {
   const lineOpts = { price, color, lineWidth: opts.lineWidth || 1, lineStyle: opts.lineStyle || 2, axisLabelVisible: true, ...opts };
@@ -1319,6 +1481,7 @@ function initChart() {
   el('chart-card').style.visibility = 'visible';
   renderTfButtons();
   setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 320); }, 100);
+  setTimeout(attachDragEvents, 200);
 }
 
 function renderTfButtons() {
@@ -1848,6 +2011,7 @@ function connect() {
         // Update APEX decision card
         const decision = buildDecisionFromSignals(data);
         updateDecisionCard(decision);
+        syncDecisionToChart(decision);
 
         return;
       }
