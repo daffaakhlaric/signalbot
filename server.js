@@ -85,6 +85,9 @@ SYMBOLS.forEach(symbol => {
     latestPayload: null,
     lastAnalyzedBarTime: 0,
     lastBroadcastBarTime: 0,
+    sniperSignal: null,
+    confirmedSignal: null,
+    lastClosedCandleTime: 0,
   };
 });
 
@@ -1861,6 +1864,33 @@ async function processPair(symbol) {
     const recommendation = getSniperRecommendation(signal, payload1m);
     signal.recommendation = recommendation;
 
+    // ── SNIPER (Realtime) Detection ───────────────────────────
+    const sniperData = {
+      ...signal,
+      type: "SNIPER",
+      timestamp: Date.now(),
+      candleTime: payload1m.barTime,
+    };
+    state.sniperSignal = sniperData;
+
+    // ── CONFIRMED Detection (when candle closes) ───────────────
+    const currentBarTime = payload1m.barTime;
+    if (currentBarTime !== state.lastClosedCandleTime) {
+      // 🔥 candle baru → candle sebelumnya sudah close
+      state.lastClosedCandleTime = currentBarTime;
+
+      // Confirm previous sniper signal if exists
+      if (state.sniperSignal && state.sniperSignal.decision_now !== "SKIP") {
+        const confirmed = confirmEntry(state.sniperSignal, payload1m);
+        state.confirmedSignal = {
+          ...confirmed,
+          type: "CONFIRMED",
+          confirmedAt: Date.now(),
+          sniperTime: state.sniperSignal.candleTime,
+        };
+      }
+    }
+
     // Get scalper recommendation
     const scalper = getScalperRecommendation(payload1m);
     signal.scalper = scalper;
@@ -1939,6 +1969,13 @@ async function processPair(symbol) {
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
+    // Broadcast dual signal (sniper + confirmed)
+    const dualSignal = {
+      sniper: state.sniperSignal,
+      confirmed: state.confirmedSignal,
+      multi: multiSignals,
+    };
+
     // Broadcast on EVERY loop
     broadcast({
       type: "market_data",
@@ -1948,7 +1985,7 @@ async function processPair(symbol) {
     broadcast({
       type: "signal",
       pair: symbol,
-      data: multiSignals
+      data: dualSignal
     });
 
     simulateDryTrade(signal, payload1m);

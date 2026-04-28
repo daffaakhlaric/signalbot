@@ -1398,6 +1398,63 @@ function renderMulti(multi) {
   }
 }
 
+function renderSniperSignal(s) {
+  if (!s) return;
+  const dir = s.decision_now || 'WAIT';
+  const ecard = el('elite-card');
+  if (ecard) {
+    ecard.className = 'card elite-card ' + dir;
+    el('elite-dir').textContent = dir;
+    el('elite-dir').className = 'elite-direction ' + dir;
+    el('elite-reason').textContent = s.reason || '⚡ SNIPER — waiting confirmation';
+    el('elite-entry').textContent = s.sniper_long?.entry_zone?.[0] ? fmt(s.sniper_long.entry_zone[0]) : '——';
+    el('elite-tp').textContent = s.sniper_long?.tp?.[0] ? fmt(s.sniper_long.tp[0]) : '——';
+    el('elite-sl').textContent = s.sniper_long?.sl ? fmt(s.sniper_long.sl) : '——';
+    el('elite-rr').textContent = '⚡ SNIPER';
+    el('elite-type-lbl').textContent = '⚡ EARLY ENTRY';
+    el('elite-conf').textContent = 'READY';
+    el('elite-conf').className = 'conf-badge medium';
+    const score = 3;
+    el('elite-score-lbl').textContent = 'SCORE ' + score + '/5';
+    const pips = el('elite-score-bar').querySelectorAll('.score-pip');
+    pips.forEach((p, i) => {
+      p.className = 'score-pip' + (i < score ? ' filled gold' : '');
+    });
+    el('elite-tag').textContent = '⚡ SNIPER ENTRY';
+    el('elite-price').textContent = s.price ? '$' + Number(s.price).toLocaleString() : '——';
+  }
+}
+
+function renderConfirmedSignal(s) {
+  if (!s) return;
+  const dir = s.decision_now || 'WAIT';
+  const ecard = el('elite-card');
+  if (ecard) {
+    ecard.className = 'card elite-card ' + dir;
+    el('elite-dir').textContent = dir;
+    el('elite-dir').className = 'elite-direction ' + dir;
+    el('elite-reason').textContent = s.reason || '🎯 CONFIRMED';
+    el('elite-entry').textContent = s.sniper_long?.entry_zone?.[0] ? fmt(s.sniper_long.entry_zone[0]) : '——';
+    el('elite-tp').textContent = s.sniper_long?.tp?.[0] ? fmt(s.sniper_long.tp[0]) : '——';
+    el('elite-sl').textContent = s.sniper_long?.sl ? fmt(s.sniper_long.sl) : '——';
+    const rr = s.rr || 1.5;
+    el('elite-rr').textContent = 'RR ' + rr + ':1';
+    el('elite-type-lbl').textContent = '🎯 CONFIRMED ENTRY';
+    const score = s.score || 4;
+    const conf = score >= 4 ? 'high' : score >= 2 ? 'medium' : 'low';
+    el('elite-conf').textContent = conf.toUpperCase();
+    el('elite-conf').className = 'conf-badge ' + conf;
+    el('elite-score-lbl').textContent = 'SCORE ' + score + '/5';
+    const pips = el('elite-score-bar').querySelectorAll('.score-pip');
+    const pipColor = score >= 4 ? 'green' : score >= 2 ? 'gold' : 'red';
+    pips.forEach((p, i) => {
+      p.className = 'score-pip' + (i < score ? ' filled ' + pipColor : '');
+    });
+    el('elite-tag').textContent = '🎯 CONFIRMED ENTRY';
+    el('elite-price').textContent = s.price ? '$' + Number(s.price).toLocaleString() : '——';
+  }
+}
+
 // ── Render market data ─────────────────────────────────────────
 function renderMarket(m) {
   if (!m) return;
@@ -1525,13 +1582,28 @@ function connect() {
       }
       if (msg.type === 'signal') {
         const key = (msg.pair || 'BTCUSDT').replace('-','').toUpperCase();
-        if (pairState[key]) pairState[key].latestSignal = msg.data;
-        const sig = msg.data?.best_signal || msg.data;
-        if (sig) {
-          currentSignal = sig;
+        const data = msg.data || {};
+        const sniper = data.sniper;
+        const confirmed = data.confirmed;
+        const multi = data.multi;
+
+        if (pairState[key]) pairState[key].latestSignal = data;
+
+        // Set currentSignal for chart (prefer confirmed, fallback to sniper)
+        const best = confirmed || sniper;
+        if (best) {
+          currentSignal = best;
           renderChartSignal();
         }
-        renderMulti(msg.data);
+
+        // Render sniper card
+        if (sniper) renderSniperSignal(sniper);
+
+        // Render confirmed card
+        if (confirmed) renderConfirmedSignal(confirmed);
+
+        // Render multi signals grid
+        if (multi) renderMulti(multi);
         return;
       }
       if (msg.type === 'price_update') {
