@@ -872,6 +872,178 @@ function getStructureFlipSignal(payload, prevStructure) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════
+// PATTERN DETECTION ENGINE — Standard Output Format
+// { type, direction, entry, tp, sl, confidence }
+// ══════════════════════════════════════════════════════════════
+
+function detectDoubleTop(candles) {
+  const highs = candles.slice(-30).map(c => c.high);
+  if (highs.length < 30) return null;
+  const h1 = Math.max(...highs.slice(0, 15));
+  const h2 = Math.max(...highs.slice(15, 30));
+  if (Math.abs(h1 - h2) < 150) return null;
+  const last = candles[candles.length - 1];
+  return {
+    type: "DOUBLE_TOP",
+    direction: "SHORT",
+    entry: round(last.close, 2),
+    tp: round(last.close - (h1 - last.close) * 0.8, 2),
+    sl: round(h1 + 30, 2),
+    confidence: 0.7,
+    pattern: "DOUBLE_TOP"
+  };
+}
+
+function detectDoubleBottom(candles) {
+  const lows = candles.slice(-30).map(c => c.low);
+  if (lows.length < 30) return null;
+  const l1 = Math.min(...lows.slice(0, 15));
+  const l2 = Math.min(...lows.slice(15, 30));
+  if (Math.abs(l1 - l2) < 150) return null;
+  const last = candles[candles.length - 1];
+  return {
+    type: "DOUBLE_BOTTOM",
+    direction: "LONG",
+    entry: round(last.close, 2),
+    tp: round(last.close + (last.close - l1) * 0.8, 2),
+    sl: round(l1 - 30, 2),
+    confidence: 0.7,
+    pattern: "DOUBLE_BOTTOM"
+  };
+}
+
+function detectTripleTop(candles) {
+  const highs = candles.slice(-40).map(c => c.high);
+  if (highs.length < 40) return null;
+  const recent = highs.slice(-40);
+  const peaks = [];
+  for (let i = 1; i < recent.length - 1; i++) {
+    if (recent[i] > recent[i-1] && recent[i] > recent[i+1]) peaks.push(recent[i]);
+  }
+  if (peaks.length < 2) return null;
+  const avgPeak = peaks.reduce((a, b) => a + b, 0) / peaks.length;
+  const nearPeaks = peaks.filter(p => Math.abs(p - avgPeak) < 80);
+  if (nearPeaks.length < 2) return null;
+  const last = candles[candles.length - 1];
+  return {
+    type: "TRIPLE_TOP",
+    direction: "SHORT",
+    entry: round(last.close, 2),
+    tp: round(last.close - (avgPeak - last.close) * 0.9, 2),
+    sl: round(avgPeak + 40, 2),
+    confidence: 0.65,
+    pattern: "TRIPLE_TOP"
+  };
+}
+
+function detectWedgeBreak(candles) {
+  if (candles.length < 25) return null;
+  const recent = candles.slice(-25);
+  const highs = recent.map(c => c.high);
+  const lows  = recent.map(c => c.low);
+
+  const highTrend = highs[0] > highs[highs.length - 1];
+  const lowTrend  = lows[0] < lows[lows.length - 1];
+
+  if (!highTrend || !lowTrend) return null;
+
+  const last = candles[candles.length - 1];
+  const range = recent[recent.length - 1].high - recent[recent.length - 1].low;
+  const breakout = range > (Math.max(...highs) - Math.min(...lows)) * 0.15;
+
+  if (!breakout) return null;
+
+  const dir = last.close > last.open ? "LONG" : "SHORT";
+  return {
+    type: "WEDGE_BREAK",
+    direction: dir,
+    entry: round(last.close, 2),
+    tp: dir === "LONG"
+      ? round(last.close + range * 1.5, 2)
+      : round(last.close - range * 1.5, 2),
+    sl: dir === "LONG"
+      ? round(last.close - range * 0.7, 2)
+      : round(last.close + range * 0.7, 2),
+    confidence: 0.6,
+    pattern: "WEDGE_BREAK"
+  };
+}
+
+function detectTrendContinuation(candles, payload) {
+  if (candles.length < 20) return null;
+  const { ema20, ema50, rsi, structure } = payload;
+  const last = candles[candles.length - 1];
+  const closes = candles.slice(-10).map(c => c.close);
+
+  const emaUp = ema20 > ema50;
+  const priceAboveEma = last.close > ema20;
+  const strongTrend = closes.every((c, i) => i === 0 || c >= closes[i-1]);
+
+  if (!emaUp || !priceAboveEma || !strongTrend) return null;
+
+  return {
+    type: "TREND_CONTINUATION",
+    direction: "LONG",
+    entry: round(last.close, 2),
+    tp: round(last.close + (last.close - ema20) * 1.5, 2),
+    sl: round(ema20 * 0.998, 2),
+    confidence: 0.65,
+    pattern: "TREND_CONTINUATION"
+  };
+}
+
+function runPatternEngine(candles, payload) {
+  const patterns = [
+    detectDoubleTop(candles),
+    detectDoubleBottom(candles),
+    detectTripleTop(candles),
+    detectWedgeBreak(candles),
+    detectTrendContinuation(candles, payload),
+  ].filter(Boolean);
+
+  if (!patterns.length) {
+    return { status: "WAIT", reason: "no pattern detected" };
+  }
+
+  const session = getSession();
+  const { rsi } = payload;
+
+  let best = null;
+  for (const p of patterns) {
+    let score = 0;
+    if (p.confidence > 0.6) score++;
+    if (session.active) score++;
+    if (rsi > 35 && rsi < 70) score++;
+    if (payload.structure === "HH" || payload.structure === "HL") {
+      if (p.direction === "LONG") score++;
+    }
+    if (payload.structure === "LL" || payload.structure === "LH") {
+      if (p.direction === "SHORT") score++;
+    }
+    p.score = score;
+    if (!best || score > best.score) best = p;
+  }
+
+  if (!best || best.score < 2) {
+    return { status: "WAIT", reason: "low confluence" };
+  }
+
+  return {
+    status: "ENTRY",
+    direction: best.direction,
+    entry: best.entry,
+    tp: best.tp,
+    sl: best.sl,
+    rr: best.tp && best.sl && best.entry
+      ? round(Math.abs(best.tp - best.entry) / Math.abs(best.entry - best.sl), 2)
+      : null,
+    score: best.score,
+    pattern: best.type,
+    reason: `${best.type} detected — score ${best.score}/4`
+  };
+}
+
 // ── Signal Score (0–5 confluence) ─────────────────────────────
 function computeSignalScore(direction, payload, htfBias, momFilter) {
   if (direction === "WAIT" || direction === "SKIP" || !direction) return 0;
@@ -1895,6 +2067,10 @@ async function processPair(symbol) {
 
     // Get scalper recommendation
     const scalper = getScalperRecommendation(payload1m);
+
+    // ── PATTERN ENGINE — Standard pattern detection ──────────────
+    const patternResult = runPatternEngine(candles1m, payload1m);
+    signal.pattern_signal = patternResult;
     signal.scalper = scalper;
 
     // Get priority recommendation
@@ -1971,11 +2147,12 @@ async function processPair(symbol) {
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
-    // Broadcast dual signal (sniper + confirmed)
+    // Broadcast dual signal (sniper + confirmed + pattern)
     const dualSignal = {
       sniper: state.sniperSignal,
       confirmed: state.confirmedSignal,
       multi: multiSignals,
+      pattern: patternResult.status === "ENTRY" ? patternResult : null,
     };
 
     // Broadcast on EVERY loop

@@ -213,16 +213,25 @@ header {
 ══════════════════════════════════════ */
 .dashboard {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  grid-template-rows: auto;
-  gap: 20px;
-  padding: 20px;
-  max-width: 1600px;
+  grid-template-columns: 1fr;
+  grid-auto-rows: auto;
+  gap: 14px;
+  padding: 16px 20px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-.col-left  { display: flex; flex-direction: column; gap: 20px; }
-.col-right { display: flex; flex-direction: column; gap: 20px; }
+.signals-bottom {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
 
 /* ══════════════════════════════════════
    BASE CARD
@@ -641,20 +650,35 @@ header {
 /* ══════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════ */
-@media (max-width: 1100px) {
-  .dashboard { grid-template-columns: 1fr; }
-  .col-right { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .signal-grid { grid-template-columns: repeat(3,1fr); }
+@media (max-width: 1200px) {
+  .signals-bottom { grid-template-columns: repeat(4, 1fr); }
+  .signal-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
+  .signals-bottom { grid-template-columns: repeat(3, 1fr); }
+  .signal-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .signals-bottom { grid-template-columns: repeat(2, 1fr); }
+  .signal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .signals-bottom { grid-template-columns: 1fr; }
+  .signal-grid { grid-template-columns: 1fr; }
+  header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+  .header-center { display: none; }
+  .dashboard { padding: 12px; gap: 14px; }
+  .elite-direction { font-size: 52px; }
+  .card:hover { transform: none; }
+}
   header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .header-center { display: none; }
   .dashboard { padding: 12px; gap: 14px; }
   .signal-grid { grid-template-columns: 1fr 1fr; }
-  .col-right { grid-template-columns: 1fr; }
   .elite-direction { font-size: 52px; }
-  .elite-levels { grid-template-columns: 1fr 1fr 1fr; }
   .card:hover { transform: none; }
 }
 
@@ -758,69 +782,118 @@ header {
 <!-- ── DASHBOARD ── -->
 <div class="dashboard">
 
-  <!-- LEFT COLUMN -->
-  <div class="col-left">
-
-    <!-- ELITE SIGNAL HERO -->
-    <div class="card elite-card WAIT" id="elite-card">
-      <div class="elite-top">
-        <div class="elite-badge-wrap">
-          <span class="elite-tag" id="elite-tag">⚡ Best Signal</span>
-          <div class="elite-direction WAIT" id="elite-dir">WAIT</div>
+  <!-- TOP: APEX DECISION (full width) -->
+  <div id="decisionCard" style="
+    background: linear-gradient(135deg, #0B0F14, #111827);
+    padding:14px 24px;
+    border-radius:14px;
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.08);
+    display:none;
+    grid-column: 1 / -1;
+  ">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-weight:700;font-size:12px;letter-spacing:2px;color:var(--gold)">⚡ APEX DECISION</div>
+        <div id="decStatus" style="font-size:10px;font-weight:700;color:#FACC15;padding:2px 10px;border-radius:100px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3)">——</div>
+      </div>
+      <div style="display:flex;gap:20px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:2px">DIRECTION</div>
+          <div id="decDirection" style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:#fff">——</div>
         </div>
-        <div class="elite-meta">
-          <span class="conf-badge low" id="elite-conf">LOW</span>
-          <div class="score-bar" id="elite-score-bar">
-            <div class="score-pip"></div>
-            <div class="score-pip"></div>
-            <div class="score-pip"></div>
-            <div class="score-pip"></div>
-            <div class="score-pip"></div>
+        <div style="display:flex;gap:10px">
+          <div style="text-align:center;background:rgba(250,204,21,0.05);border:1px solid rgba(250,204,21,0.15);border-radius:10px;padding:8px 14px">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px">ENTRY</div>
+            <div id="decEntry" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#FACC15">——</div>
           </div>
+          <div style="text-align:center;background:rgba(0,255,163,0.05);border:1px solid rgba(0,255,163,0.15);border-radius:10px;padding:8px 14px">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px">TP</div>
+            <div id="decTP" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#00FFA3">——</div>
+          </div>
+          <div style="text-align:center;background:rgba(255,77,77,0.05);border:1px solid rgba(255,77,77,0.15);border-radius:10px;padding:8px 14px">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px">SL</div>
+            <div id="decSL" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#FF4D4D">——</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="text-align:center">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px">RR</div>
+            <div id="decRR" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#aaa">——</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:8px;color:var(--muted);letter-spacing:1px">SCORE</div>
+            <div id="decScore" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#aaa">——</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="decReason" style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">—</div>
+  </div>
+
+  <!-- MIDDLE: CHART (full width, full screen) -->
+  <div class="card chart-card" id="chart-card" style="display:none;position:relative;grid-column:1/-1;border-radius:16px;overflow:hidden">
+    <div class="card-header" style="padding:12px 16px">
+      <span class="card-label">📊 SNIPER CHART</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="bias-banner" style="font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 10px;border-radius:6px;display:none"></div>
+        <div class="tf-toggle" id="tf-toggle"></div>
+        <button class="tf-btn" onclick="startReplay(currentCandles)">▶</button>
+        <button class="tf-btn" onclick="pauseReplay()">⏸</button>
+        <button class="tf-btn" onclick="stopReplay()">⏹</button>
+      </div>
+    </div>
+    <div id="chart-container" style="height:420px;background:#0B0F14;"></div>
+    <div id="zone-display" class="zone-display" style="margin-top:8px;display:none;padding:0 16px 12px">
+      <div class="zone-long" id="zone-long-display"></div>
+      <div class="zone-short" id="zone-short-display"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: SIGNALS (7 cards + 1 big best) -->
+  <div class="signals-bottom">
+
+    <!-- BEST SIGNAL (big card) -->
+    <div class="card elite-card WAIT" id="elite-card" style="grid-column:1/-1;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="elite-tag" id="elite-tag" style="background:rgba(250,204,21,0.15);color:#FACC15;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:1px">⚡ BEST</span>
+          <div class="elite-direction WAIT" id="elite-dir" style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px">WAIT</div>
+          <span class="conf-badge low" id="elite-conf" style="padding:2px 8px;border-radius:100px;font-size:9px">LOW</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
           <span style="font-size:9px;color:var(--muted);letter-spacing:1px" id="elite-score-lbl">SCORE 0/5</span>
+          <div class="score-bar" id="elite-score-bar" style="display:flex;gap:3px">
+            <div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div>
+          </div>
         </div>
       </div>
-
-      <div class="elite-price-row">
-        <span class="elite-price" id="elite-price">——</span>
-        <span class="elite-pair" id="elite-pair-lbl">BTC/USDT</span>
-      </div>
-
-      <div class="elite-reason" id="elite-reason">Waiting for multi-strategy signal analysis…</div>
-
-      <div class="elite-levels">
-        <div class="lvl-box">
-          <div class="lvl-label">Entry</div>
-          <div class="lvl-val entry" id="elite-entry">——</div>
-          <div class="lvl-rr" id="elite-type-lbl">——</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:0 18px 12px;gap:10px">
+        <div style="background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.15);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">ENTRY</div>
+          <div style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:#FACC15" id="elite-entry">——</div>
         </div>
-        <div class="lvl-box">
-          <div class="lvl-label">Take Profit</div>
-          <div class="lvl-val tp" id="elite-tp">——</div>
-          <div class="lvl-rr" id="elite-rr">RR ——</div>
+        <div style="background:rgba(0,255,163,0.08);border:1px solid rgba(0,255,163,0.15);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">TP</div>
+          <div style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:#00FFA3" id="elite-tp">——</div>
         </div>
-        <div class="lvl-box">
-          <div class="lvl-label">Stop Loss</div>
-          <div class="lvl-val sl" id="elite-sl">——</div>
+        <div style="background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.15);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">SL</div>
+          <div style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:#FF4D4D" id="elite-sl">——</div>
         </div>
       </div>
-
-      <div class="elite-source" id="elite-time">——</div>
+      <div id="elite-reason" style="padding:0 18px 12px;font-size:11px;color:var(--muted);font-style:italic">Waiting for signal…</div>
     </div>
 
-    <!-- MULTI-SIGNAL GRID -->
-    <div class="signal-grid" id="signal-grid">
+    <!-- 7 SIGNAL CARDS GRID -->
+    <div class="signal-grid" style="grid-column:1/-1">
 
-      <!-- 1. Precision Entry -->
       <div class="card sig-card" id="sig-precision_entry">
-        <div class="sig-top">
-          <span class="sig-name">🎯 Precision Entry</span>
-          <span class="sig-status WAIT" id="sig-precision_entry-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">🎯 Precision</span><span class="sig-status WAIT" id="sig-precision_entry-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-precision_entry-dir">——</div>
         <div class="sig-reason" id="sig-precision_entry-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-precision_entry-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-precision_entry-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-precision_entry-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-precision_entry-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-precision_entry-rr">—</span></div>
@@ -828,16 +901,12 @@ header {
         <div class="sig-score" id="sig-precision_entry-score"></div>
       </div>
 
-      <!-- 2. Quick Strike -->
       <div class="card sig-card" id="sig-quick_strike">
-        <div class="sig-top">
-          <span class="sig-name">⚡ Quick Strike</span>
-          <span class="sig-status WAIT" id="sig-quick_strike-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">⚡ Quick</span><span class="sig-status WAIT" id="sig-quick_strike-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-quick_strike-dir">——</div>
         <div class="sig-reason" id="sig-quick_strike-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-quick_strike-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-quick_strike-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-quick_strike-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-quick_strike-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-quick_strike-rr">—</span></div>
@@ -845,16 +914,12 @@ header {
         <div class="sig-score" id="sig-quick_strike-score"></div>
       </div>
 
-      <!-- 3. Trend Rider -->
       <div class="card sig-card" id="sig-trend_rider">
-        <div class="sig-top">
-          <span class="sig-name">📈 Trend Rider</span>
-          <span class="sig-status WAIT" id="sig-trend_rider-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">📈 Trend</span><span class="sig-status WAIT" id="sig-trend_rider-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-trend_rider-dir">——</div>
         <div class="sig-reason" id="sig-trend_rider-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-trend_rider-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-trend_rider-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-trend_rider-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-trend_rider-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-trend_rider-rr">—</span></div>
@@ -862,16 +927,12 @@ header {
         <div class="sig-score" id="sig-trend_rider-score"></div>
       </div>
 
-      <!-- 4. Momentum Break -->
       <div class="card sig-card" id="sig-momentum_break">
-        <div class="sig-top">
-          <span class="sig-name">💥 Momentum Break</span>
-          <span class="sig-status WAIT" id="sig-momentum_break-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">💥 Momentum</span><span class="sig-status WAIT" id="sig-momentum_break-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-momentum_break-dir">——</div>
         <div class="sig-reason" id="sig-momentum_break-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-momentum_break-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-momentum_break-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-momentum_break-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-momentum_break-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-momentum_break-rr">—</span></div>
@@ -879,16 +940,12 @@ header {
         <div class="sig-score" id="sig-momentum_break-score"></div>
       </div>
 
-      <!-- 5. Liquidity Sweep -->
       <div class="card sig-card" id="sig-liquidity_sweep">
-        <div class="sig-top">
-          <span class="sig-name">🌊 Liquidity Sweep</span>
-          <span class="sig-status WAIT" id="sig-liquidity_sweep-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">🌊 Liquid</span><span class="sig-status WAIT" id="sig-liquidity_sweep-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-liquidity_sweep-dir">——</div>
         <div class="sig-reason" id="sig-liquidity_sweep-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-liquidity_sweep-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-liquidity_sweep-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-liquidity_sweep-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-liquidity_sweep-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-liquidity_sweep-rr">—</span></div>
@@ -896,16 +953,12 @@ header {
         <div class="sig-score" id="sig-liquidity_sweep-score"></div>
       </div>
 
-      <!-- 6. Structure Flip -->
       <div class="card sig-card" id="sig-structure_flip">
-        <div class="sig-top">
-          <span class="sig-name">🔄 Structure Flip</span>
-          <span class="sig-status WAIT" id="sig-structure_flip-status">WAIT</span>
-        </div>
+        <div class="sig-top"><span class="sig-name">🔄 Structure</span><span class="sig-status WAIT" id="sig-structure_flip-status">WAIT</span></div>
         <div class="sig-dir WAIT" id="sig-structure_flip-dir">——</div>
         <div class="sig-reason" id="sig-structure_flip-reason">—</div>
         <div class="sig-levels">
-          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-structure_flip-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-structure_flip-entry">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-structure_flip-tp">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-structure_flip-sl">—</span></div>
           <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-structure_flip-rr">—</span></div>
@@ -913,216 +966,22 @@ header {
         <div class="sig-score" id="sig-structure_flip-score"></div>
       </div>
 
+      <div class="card sig-card" id="sig-sniper">
+        <div class="sig-top"><span class="sig-name">🎯 Sniper</span><span class="sig-status WAIT" id="sig-sniper-status">WAIT</span></div>
+        <div class="sig-dir WAIT" id="sig-sniper-dir">——</div>
+        <div class="sig-reason" id="sig-sniper-reason">—</div>
+        <div class="sig-levels">
+          <div class="sig-lvl"><span class="sig-lbl">E</span><span class="sig-val y" id="sig-sniper-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-sniper-tp">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-sniper-sl">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-sniper-rr">—</span></div>
+        </div>
+        <div class="sig-score" id="sig-sniper-score"></div>
+      </div>
+
     </div><!-- /signal-grid -->
 
-    <!-- SNIPER CHART -->
-    <div class="card chart-card" id="chart-card" style="display:none;position:relative">
-      <div class="card-header">
-        <span class="card-label">📊 Sniper Chart</span>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div id="bias-banner" style="font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 10px;border-radius:6px;display:none"></div>
-          <div class="tf-toggle" id="tf-toggle"></div>
-        </div>
-      </div>
-      <div id="chart-container" style="height:320px;background:#0B0F14;border-radius:8px;overflow:hidden;"></div>
-      <div id="zone-display" class="zone-display" style="margin-top:8px;display:none">
-        <div class="zone-long" id="zone-long-display"></div>
-        <div class="zone-short" id="zone-short-display"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
-        <button class="tf-btn" onclick="startReplay(currentCandles)">▶ Replay</button>
-        <button class="tf-btn" onclick="pauseReplay()">⏸</button>
-        <button class="tf-btn" onclick="stopReplay()">⏹</button>
-        <select class="sim-input" style="width:60px" onchange="replay.speed=Number(this.value)">
-          <option value="1" selected>1x</option>
-          <option value="2">2x</option>
-          <option value="4">4x</option>
-        </select>
-        <span style="font-size:9px;color:var(--muted);letter-spacing:1px" id="replay-status"></span>
-      </div>
-    </div>
-
-    <!-- BOT LOG -->
-    <div class="card log-card">
-      <div class="card-header">
-        <div class="card-label">🤖 Bot Log</div>
-        <span style="font-size:9px;color:var(--muted);letter-spacing:1px">LIVE</span>
-      </div>
-      <div class="log-inner" id="log-panel">
-        <div class="log-line"><span class="ts">[init]</span> <span class="info">Apex Sniper terminal loaded — connecting…</span></div>
-      </div>
-    </div>
-
-  </div><!-- /col-left -->
-
-  <!-- RIGHT COLUMN -->
-  <div class="col-right">
-
-    <!-- MARKET CONTEXT -->
-    <div class="card context-card">
-      <div class="card-header">
-        <div class="card-label">Market Context</div>
-        <span style="font-size:10px;color:var(--muted)" id="ctx-updated">——</span>
-      </div>
-
-      <div class="ctx-grid">
-        <div class="ctx-item">
-          <div class="ctx-lbl">Structure</div>
-          <div class="ctx-val" id="ctx-structure">——</div>
-        </div>
-        <div class="ctx-item">
-          <div class="ctx-lbl">HTF Bias</div>
-          <div class="ctx-val" id="ctx-htf">——</div>
-        </div>
-        <div class="ctx-item">
-          <div class="ctx-lbl">Open</div>
-          <div class="ctx-val y" id="m-open">——</div>
-        </div>
-        <div class="ctx-item">
-          <div class="ctx-lbl">Close</div>
-          <div class="ctx-val y" id="m-close">——</div>
-        </div>
-        <div class="ctx-item">
-          <div class="ctx-lbl">High</div>
-          <div class="ctx-val g" id="m-high">——</div>
-        </div>
-        <div class="ctx-item">
-          <div class="ctx-lbl">Low</div>
-          <div class="ctx-val r" id="m-low">——</div>
-        </div>
-      </div>
-
-      <!-- EMA -->
-      <div class="card-label" style="margin-bottom:10px">EMA Alignment</div>
-      <div class="ema-row-card">
-        <div class="ema-dot" style="background:var(--gold)"></div>
-        <div class="ema-name-lbl">EMA 20</div>
-        <div class="ema-price-val" id="ema20-price">——</div>
-        <div class="ema-delta-val" id="ema20-delta">—</div>
-      </div>
-      <div class="ema-row-card">
-        <div class="ema-dot" style="background:var(--orange)"></div>
-        <div class="ema-name-lbl">EMA 50</div>
-        <div class="ema-price-val" id="ema50-price">——</div>
-        <div class="ema-delta-val" id="ema50-delta">—</div>
-      </div>
-      <div class="ema-row-card">
-        <div class="ema-dot" style="background:var(--red)"></div>
-        <div class="ema-name-lbl">EMA 200</div>
-        <div class="ema-price-val" id="ema200-price">——</div>
-        <div class="ema-delta-val" id="ema200-delta">—</div>
-      </div>
-
-      <!-- RSI -->
-      <div class="rsi-wrap">
-        <div class="rsi-row"><span>RSI (14)</span><span id="rsi-val">——</span></div>
-        <div class="rsi-bg"><div class="rsi-fill" id="rsi-fill" style="width:50%;background:var(--cyan)"></div></div>
-        <div class="rsi-zones"><span class="rsi-os">OVERSOLD</span><span class="rsi-ob">OVERBOUGHT</span></div>
-      </div>
-
-      <!-- S/R -->
-      <div style="margin-top:16px">
-        <div class="card-label" style="margin-bottom:10px">Key Levels</div>
-        <div class="sr-box res">
-          <span class="sr-lbl">Resistance</span>
-          <span class="sr-price-val" id="sr-resistance">——</span>
-        </div>
-        <div class="sr-box sup">
-          <span class="sr-lbl">Support</span>
-          <span class="sr-price-val" id="sr-support">——</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- SESSION + TIMER -->
-    <div class="card session-card">
-      <div class="card-header">
-        <div class="card-label">Trading Session</div>
-      </div>
-      <div class="session-row">
-        <span class="session-name" id="session-name">——</span>
-        <span class="session-quality low" id="session-quality">——</span>
-      </div>
-      <div class="timer-box">
-        <span class="timer-lbl">Next Candle</span>
-        <span class="timer-val" id="countdown-value">00:00</span>
-      </div>
-    </div>
-
-    <!-- NO TRADE ZONE -->
-    <div class="card ntz-card">
-      <div class="card-header">
-        <div class="card-label">No-Trade Zone</div>
-      </div>
-      <div class="ntz-bar">
-        <span class="ntz-bar-lbl">⚠ Danger Zone — Avoid Entry</span>
-      </div>
-      <div class="ntz-levels">
-        <div class="ntz-lvl">
-          <div class="ntz-lvl-lbl">Floor</div>
-          <div class="ntz-lvl-val" id="ntz-low">——</div>
-        </div>
-        <div class="ntz-lvl">
-          <div class="ntz-lvl-lbl">Ceiling</div>
-          <div class="ntz-lvl-val" id="ntz-high">——</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TRADE CARD — AUTO/MANUAL EXECUTION -->
-    <div id="tradeCard" style="
-      background:#121821;
-      border:1px solid rgba(255,255,255,0.05);
-      border-radius:16px;
-      padding:18px 20px;
-      display:none;
-    ">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">🎯 Signal</div>
-        <div id="trade-status" style="font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:100px;font-weight:700;background:rgba(250,204,21,0.1);color:#FACC15;border:1px solid rgba(250,204,21,0.3)">WAITING</div>
-      </div>
-
-      <div id="trade-direction" style="font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;margin-bottom:4px;color:var(--green)">——</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:14px" id="trade-reason">Waiting for confirmed signal…</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">ENTRY</div>
-          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#FACC15" id="trade-entry">——</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">TP</div>
-          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#00FFA3" id="trade-tp">——</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">SL</div>
-          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#FF4D4D" id="trade-sl">——</div>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:10px;color:var(--muted);letter-spacing:1px">AUTO</span>
-          <div id="auto-indicator" style="width:8px;height:8px;border-radius:50%;background:#FF4D4D"></div>
-        </div>
-        <button id="autoToggle" onclick="toggleAuto()" style="
-          padding:6px 14px;border:none;border-radius:100px;
-          background:#1a1f2e;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;
-          cursor:pointer;transition:all 0.2s
-        ">OFF</button>
-      </div>
-
-      <button id="manualExecBtn" onclick="manualTrade()" style="
-        width:100%;padding:12px;border:none;border-radius:10px;
-        background:linear-gradient(135deg,#FACC15,#f59e0b);color:#000;
-        font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-        cursor:pointer;display:none;transition:all 0.2s
-      ">⚡ EXECUTE TRADE</button>
-
-      <div id="trade-log" style="margin-top:10px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;min-height:16px"></div>
-    </div>
-
-  </div><!-- /col-right -->
+  </div><!-- /signals-bottom -->
 
 </div><!-- /dashboard -->
 
@@ -1480,7 +1339,7 @@ function initChart() {
   el('chart-card').style.display = 'block';
   el('chart-card').style.visibility = 'visible';
   renderTfButtons();
-  setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 320); }, 100);
+  setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 420); }, 100);
   setTimeout(attachDragEvents, 200);
 }
 
@@ -2097,6 +1956,23 @@ connect();
 
 // ── APEX DECISION CARD ───────────────────────────────────────
 function buildDecisionFromSignals(data) {
+  // Priority 1: Pattern signal from backend (standardized output)
+  if (data?.pattern?.status === 'ENTRY') {
+    const p = data.pattern;
+    return {
+      status: 'ENTRY',
+      direction: p.direction,
+      entry: p.entry,
+      tp: p.tp,
+      sl: p.sl,
+      rr: p.rr,
+      score: p.score,
+      pattern: p.pattern,
+      reason: p.reason || p.pattern
+    };
+  }
+
+  // Priority 2: Build from multi signals (existing logic)
   if (!data?.multi?.signals) {
     return { status: "WAIT", reason: "no signal data" };
   }
@@ -2127,6 +2003,7 @@ function buildDecisionFromSignals(data) {
     sl: best.sl,
     rr: best.rr,
     score: best.score,
+    pattern: best.type || best.pattern,
     reason: best.reason || best.type || "multi-strategy confluence"
   };
 }
@@ -2159,7 +2036,8 @@ function updateDecisionCard(s) {
   el('decSL').textContent = s.sl ? fmt(s.sl) : '——';
   el('decRR').textContent = s.rr ? s.rr + ':1' : '——';
   el('decScore').textContent = s.score ? s.score + '/5' : '——';
-  el('decReason').textContent = s.reason || '';
+  const patternLabel = s.pattern ? ` [${s.pattern}]` : '';
+  el('decReason').textContent = s.reason + patternLabel;
 }
 
 // ── AUTO/MANUAL TRADE SYSTEM ─────────────────────────────────
