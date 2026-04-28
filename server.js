@@ -129,12 +129,37 @@ wss.on("connection", (ws) => {
   botLog("info", "📡 Dashboard connected");
   ws.isAlive = true;
   ws.on("pong", () => { ws.isAlive = true; });
+
+  // Send all pair state on connect (not just global)
+  SYMBOLS.forEach(symbol => {
+    const state = pairState[symbol];
+    if (state?.latestPayload) {
+      ws.send(JSON.stringify({ type: "market_data", pair: symbol, data: state.latestPayload }));
+    }
+    if (state?.latestSignal) {
+      ws.send(JSON.stringify({ type: "signal", pair: symbol, data: state.latestSignal }));
+    }
+  });
+
+  // Legacy global state fallback
   if (latestPayload) ws.send(JSON.stringify({ type: "market_data", data: latestPayload }));
   if (latestSignal)  ws.send(JSON.stringify({ type: "signal", data: latestSignal }));
   if (signalHistory.length) ws.send(JSON.stringify({ type: "history", data: signalHistory }));
   if (latestPositions) ws.send(JSON.stringify({ type: "positions", data: latestPositions }));
   if (dryTrades.length) ws.send(JSON.stringify({ type: "dry_trades", data: dryTrades }));
   if (dryTradesHistory.length) ws.send(JSON.stringify({ type: "dry_history", data: dryTradesHistory }));
+
+  // Send full snapshot
+  const snapshot = {};
+  SYMBOLS.forEach(symbol => {
+    const state = pairState[symbol];
+    if (state?.latestSignal && state?.latestPayload) {
+      snapshot[symbol] = { signal: state.latestSignal, market: state.latestPayload };
+    }
+  });
+  if (Object.keys(snapshot).length) {
+    ws.send(JSON.stringify({ type: "snapshot", data: snapshot }));
+  }
 });
 
 const heartbeat = setInterval(() => {

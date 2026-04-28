@@ -6,7 +6,7 @@
 <title>Apex Sniper — Multi-Strategy Signal Terminal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <!-- Auth guard -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/supabase-config.js"></script>
@@ -1455,6 +1455,29 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
+      if (msg.type === 'snapshot') {
+        // Restore all pair state from snapshot
+        const snap = msg.data || {};
+        Object.keys(snap).forEach(key => {
+          const { signal, market, multi } = snap[key];
+          const k = key.replace('-','').toUpperCase();
+          pairState[k] = { signal, market, multi };
+        });
+        renderTabs();
+        // Render first pair
+        const first = Object.keys(pairState)[0];
+        if (first && pairState[first]) {
+          const p = pairState[first];
+          if (p.multi) renderMulti(p.multi);
+          if (p.market) renderMarket(p.market);
+          if (p.signal?.price) el('live-price').textContent = '$' + Number(p.signal.price).toLocaleString();
+          if (p.multi?.signals?.precision_entry) {
+            currentSignal = p.multi.signals.precision_entry;
+            renderChartSignal();
+          }
+        }
+        return;
+      }
       if (msg.type === 'multi_signal') {
         const { pair, symbol, signal, market, multi } = msg.data;
         const key = (pair || symbol || 'BTCUSDT').replace('-','').toUpperCase();
@@ -1465,17 +1488,15 @@ function connect() {
           if (market) renderMarket(market);
           if (signal?.price) el('live-price').textContent = '$' + Number(signal.price).toLocaleString();
         }
-        // Update chart with signal data
         if (signal && multi?.signals?.precision_entry) {
           currentSignal = multi.signals.precision_entry;
           renderChartSignal();
         }
-        if (market) {
-          currentCandles = market.lastCandle ? [market.lastCandle, market.prevCandle] : [];
-        }
         return;
       }
       if (msg.type === 'signal') {
+        const key = (msg.pair || 'BTCUSDT').replace('-','').toUpperCase();
+        if (pairState[key]) pairState[key].latestSignal = msg.data;
         const sig = msg.data?.multi?.best_signal || msg.data;
         if (sig) {
           currentSignal = sig;
@@ -1494,7 +1515,12 @@ function connect() {
         }
         return;
       }
-      if (msg.type === 'market_data') renderMarket(msg.data);
+      if (msg.type === 'market_data') {
+        const key = (msg.pair || 'BTCUSDT').replace('-','').toUpperCase();
+        if (pairState[key]) pairState[key].latestPayload = msg.data;
+        renderMarket(msg.data);
+        return;
+      }
       if (msg.type === 'log')         addBotLog(msg.data);
     } catch (err) { log('err', 'Parse error: ' + err.message); }
   };
