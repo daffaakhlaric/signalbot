@@ -43,13 +43,13 @@ app.use(express.static(path.join(__dirname)));
 
 // ── Config ─────────────────────────────────────────────────────
 // DATA_SOURCE: bybit | okx | binance | bingx | auto (tries each in order)
-const DATA_SOURCE = (process.env.DATA_SOURCE || "auto").toLowerCase();
-const FALLBACK_ORDER = ["bybit", "okx", "binance", "bingx"];
+const DATA_SOURCE = "bingx"; // 🔥 LOCK TO BINGX
+const FALLBACK_ORDER = ["bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
 const SYMBOLS = ["BTC-USDT"];
 const INTERVAL = "1m"; // 🔥 FORCE TEST
-const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
+const POLL_MS = 5000; // 🔥 5 detik untuk 1m
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 // ── Fixed Risk Execution Model ─────────────────────────────
@@ -1325,7 +1325,7 @@ function generateSniperSignal(payload) {
   }
 
   // 3. Min range filter (avoid noise scalping) — lowered from 0.003 to 0.002
-  if (range / price < 0.002) {
+  if (range / price < 0.001) {
     const s = defaultSignal();
     s.reason = "low range market";
     return s;
