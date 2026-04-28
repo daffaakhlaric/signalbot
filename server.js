@@ -2076,6 +2076,7 @@ async function processPair(symbol) {
     const sniperRec = getSniperRecommendation(signal, payload1m);
     const decision = buildDecision({
       candles: candles1m,
+      htfCandles: candles1h,
       sniper: sniperRec,
       payload: payload1m,
       htfBias: htfBias,
@@ -2126,18 +2127,40 @@ async function processPair(symbol) {
 
     // ── FORMAT FINAL DECISION SIGNAL ──────────────────────────
     const finalDec = confirmedDecision || decision;
-    const apexDecision = {
-      decision_now: finalDec.direction,
-      status: finalDec.status,
-      entry: finalDec.entry,
-      tp: finalDec.tp,
-      sl: finalDec.sl,
-      rr: finalDec.rr,
-      confidence: finalDec.confidence,
-      reason: finalDec.reason,
-      source: finalDec.source,
-      extra: finalDec.extra || {},
-    };
+
+    // 🔥 PATTERN OVERRIDE: If pattern engine finds ENTRY, use pattern as final decision
+    let apexDecision;
+    if (patternResult.status === "ENTRY") {
+      apexDecision = {
+        decision_now: patternResult.direction,
+        status: "ENTRY",
+        entry: patternResult.entry,
+        tp: patternResult.tp,
+        sl: patternResult.sl,
+        rr: patternResult.rr,
+        confidence: "high",
+        reason: `${patternResult.pattern} pattern confirmed`,
+        source: "PATTERN",
+        extra: {
+          patternType: patternResult.pattern,
+          neckline: patternResult.neckline || null,
+        },
+      };
+      botLog("ok", `🎯 PATTERN SIGNAL OVERRIDE: ${patternResult.pattern} ${patternResult.direction} @ ${patternResult.entry}`);
+    } else {
+      apexDecision = {
+        decision_now: finalDec.direction,
+        status: finalDec.status,
+        entry: finalDec.entry,
+        tp: finalDec.tp,
+        sl: finalDec.sl,
+        rr: finalDec.rr,
+        confidence: finalDec.confidence,
+        reason: finalDec.reason,
+        source: finalDec.source,
+        extra: finalDec.extra || {},
+      };
+    }
 
     // Format signal for frontend (match UI expectation)
     const formatted = {
