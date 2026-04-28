@@ -63,7 +63,7 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
 // ── Entry Mode: SAFE=closed candle only, AGGRESSIVE=realtime ─
-const ENTRY_MODE = "AGGRESSIVE"; // pattern-aware in buildDecision
+const ENTRY_MODE = "SAFE"; // SMC requires candle close confirmation
 
 // ── Force Entry Mode ───────────────────────────────────────
 const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
@@ -2081,6 +2081,9 @@ async function processPair(symbol) {
       htfBias: htfBias,
     });
 
+    // Apply confirmation candle filter (SAFE mode — requires candle close)
+    const confirmedDecision = confirmEntry(decision, payload1m);
+
     // ── Get priority recommendation ────────────────────────────
     const priority = getPriorityRecommendation(signal);
     signal.priority = priority;
@@ -2122,17 +2125,18 @@ async function processPair(symbol) {
     signal.bar_time = payload1m.barTime;
 
     // ── FORMAT FINAL DECISION SIGNAL ──────────────────────────
+    const finalDec = confirmedDecision || decision;
     const apexDecision = {
-      decision_now: decision.direction,
-      status: decision.status,
-      entry: decision.entry,
-      tp: decision.tp,
-      sl: decision.sl,
-      rr: decision.rr,
-      confidence: decision.confidence,
-      reason: decision.reason,
-      source: decision.source,
-      extra: decision.extra || {},
+      decision_now: finalDec.direction,
+      status: finalDec.status,
+      entry: finalDec.entry,
+      tp: finalDec.tp,
+      sl: finalDec.sl,
+      rr: finalDec.rr,
+      confidence: finalDec.confidence,
+      reason: finalDec.reason,
+      source: finalDec.source,
+      extra: finalDec.extra || {},
     };
 
     // Format signal for frontend (match UI expectation)
