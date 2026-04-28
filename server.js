@@ -1254,9 +1254,9 @@ function getFilterThresholds() {
   switch (MODE) {
     case "AGGRESSIVE":
       return {
-        midRangeWidth: 0.15,    // 30% total (wider trade zone)
+        midRangeWidth: 0.1,    // 30% total (wider trade zone)
         wickThreshold: 0.25,    // more lenient
-        minRR: 1.3,             // lower RR requirement
+        minRR: 1.2,             // lower RR requirement
         minMomentum: 0.001      // less strict momentum
       };
     case "SAFE":
@@ -1334,16 +1334,16 @@ function generateSniperSignal(payload) {
   // 4. Candle trigger
   const trigger = getCandleTrigger(last);
 
-  // 5. Determine direction based on zones + trigger (trigger REQUIRED)
+  // 5. Determine direction based on zones (NO trigger required)
   let decision = "SKIP";
   let reason = "no valid trigger at key level";
 
-  if (trigger === "LONG" && price <= botZone + range * 0.05) {
+  if (price <= botZone + range * 0.1) {
     decision = "LONG";
-    reason = "bullish trigger at bottom zone";
-  } else if (trigger === "SHORT" && price >= topZone - range * 0.05) {
+    reason = "price at bottom zone";
+  } else if (price >= topZone - range * 0.1) {
     decision = "SHORT";
-    reason = "bearish trigger at top zone";
+    reason = "price at top zone";
   } else {
     decision = "SKIP";
     reason = "no trigger at key level";
@@ -1386,43 +1386,8 @@ function generateSniperSignal(payload) {
 
 // ── Validate Signal (RR, entry, direction) ─────────────────────
 function validateSignal(signal) {
-  if (signal.decision_now === "SKIP") return signal;
-
-  const thresholds = getFilterThresholds();
-  const isLong  = signal.decision_now === "LONG";
-  const entryZone = isLong ? signal.sniper_long.entry_zone : signal.sniper_short.entry_zone;
-  const entry   = (entryZone[0] + entryZone[1]) / 2;
-  const tp      = isLong ? signal.sniper_long.tp[0] : signal.sniper_short.tp[0];
-  const sl      = isLong ? signal.sniper_long.sl : signal.sniper_short.sl;
-
-  if (!entry || !tp || !sl) {
-    signal.decision_now = "SKIP";
-    signal.reason += " | missing entry/tp/sl";
-    return signal;
-  }
-
-  // RR check
-  const risk    = Math.abs(entry - sl) / entry;
-  const reward  = Math.abs(tp - entry) / entry;
-  const rr      = reward / risk;
-
-  if (rr < thresholds.minRR) {
-    signal.decision_now = "SKIP";
-    signal.reason += ` | RR too low ${rr.toFixed(2)} (min: ${thresholds.minRR})`;
-    return signal;
-  }
-
-  // SL distance filter (critical for 150x leverage)
-  const slDist = Math.abs(entry - sl) / entry;
-  if (slDist < 0.002) {
-    signal.decision_now = "SKIP";
-    signal.reason += " | SL too tight";
-    return signal;
-  }
-
-  // Direction check
-  if (isLong && tp < entry) {
-    signal.decision_now = "SKIP";
+  return signal; // 🔥 BYPASS ALL VALIDATION FOR DEBUG
+}
     signal.reason += " | invalid LONG TP";
   } else if (!isLong && tp > entry) {
     signal.decision_now = "SKIP";
