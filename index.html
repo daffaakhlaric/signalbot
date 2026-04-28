@@ -225,8 +225,422 @@ header {
 .col-right { display: flex; flex-direction: column; gap: 20px; }
 
 /* ══════════════════════════════════════
+   BASE CARD
+══════════════════════════════════════ */
+.card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 20%; width: 60%; height: 1.5px;
+  background: linear-gradient(to right, transparent, rgba(0,255,163,0.6), transparent);
+  filter: blur(2px);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+}
+
+.card.red-glow::before  { background: linear-gradient(to right, transparent, rgba(255,77,77,0.7), transparent); }
+.card.blue-glow::before { background: linear-gradient(to right, transparent, rgba(59,130,246,0.7), transparent); }
+.card.gold-glow::before { background: linear-gradient(to right, transparent, rgba(250,204,21,0.7), transparent); }
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.card-label {
+  font-size: 10px; letter-spacing: 2px; color: var(--muted);
+  text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+}
+
+.card-label::before {
+  content: '';
+  display: block; width: 3px; height: 14px;
+  background: linear-gradient(180deg, var(--cyan), var(--green));
+  border-radius: 2px;
+}
+
+/* ══════════════════════════════════════
+   ELITE SIGNAL — HERO CARD
+══════════════════════════════════════ */
+.elite-card {
+  padding: 28px 32px;
+  background: linear-gradient(145deg, #121821, #0d1219);
+}
+
+.elite-card.LONG  { border-color: rgba(0,255,163,0.2); }
+.elite-card.SHORT { border-color: rgba(255,77,77,0.2); }
+.elite-card.WAIT  { border-color: var(--border); }
+
+.elite-card.LONG::before  { background: linear-gradient(to right, transparent, rgba(0,255,163,0.9), transparent); }
+.elite-card.SHORT::before { background: linear-gradient(to right, transparent, rgba(255,77,77,0.9), transparent); }
+.elite-card.WAIT::before  { background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent); }
+
+.elite-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.elite-badge-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+.elite-tag {
+  display: inline-block;
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--gold); font-weight: 600;
+}
+
+.elite-direction {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 72px; line-height: 1;
+  letter-spacing: 6px;
+  transition: all 0.4s;
+}
+.elite-direction.LONG  { color: var(--green); text-shadow: var(--glow-g); }
+.elite-direction.SHORT { color: var(--red);   text-shadow: var(--glow-r); }
+.elite-direction.WAIT  { color: var(--muted); }
+
+.elite-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+.conf-badge {
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  border: 1px solid;
+}
+.conf-badge.high   { color: var(--green); border-color: var(--green); background: rgba(0,255,163,0.08); }
+.conf-badge.medium { color: var(--gold);  border-color: var(--gold);  background: rgba(250,204,21,0.08); }
+.conf-badge.low    { color: var(--muted); border-color: var(--muted); background: transparent; }
+
+.score-bar {
+  display: flex; gap: 4px;
+}
+.score-pip {
+  width: 18px; height: 6px; border-radius: 3px;
+  background: var(--border2); transition: all 0.3s;
+}
+.score-pip.filled.green { background: var(--green); box-shadow: 0 0 8px rgba(0,255,163,0.5); }
+.score-pip.filled.gold  { background: var(--gold);  box-shadow: 0 0 8px rgba(250,204,21,0.5); }
+.score-pip.filled.red   { background: var(--red);   box-shadow: 0 0 8px rgba(255,77,77,0.5); }
+
+.elite-price-row {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 6px;
+}
+
+.elite-price {
+  font-family: 'Space Mono', monospace;
+  font-size: 32px; font-weight: 700; color: var(--text);
+}
+
+.elite-pair { font-size: 13px; color: var(--muted); letter-spacing: 1px; }
+
+.elite-reason {
+  font-size: 13px; color: var(--muted); line-height: 1.6;
+  margin-bottom: 20px; max-width: 500px;
+}
+
+.elite-levels {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+
+.lvl-box {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--r-sm);
+  padding: 12px 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.lvl-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.lvl-val   { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; color: #fff; }
+.lvl-val.entry { color: var(--gold); }
+.lvl-val.tp    { color: var(--green); text-shadow: 0 0 8px rgba(0,255,163,0.3); }
+.lvl-val.sl    { color: var(--red);   text-shadow: 0 0 8px rgba(255,77,77,0.3);  }
+.lvl-rr        { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+.elite-source {
+  margin-top: 14px;
+  font-size: 10px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ══════════════════════════════════════
+   MULTI-SIGNAL GRID
+══════════════════════════════════════ */
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.sig-card {
+  padding: 18px 20px;
+}
+
+.sig-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sig-name {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+
+.sig-status {
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700;
+  padding: 2px 8px; border-radius: 100px; border: 1px solid;
+}
+.sig-status.ACTIVE { color: var(--green); border-color: rgba(0,255,163,0.4); background: rgba(0,255,163,0.07); }
+.sig-status.WAIT   { color: var(--muted); border-color: var(--border); background: transparent; }
+.sig-status.READY  { color: var(--gold);  border-color: rgba(250,204,21,0.4); background: rgba(250,204,21,0.07); }
+
+.sig-dir {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px; letter-spacing: 3px; margin-bottom: 4px;
+  transition: all 0.3s;
+}
+.sig-dir.LONG  { color: var(--green); }
+.sig-dir.SHORT { color: var(--red); }
+.sig-dir.WAIT  { color: var(--muted); }
+
+.sig-reason {
+  font-size: 10px; color: var(--muted); line-height: 1.5;
+  margin-bottom: 12px; min-height: 30px;
+}
+
+.sig-levels {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.sig-lvl {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px; padding: 7px 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.sig-lbl { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.sig-val { font-size: 11px; font-weight: 700; color: #fff; font-family: 'Space Mono', monospace; }
+.sig-val.g { color: var(--green); }
+.sig-val.r { color: var(--red); }
+.sig-val.y { color: var(--gold); }
+
+.sig-score {
+  display: flex; gap: 3px; margin-top: 10px;
+}
+.sig-pip { width: 14px; height: 4px; border-radius: 2px; background: var(--border2); transition: all 0.3s; }
+.sig-pip.on { background: var(--green); }
+
+/* ══════════════════════════════════════
+   MARKET CONTEXT PANEL
+══════════════════════════════════════ */
+.context-card { padding: 22px 24px; }
+
+.ctx-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 16px;
+}
+
+.ctx-item {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--r-sm); padding: 12px 14px;
+  transition: border-color 0.2s;
+}
+.ctx-item:hover { border-color: var(--border2); }
+
+.ctx-lbl { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.ctx-val { font-size: 16px; font-weight: 700; color: #fff; font-family: 'Space Mono', monospace; }
+.ctx-val.g { color: var(--green); }
+.ctx-val.r { color: var(--red); }
+.ctx-val.y { color: var(--gold); }
+.ctx-val.b { color: var(--blue); }
+.ctx-val.c { color: var(--cyan); }
+
+.ema-row-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px; margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+.ema-row-card:hover { border-color: var(--border2); }
+
+.ema-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ema-name-lbl { font-size: 10px; color: var(--muted); width: 55px; letter-spacing: 1px; }
+.ema-price-val { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text); flex: 1; }
+.ema-delta-val { font-size: 10px; letter-spacing: 1px; font-weight: 600; }
+.ema-delta-val.above { color: var(--green); }
+.ema-delta-val.below { color: var(--red); }
+
+/* RSI */
+.rsi-wrap { margin-top: 14px; }
+.rsi-row  { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+.rsi-bg { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.rsi-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease, background 0.3s; }
+.rsi-zones { display: flex; justify-content: space-between; }
+.rsi-os { font-size: 9px; color: var(--green); opacity: 0.6; }
+.rsi-ob { font-size: 9px; color: var(--red); opacity: 0.6; }
+
+/* S/R boxes */
+.sr-box {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-radius: 10px; margin-bottom: 8px;
+  border: 1px solid; transition: all 0.2s;
+}
+.sr-box:hover { transform: translateX(2px); }
+.sr-box.res { background: rgba(255,77,77,0.05); border-color: rgba(255,77,77,0.25); }
+.sr-box.sup { background: rgba(0,255,163,0.05); border-color: rgba(0,255,163,0.25); }
+.sr-lbl { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
+.sr-box.res .sr-lbl { color: var(--red); }
+.sr-box.sup .sr-lbl { color: var(--green); }
+.sr-price-val { font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: #fff; }
+
+/* ══════════════════════════════════════
+   SESSION & TIMER
+══════════════════════════════════════ */
+.session-card { padding: 18px 22px; }
+
+.session-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.session-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.session-quality {
+  font-size: 9px; letter-spacing: 2px; padding: 3px 10px;
+  border-radius: 100px; border: 1px solid; text-transform: uppercase;
+}
+.session-quality.high   { color: var(--green); border-color: rgba(0,255,163,0.3); background: rgba(0,255,163,0.07); }
+.session-quality.medium { color: var(--gold);  border-color: rgba(250,204,21,0.3); background: rgba(250,204,21,0.07); }
+.session-quality.low    { color: var(--muted); border-color: var(--border); }
+
+.timer-box {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,165,0,0.07);
+  border: 1px solid rgba(255,165,0,0.25);
+  border-radius: var(--r-sm); padding: 14px 18px;
+  box-shadow: 0 0 20px rgba(255,165,0,0.07);
+}
+
+.timer-lbl { font-size: 10px; color: rgba(255,165,0,0.7); letter-spacing: 2px; text-transform: uppercase; }
+.timer-val { font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700; color: var(--gold); text-shadow: 0 0 16px rgba(255,165,0,0.5); letter-spacing: 2px; }
+
+/* ══════════════════════════════════════
+   NTZ (No Trade Zone)
+══════════════════════════════════════ */
+.ntz-card { padding: 18px 22px; }
+
+.ntz-bar {
+  height: 44px; border-radius: 10px;
+  background: repeating-linear-gradient(45deg, rgba(250,204,21,0.04), rgba(250,204,21,0.04) 4px, transparent 4px, transparent 10px);
+  border: 1px solid rgba(250,204,21,0.2);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+  box-shadow: 0 0 20px rgba(250,204,21,0.05);
+}
+.ntz-bar-lbl { font-size: 9px; color: var(--gold); letter-spacing: 3px; opacity: 0.8; text-transform: uppercase; }
+
+.ntz-levels { display: flex; justify-content: space-between; gap: 12px; }
+.ntz-lvl { flex: 1; text-align: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; }
+.ntz-lvl-lbl { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+.ntz-lvl-val { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; color: var(--gold); }
+
+/* ══════════════════════════════════════
+   BOT LOG
+══════════════════════════════════════ */
+.log-card { padding: 16px 20px; }
+.log-inner { max-height: 180px; overflow-y: auto; }
+.log-line { font-size: 11px; line-height: 1.7; color: var(--muted); font-family: 'Space Mono', monospace; }
+.log-line .ts   { color: rgba(255,255,255,0.15); }
+.log-line .ok   { color: var(--green); }
+.log-line .err  { color: var(--red); }
+.log-line .info { color: var(--blue); }
+.log-line .warn { color: var(--gold); }
+
+/* ══════════════════════════════════════
+   SIMULATE BAR
+══════════════════════════════════════ */
+.sim-bar {
+  background: rgba(11,15,20,0.95);
+  border-top: 1px solid var(--border);
+  padding: 12px 28px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.sim-lbl { font-size: 9px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+.sim-input {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text); font-family: 'Space Mono', monospace;
+  font-size: 11px; padding: 7px 12px; width: 100px; outline: none;
+  transition: border-color 0.2s;
+}
+.sim-input:focus { border-color: var(--green); }
+.sim-input::placeholder { color: var(--muted); }
+.sim-btn {
+  background: transparent; border: 1px solid var(--green);
+  color: var(--green); font-family: 'Inter', sans-serif; font-size: 10px;
+  letter-spacing: 2px; padding: 7px 18px; cursor: pointer; border-radius: 8px;
+  text-transform: uppercase; font-weight: 600; transition: all 0.2s;
+}
+.sim-btn:hover { background: var(--green); color: #000; box-shadow: var(--glow-g); }
+.sim-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.sim-btn.loading { animation: blink 0.6s infinite; }
+
+/* ══════════════════════════════════════
+   CHART
+══════════════════════════════════════ */
+.chart-card { margin-top: 16px; }
+.chart-card .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.tf-toggle { display: flex; gap: 6px; }
+.tf-btn {
+  padding: 4px 12px; border-radius: 6px; font-size: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.tf-btn:hover { border-color: var(--green); color: var(--green); }
+.tf-btn.active { background: rgba(0,255,163,0.1); border-color: var(--green); color: var(--green); }
+.zone-display { display: flex; gap: 10px; flex-wrap: wrap; }
+.zone-long, .zone-short {
+  padding: 6px 12px; border-radius: 8px; font-size: 11px;
+  font-family: 'Space Mono', monospace; letter-spacing: 1px;
+}
+.zone-long { background: rgba(0,255,163,0.08); border: 1px solid rgba(0,255,163,0.3); color: var(--green); }
+.zone-short { background: rgba(255,77,77,0.08); border: 1px solid rgba(255,77,77,0.3); color: var(--red); }
+.chart-badges { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.chart-badge {
+  padding: 4px 10px; border-radius: 6px; font-size: 10px;
+  font-family: 'Space Mono', monospace; letter-spacing: 1px;
+}
+
+/* ══════════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════════ */
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.anim-in { animation: fadeIn 0.4s ease forwards; }
+
+@keyframes flashG { 0%{background:rgba(0,255,163,0.1)} 100%{background:transparent} }
+@keyframes flashR { 0%{background:rgba(255,77,77,0.1)}  100%{background:transparent} }
+.flash-g { animation: flashG 1s ease forwards; }
+.flash-r { animation: flashR 1s ease forwards; }
+
+/* ══════════════════════════════════════
    RESPONSIVE
-═════════════════════════════════════ */
+══════════════════════════════════════ */
 @media (max-width: 1100px) {
   .dashboard { grid-template-columns: 1fr; }
   .col-right { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -234,18 +648,22 @@ header {
 }
 
 @media (max-width: 768px) {
-  .col-right { grid-template-columns: 1fr; }
-  .signal-grid { grid-template-columns: repeat(2,1fr); }
-}
-
-@media (max-width: 480px) {
   header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .header-center { display: none; }
   .dashboard { padding: 12px; gap: 14px; }
+  .signal-grid { grid-template-columns: 1fr 1fr; }
   .col-right { grid-template-columns: 1fr; }
   .elite-direction { font-size: 52px; }
   .elite-levels { grid-template-columns: 1fr 1fr 1fr; }
   .card:hover { transform: none; }
+}
+
+@media (max-width: 480px) {
+  .signal-grid { grid-template-columns: 1fr; }
+  .elite-levels { grid-template-columns: 1fr; }
+  .ctx-grid { grid-template-columns: 1fr 1fr; }
+  .elite-price { font-size: 24px; }
+  .ntz-levels { flex-direction: column; }
 }
 </style>
 </head>
@@ -353,28 +771,52 @@ header {
         <div class="elite-meta">
           <span class="conf-badge low" id="elite-conf">LOW</span>
           <div class="score-bar" id="elite-score-bar">
-            <div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div><div class="score-pip"></div>
+            <div class="score-pip"></div>
+            <div class="score-pip"></div>
+            <div class="score-pip"></div>
+            <div class="score-pip"></div>
+            <div class="score-pip"></div>
           </div>
           <span style="font-size:9px;color:var(--muted);letter-spacing:1px" id="elite-score-lbl">SCORE 0/5</span>
         </div>
       </div>
+
       <div class="elite-price-row">
         <span class="elite-price" id="elite-price">——</span>
         <span class="elite-pair" id="elite-pair-lbl">BTC/USDT</span>
       </div>
+
       <div class="elite-reason" id="elite-reason">Waiting for multi-strategy signal analysis…</div>
+
       <div class="elite-levels">
-        <div class="lvl-box"><div class="lvl-label">Entry</div><div class="lvl-val entry" id="elite-entry">——</div><div class="lvl-rr" id="elite-type-lbl">——</div></div>
-        <div class="lvl-box"><div class="lvl-label">Take Profit</div><div class="lvl-val tp" id="elite-tp">——</div><div class="lvl-rr" id="elite-rr">RR ——</div></div>
-        <div class="lvl-box"><div class="lvl-label">Stop Loss</div><div class="lvl-val sl" id="elite-sl">——</div></div>
+        <div class="lvl-box">
+          <div class="lvl-label">Entry</div>
+          <div class="lvl-val entry" id="elite-entry">——</div>
+          <div class="lvl-rr" id="elite-type-lbl">——</div>
+        </div>
+        <div class="lvl-box">
+          <div class="lvl-label">Take Profit</div>
+          <div class="lvl-val tp" id="elite-tp">——</div>
+          <div class="lvl-rr" id="elite-rr">RR ——</div>
+        </div>
+        <div class="lvl-box">
+          <div class="lvl-label">Stop Loss</div>
+          <div class="lvl-val sl" id="elite-sl">——</div>
+        </div>
       </div>
+
       <div class="elite-source" id="elite-time">——</div>
     </div>
 
     <!-- MULTI-SIGNAL GRID -->
     <div class="signal-grid" id="signal-grid">
+
+      <!-- 1. Precision Entry -->
       <div class="card sig-card" id="sig-precision_entry">
-        <div class="sig-top"><span class="sig-name">🎯 Precision Entry</span><span class="sig-status WAIT" id="sig-precision_entry-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">🎯 Precision Entry</span>
+          <span class="sig-status WAIT" id="sig-precision_entry-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-precision_entry-dir">——</div>
         <div class="sig-reason" id="sig-precision_entry-reason">—</div>
         <div class="sig-levels">
@@ -385,8 +827,13 @@ header {
         </div>
         <div class="sig-score" id="sig-precision_entry-score"></div>
       </div>
+
+      <!-- 2. Quick Strike -->
       <div class="card sig-card" id="sig-quick_strike">
-        <div class="sig-top"><span class="sig-name">⚡ Quick Strike</span><span class="sig-status WAIT" id="sig-quick_strike-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">⚡ Quick Strike</span>
+          <span class="sig-status WAIT" id="sig-quick_strike-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-quick_strike-dir">——</div>
         <div class="sig-reason" id="sig-quick_strike-reason">—</div>
         <div class="sig-levels">
@@ -397,8 +844,13 @@ header {
         </div>
         <div class="sig-score" id="sig-quick_strike-score"></div>
       </div>
+
+      <!-- 3. Trend Rider -->
       <div class="card sig-card" id="sig-trend_rider">
-        <div class="sig-top"><span class="sig-name">📈 Trend Rider</span><span class="sig-status WAIT" id="sig-trend_rider-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">📈 Trend Rider</span>
+          <span class="sig-status WAIT" id="sig-trend_rider-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-trend_rider-dir">——</div>
         <div class="sig-reason" id="sig-trend_rider-reason">—</div>
         <div class="sig-levels">
@@ -409,8 +861,13 @@ header {
         </div>
         <div class="sig-score" id="sig-trend_rider-score"></div>
       </div>
+
+      <!-- 4. Momentum Break -->
       <div class="card sig-card" id="sig-momentum_break">
-        <div class="sig-top"><span class="sig-name">💥 Momentum Break</span><span class="sig-status WAIT" id="sig-momentum_break-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">💥 Momentum Break</span>
+          <span class="sig-status WAIT" id="sig-momentum_break-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-momentum_break-dir">——</div>
         <div class="sig-reason" id="sig-momentum_break-reason">—</div>
         <div class="sig-levels">
@@ -421,8 +878,13 @@ header {
         </div>
         <div class="sig-score" id="sig-momentum_break-score"></div>
       </div>
+
+      <!-- 5. Liquidity Sweep -->
       <div class="card sig-card" id="sig-liquidity_sweep">
-        <div class="sig-top"><span class="sig-name">🌊 Liquidity Sweep</span><span class="sig-status WAIT" id="sig-liquidity_sweep-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">🌊 Liquidity Sweep</span>
+          <span class="sig-status WAIT" id="sig-liquidity_sweep-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-liquidity_sweep-dir">——</div>
         <div class="sig-reason" id="sig-liquidity_sweep-reason">—</div>
         <div class="sig-levels">
@@ -433,8 +895,13 @@ header {
         </div>
         <div class="sig-score" id="sig-liquidity_sweep-score"></div>
       </div>
+
+      <!-- 6. Structure Flip -->
       <div class="card sig-card" id="sig-structure_flip">
-        <div class="sig-top"><span class="sig-name">🔄 Structure Flip</span><span class="sig-status WAIT" id="sig-structure_flip-status">WAIT</span></div>
+        <div class="sig-top">
+          <span class="sig-name">🔄 Structure Flip</span>
+          <span class="sig-status WAIT" id="sig-structure_flip-status">WAIT</span>
+        </div>
         <div class="sig-dir WAIT" id="sig-structure_flip-dir">——</div>
         <div class="sig-reason" id="sig-structure_flip-reason">—</div>
         <div class="sig-levels">
@@ -445,7 +912,8 @@ header {
         </div>
         <div class="sig-score" id="sig-structure_flip-score"></div>
       </div>
-    </div>
+
+    </div><!-- /signal-grid -->
 
     <!-- SNIPER CHART -->
     <div class="card chart-card" id="chart-card" style="display:none;position:relative">
@@ -466,9 +934,22 @@ header {
         <button class="tf-btn" onclick="pauseReplay()">⏸</button>
         <button class="tf-btn" onclick="stopReplay()">⏹</button>
         <select class="sim-input" style="width:60px" onchange="replay.speed=Number(this.value)">
-          <option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
         </select>
         <span style="font-size:9px;color:var(--muted);letter-spacing:1px" id="replay-status"></span>
+      </div>
+    </div>
+
+    <!-- BOT LOG -->
+    <div class="card log-card">
+      <div class="card-header">
+        <div class="card-label">🤖 Bot Log</div>
+        <span style="font-size:9px;color:var(--muted);letter-spacing:1px">LIVE</span>
+      </div>
+      <div class="log-inner" id="log-panel">
+        <div class="log-line"><span class="ts">[init]</span> <span class="info">Apex Sniper terminal loaded — connecting…</span></div>
       </div>
     </div>
 
@@ -478,64 +959,132 @@ header {
   <div class="col-right">
 
     <!-- MARKET CONTEXT -->
-    <div class="card mkt-card">
-      <div class="card-header"><div class="card-label">📊 Market</div><span id="src-tf">15m</span></div>
-      <div class="mkt-price-row"><span class="live-price-label">Live</span><span class="live-price" id="live-price">——</span></div>
-      <div class="mkt-div"></div>
-      <div class="mkt-grid">
-        <div class="mkt-item"><span class="mkt-lbl">O</span><span class="mkt-val" id="m-open">—</span></div>
-        <div class="mkt-item"><span class="mkt-lbl">H</span><span class="mkt-val" id="m-high">—</span></div>
-        <div class="mkt-item"><span class="mkt-lbl">L</span><span class="mkt-val" id="m-low">—</span></div>
-        <div class="mkt-item"><span class="mkt-lbl">C</span><span class="mkt-val" id="m-close">—</span></div>
+    <div class="card context-card">
+      <div class="card-header">
+        <div class="card-label">Market Context</div>
+        <span style="font-size:10px;color:var(--muted)" id="ctx-updated">——</span>
       </div>
-      <div class="mkt-div"></div>
-      <div class="mkt-indicators">
-        <div class="mkt-ind"><span class="mkt-ind-lbl">EMA20</span><span class="mkt-ind-val" id="ema20-price">—</span><span class="ema-delta-val" id="ema20-delta">—</span></div>
-        <div class="mkt-ind"><span class="mkt-ind-lbl">EMA50</span><span class="mkt-ind-val" id="ema50-price">—</span><span class="ema-delta-val" id="ema50-delta">—</span></div>
-        <div class="mkt-ind"><span class="mkt-ind-lbl">EMA200</span><span class="mkt-ind-val" id="ema200-price">—</span><span class="ema-delta-val" id="ema200-delta">—</span></div>
-      </div>
-      <div class="mkt-div"></div>
-      <div class="rsi-row"><span class="mkt-lbl">RSI 14</span><div class="rsi-bar-wrap"><div class="rsi-fill" id="rsi-fill" style="width:50%"></div></div><span class="rsi-val" id="rsi-val">—</span></div>
-      <div class="mkt-div"></div>
-      <div class="sr-row">
-        <div class="sr-item"><span class="sr-lbl">Support</span><span class="sr-val g" id="sr-support">—</span></div>
-        <div class="sr-item"><span class="sr-lbl">Resistance</span><span class="sr-val r" id="sr-resistance">—</span></div>
-      </div>
-    </div>
 
-    <!-- HTF CONTEXT -->
-    <div class="card ctx-card">
-      <div class="card-header"><div class="card-label">🧠 HTF Context</div><span style="font-size:9px;color:var(--muted)">1H</span></div>
-      <div class="ctx-row"><span class="ctx-lbl">Structure</span><span class="ctx-val" id="ctx-structure">——</span></div>
-      <div class="ctx-row"><span class="ctx-lbl">Bias</span><span class="ctx-val" id="ctx-htf">——</span></div>
-      <div class="ctx-upd" id="ctx-updated">——</div>
+      <div class="ctx-grid">
+        <div class="ctx-item">
+          <div class="ctx-lbl">Structure</div>
+          <div class="ctx-val" id="ctx-structure">——</div>
+        </div>
+        <div class="ctx-item">
+          <div class="ctx-lbl">HTF Bias</div>
+          <div class="ctx-val" id="ctx-htf">——</div>
+        </div>
+        <div class="ctx-item">
+          <div class="ctx-lbl">Open</div>
+          <div class="ctx-val y" id="m-open">——</div>
+        </div>
+        <div class="ctx-item">
+          <div class="ctx-lbl">Close</div>
+          <div class="ctx-val y" id="m-close">——</div>
+        </div>
+        <div class="ctx-item">
+          <div class="ctx-lbl">High</div>
+          <div class="ctx-val g" id="m-high">——</div>
+        </div>
+        <div class="ctx-item">
+          <div class="ctx-lbl">Low</div>
+          <div class="ctx-val r" id="m-low">——</div>
+        </div>
+      </div>
+
+      <!-- EMA -->
+      <div class="card-label" style="margin-bottom:10px">EMA Alignment</div>
+      <div class="ema-row-card">
+        <div class="ema-dot" style="background:var(--gold)"></div>
+        <div class="ema-name-lbl">EMA 20</div>
+        <div class="ema-price-val" id="ema20-price">——</div>
+        <div class="ema-delta-val" id="ema20-delta">—</div>
+      </div>
+      <div class="ema-row-card">
+        <div class="ema-dot" style="background:var(--orange)"></div>
+        <div class="ema-name-lbl">EMA 50</div>
+        <div class="ema-price-val" id="ema50-price">——</div>
+        <div class="ema-delta-val" id="ema50-delta">—</div>
+      </div>
+      <div class="ema-row-card">
+        <div class="ema-dot" style="background:var(--red)"></div>
+        <div class="ema-name-lbl">EMA 200</div>
+        <div class="ema-price-val" id="ema200-price">——</div>
+        <div class="ema-delta-val" id="ema200-delta">—</div>
+      </div>
+
+      <!-- RSI -->
+      <div class="rsi-wrap">
+        <div class="rsi-row"><span>RSI (14)</span><span id="rsi-val">——</span></div>
+        <div class="rsi-bg"><div class="rsi-fill" id="rsi-fill" style="width:50%;background:var(--cyan)"></div></div>
+        <div class="rsi-zones"><span class="rsi-os">OVERSOLD</span><span class="rsi-ob">OVERBOUGHT</span></div>
+      </div>
+
+      <!-- S/R -->
+      <div style="margin-top:16px">
+        <div class="card-label" style="margin-bottom:10px">Key Levels</div>
+        <div class="sr-box res">
+          <span class="sr-lbl">Resistance</span>
+          <span class="sr-price-val" id="sr-resistance">——</span>
+        </div>
+        <div class="sr-box sup">
+          <span class="sr-lbl">Support</span>
+          <span class="sr-price-val" id="sr-support">——</span>
+        </div>
+      </div>
     </div>
 
     <!-- SESSION + TIMER -->
     <div class="card session-card">
-      <div class="card-header"><div class="card-label">Trading Session</div></div>
-      <div class="session-row"><span class="session-name" id="session-name">——</span><span class="session-quality low" id="session-quality">——</span></div>
-      <div class="timer-box"><span class="timer-lbl">Next Candle</span><span class="timer-val" id="countdown-value">00:00</span></div>
+      <div class="card-header">
+        <div class="card-label">Trading Session</div>
+      </div>
+      <div class="session-row">
+        <span class="session-name" id="session-name">——</span>
+        <span class="session-quality low" id="session-quality">——</span>
+      </div>
+      <div class="timer-box">
+        <span class="timer-lbl">Next Candle</span>
+        <span class="timer-val" id="countdown-value">00:00</span>
+      </div>
     </div>
 
     <!-- NO TRADE ZONE -->
     <div class="card ntz-card">
-      <div class="card-header"><div class="card-label">No-Trade Zone</div></div>
-      <div class="ntz-bar"><span class="ntz-bar-lbl">⚠ Danger Zone — Avoid Entry</span></div>
+      <div class="card-header">
+        <div class="card-label">No-Trade Zone</div>
+      </div>
+      <div class="ntz-bar">
+        <span class="ntz-bar-lbl">⚠ Danger Zone — Avoid Entry</span>
+      </div>
       <div class="ntz-levels">
-        <div class="ntz-lvl"><div class="ntz-lvl-lbl">Floor</div><div class="ntz-lvl-val" id="ntz-low">——</div></div>
-        <div class="ntz-lvl"><div class="ntz-lvl-lbl">Ceiling</div><div class="ntz-lvl-val" id="ntz-high">——</div></div>
+        <div class="ntz-lvl">
+          <div class="ntz-lvl-lbl">Floor</div>
+          <div class="ntz-lvl-val" id="ntz-low">——</div>
+        </div>
+        <div class="ntz-lvl">
+          <div class="ntz-lvl-lbl">Ceiling</div>
+          <div class="ntz-lvl-val" id="ntz-high">——</div>
+        </div>
       </div>
     </div>
 
-    <!-- TRADE CARD — AUTO/MANUAL -->
-    <div id="tradeCard" style="background:#121821;border:1px solid rgba(255,255,255,0.05);border-radius:16px;padding:18px 20px;display:none">
+    <!-- TRADE CARD — AUTO/MANUAL EXECUTION -->
+    <div id="tradeCard" style="
+      background:#121821;
+      border:1px solid rgba(255,255,255,0.05);
+      border-radius:16px;
+      padding:18px 20px;
+      display:none;
+    ">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">🎯 Signal</div>
         <div id="trade-status" style="font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:100px;font-weight:700;background:rgba(250,204,21,0.1);color:#FACC15;border:1px solid rgba(250,204,21,0.3)">WAITING</div>
       </div>
+
       <div id="trade-direction" style="font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;margin-bottom:4px;color:var(--green)">——</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:14px" id="trade-reason">Waiting for confirmed signal…</div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
         <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
           <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">ENTRY</div>
@@ -550,11 +1099,26 @@ header {
           <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#FF4D4D" id="trade-sl">——</div>
         </div>
       </div>
+
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--muted);letter-spacing:1px">AUTO</span><div id="auto-indicator" style="width:8px;height:8px;border-radius:50%;background:#FF4D4D"></div></div>
-        <button id="autoToggle" onclick="toggleAuto()" style="padding:6px 14px;border:none;border-radius:100px;background:#1a1f2e;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer">OFF</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:var(--muted);letter-spacing:1px">AUTO</span>
+          <div id="auto-indicator" style="width:8px;height:8px;border-radius:50%;background:#FF4D4D"></div>
+        </div>
+        <button id="autoToggle" onclick="toggleAuto()" style="
+          padding:6px 14px;border:none;border-radius:100px;
+          background:#1a1f2e;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;
+          cursor:pointer;transition:all 0.2s
+        ">OFF</button>
       </div>
-      <button id="manualExecBtn" onclick="manualTrade()" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#FACC15,#f59e0b);color:#000;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;display:none">⚡ EXECUTE TRADE</button>
+
+      <button id="manualExecBtn" onclick="manualTrade()" style="
+        width:100%;padding:12px;border:none;border-radius:10px;
+        background:linear-gradient(135deg,#FACC15,#f59e0b);color:#000;
+        font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+        cursor:pointer;display:none;transition:all 0.2s
+      ">⚡ EXECUTE TRADE</button>
+
       <div id="trade-log" style="margin-top:10px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;min-height:16px"></div>
     </div>
 
@@ -916,7 +1480,7 @@ function initChart() {
   el('chart-card').style.display = 'block';
   el('chart-card').style.visibility = 'visible';
   renderTfButtons();
-  setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 420); }, 100);
+  setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 320); }, 100);
   setTimeout(attachDragEvents, 200);
 }
 
@@ -1533,23 +2097,6 @@ connect();
 
 // ── APEX DECISION CARD ───────────────────────────────────────
 function buildDecisionFromSignals(data) {
-  // Priority 1: Pattern signal from backend (standardized output)
-  if (data?.pattern?.status === 'ENTRY') {
-    const p = data.pattern;
-    return {
-      status: 'ENTRY',
-      direction: p.direction,
-      entry: p.entry,
-      tp: p.tp,
-      sl: p.sl,
-      rr: p.rr,
-      score: p.score,
-      pattern: p.pattern,
-      reason: p.reason || p.pattern
-    };
-  }
-
-  // Priority 2: Build from multi signals (existing logic)
   if (!data?.multi?.signals) {
     return { status: "WAIT", reason: "no signal data" };
   }
@@ -1580,7 +2127,6 @@ function buildDecisionFromSignals(data) {
     sl: best.sl,
     rr: best.rr,
     score: best.score,
-    pattern: best.type || best.pattern,
     reason: best.reason || best.type || "multi-strategy confluence"
   };
 }
@@ -1613,8 +2159,7 @@ function updateDecisionCard(s) {
   el('decSL').textContent = s.sl ? fmt(s.sl) : '——';
   el('decRR').textContent = s.rr ? s.rr + ':1' : '——';
   el('decScore').textContent = s.score ? s.score + '/5' : '——';
-  const patternLabel = s.pattern ? ` [${s.pattern}]` : '';
-  el('decReason').textContent = s.reason + patternLabel;
+  el('decReason').textContent = s.reason || '';
 }
 
 // ── AUTO/MANUAL TRADE SYSTEM ─────────────────────────────────
