@@ -1,4 +1,4 @@
-// ── Decision Engine (MASTER BRAIN) — Single Source of Truth ───
+// ── Decision Engine (ELITE SMART MONEY BRAIN) — Single Source of Truth ───
 const round = function(v, d) {
   d = d || 2;
   return v == null || isNaN(v) ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
@@ -19,7 +19,7 @@ function getPivots(data, left, right) {
 }
 
 // ══════════════════════════════════════════════════════════
-// SMC DETECTION ENGINE
+// SMC ENGINE — MAIN DECISION BRAIN
 // ══════════════════════════════════════════════════════════
 
 function detectLiquiditySweep(candles) {
@@ -29,12 +29,11 @@ function detectLiquiditySweep(candles) {
   var prev2 = candles[candles.length - 3];
   if (!last || !prev || !prev2) return null;
 
-  // Short sweep: spike above prev high then reject below
   if (prev.high > prev2.high) {
     if (last.high > prev.high && last.close < prev.high && last.close < last.open) {
       return {
         type: "LIQUIDITY_SWEEP",
-        status: "ENTRY",
+        status: "ACTIVE",
         direction: "SHORT",
         entry: round(last.close, 2),
         tp: round(last.close - (prev.high - prev.low) * 0.5, 2),
@@ -47,12 +46,11 @@ function detectLiquiditySweep(candles) {
     }
   }
 
-  // Long sweep: spike below prev low then bounce above
   if (prev.low < prev2.low) {
     if (last.low < prev.low && last.close > prev.low && last.close > last.open) {
       return {
         type: "LIQUIDITY_SWEEP",
-        status: "ENTRY",
+        status: "ACTIVE",
         direction: "LONG",
         entry: round(last.close, 2),
         tp: round(last.close + (prev.high - prev.low) * 0.5, 2),
@@ -74,11 +72,10 @@ function detectInducement(candles) {
   var prev = candles[candles.length - 2];
   if (!last || !prev) return null;
 
-  // Short inducement: push above prev high, reject down
   if (last.high > prev.high && last.close < prev.close && last.close < last.open) {
     return {
       type: "INDUCEMENT_SHORT",
-      status: "ENTRY",
+      status: "ACTIVE",
       direction: "SHORT",
       confidence: 0.7,
       pattern: "INDUCEMENT",
@@ -86,11 +83,10 @@ function detectInducement(candles) {
     };
   }
 
-  // Long inducement: push below prev low, bounce up
   if (last.low < prev.low && last.close > prev.close && last.close > last.open) {
     return {
       type: "INDUCEMENT_LONG",
-      status: "ENTRY",
+      status: "ACTIVE",
       direction: "LONG",
       confidence: 0.7,
       pattern: "INDUCEMENT",
@@ -110,22 +106,14 @@ function detectBOS(candles) {
 
   if (last.close > prevHigh) {
     return {
-      type: "BOS",
-      status: "ENTRY",
-      direction: "LONG",
-      confidence: 0.8,
-      pattern: "BOS",
-      reason: "BOS upside"
+      type: "BOS", status: "ACTIVE", direction: "LONG",
+      confidence: 0.8, pattern: "BOS", reason: "BOS upside"
     };
   }
   if (last.close < prevLow) {
     return {
-      type: "BOS",
-      status: "ENTRY",
-      direction: "SHORT",
-      confidence: 0.8,
-      pattern: "BOS",
-      reason: "BOS downside"
+      type: "BOS", status: "ACTIVE", direction: "SHORT",
+      confidence: 0.8, pattern: "BOS", reason: "BOS downside"
     };
   }
   return null;
@@ -140,22 +128,14 @@ function detectCHoCH(candles, structure) {
 
   if (structure === "HH" && last.close < prevLow) {
     return {
-      type: "CHOCH",
-      status: "ENTRY",
-      direction: "SHORT",
-      confidence: 0.75,
-      pattern: "CHOCH",
-      reason: "structure flip HH -> bear"
+      type: "CHOCH", status: "ACTIVE", direction: "SHORT",
+      confidence: 0.75, pattern: "CHOCH", reason: "structure flip HH -> bear"
     };
   }
   if (structure === "LL" && last.close > prevHigh) {
     return {
-      type: "CHOCH",
-      status: "ENTRY",
-      direction: "LONG",
-      confidence: 0.75,
-      pattern: "CHOCH",
-      reason: "structure flip LL -> bull"
+      type: "CHOCH", status: "ACTIVE", direction: "LONG",
+      confidence: 0.75, pattern: "CHOCH", reason: "structure flip LL -> bull"
     };
   }
   return null;
@@ -167,19 +147,18 @@ function getSMCEntry(smc) {
   var bos = smc.bos;
   var choch = smc.choch;
 
-  // Priority: sweep+choch > sweep+bos > inducement+sweep > single
+  // Priority: sweep+choch > sweep+bos > inducement+sweep > bos+choch > single
   if (sweep && choch && sweep.direction === choch.direction) {
     return {
       status: "ENTRY",
       direction: sweep.direction,
-      entry: sweep.entry || sweep.price,
+      entry: sweep.entry,
       tp: sweep.tp,
       sl: sweep.sl,
       rr: sweep.rr || 1.5,
       confidence: 0.95,
-      source: "SMC_ENGINE",
-      reason: "sweep + choch confirmed",
-      extra: { sweep: true, choch: true, patternType: "SMC_COMBO" }
+      reason: "sweep + choch",
+      smcComponents: { sweep: true, choch: true }
     };
   }
 
@@ -187,14 +166,13 @@ function getSMCEntry(smc) {
     return {
       status: "ENTRY",
       direction: sweep.direction,
-      entry: sweep.entry || sweep.price,
+      entry: sweep.entry,
       tp: sweep.tp,
       sl: sweep.sl,
       rr: sweep.rr || 1.5,
       confidence: 0.9,
-      source: "SMC_ENGINE",
-      reason: "sweep + BOS confirmed",
-      extra: { sweep: true, bos: true, patternType: "SMC_COMBO" }
+      reason: "sweep + BOS",
+      smcComponents: { sweep: true, bos: true }
     };
   }
 
@@ -202,14 +180,13 @@ function getSMCEntry(smc) {
     return {
       status: "ENTRY",
       direction: sweep.direction,
-      entry: sweep.entry || sweep.price,
+      entry: sweep.entry,
       tp: sweep.tp,
       sl: sweep.sl,
       rr: sweep.rr || 1.5,
       confidence: 0.88,
-      source: "SMC_ENGINE",
-      reason: "inducement + sweep confirmed",
-      extra: { inducement: true, sweep: true, patternType: "SMC_COMBO" }
+      reason: "inducement + sweep",
+      smcComponents: { inducement: true, sweep: true }
     };
   }
 
@@ -217,14 +194,56 @@ function getSMCEntry(smc) {
     return {
       status: "ENTRY",
       direction: bos.direction,
-      entry: bos.price || bos.entry,
+      entry: bos.entry || null,
       tp: bos.tp,
       sl: bos.sl,
       rr: 1.5,
       confidence: 0.85,
-      source: "SMC_ENGINE",
-      reason: "BOS + CHOCH confirmed",
-      extra: { bos: true, choch: true, patternType: "SMC_COMBO" }
+      reason: "BOS + CHOCH",
+      smcComponents: { bos: true, choch: true }
+    };
+  }
+
+  // Single SMC component — lower confidence but still valid
+  if (sweep) {
+    return {
+      status: "ENTRY",
+      direction: sweep.direction,
+      entry: sweep.entry,
+      tp: sweep.tp,
+      sl: sweep.sl,
+      rr: sweep.rr || 1.5,
+      confidence: 0.78,
+      reason: "single sweep",
+      smcComponents: { sweep: true }
+    };
+  }
+
+  if (bos) {
+    return {
+      status: "ENTRY",
+      direction: bos.direction,
+      entry: null,
+      tp: null,
+      sl: null,
+      rr: 1.5,
+      confidence: 0.7,
+      reason: "single BOS",
+      smcComponents: { bos: true }
+    };
+  }
+
+  if (choch) {
+    return {
+      status: "ENTRY",
+      direction: choch.direction,
+      entry: null,
+      tp: null,
+      sl: null,
+      rr: 1.5,
+      confidence: 0.65,
+      reason: "single CHOCH",
+      smcComponents: { choch: true }
     };
   }
 
@@ -232,7 +251,7 @@ function getSMCEntry(smc) {
 }
 
 // ══════════════════════════════════════════════════════════
-// PATTERN DETECTION ENGINE (CLASSIC SMC PATTERNS)
+// PATTERN ENGINE — ONLY A CONFIDENCE BOOSTER (NOT A DECISION)
 // ══════════════════════════════════════════════════════════
 
 function detectDoubleTopPro(candles) {
@@ -253,45 +272,25 @@ function detectDoubleTopPro(candles) {
 
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
-
-  // BEARISH breakdown — price closes BELOW neckline
   var breakConfirmed = last.close < neckline.price;
-
   var retestZone = neckline.price * 0.001;
   var atNeckline = last.close >= neckline.price - retestZone && last.close <= neckline.price + retestZone;
-
-  var hadPullback = false;
-  if (prev && breakConfirmed) {
-    var touchedNeckline = prev.high >= neckline.price && prev.close < neckline.price;
-    hadPullback = touchedNeckline || atNeckline;
-  }
-
-  var entry = last.close;
-  var height = h2.price - neckline.price;
-  var tp = entry - height;
-  var sl = h2.price * 1.0007;
-  var rr = Math.abs(entry - tp) / Math.abs(sl - entry);
+  var hadPullback = prev && breakConfirmed && (prev.high >= neckline.price && prev.close < neckline.price || atNeckline);
 
   if (!breakConfirmed) {
-    return {
-      type: "DOUBLE_TOP", status: "PLAN", direction: "SHORT",
-      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
-      confidence: 0.5, reason: "waiting break below neckline @ " + round(neckline.price, 2)
-    };
+    return { type: "DOUBLE_TOP", status: "CLUE", direction: "SHORT", neckline: neckline.price, confidence: 0.4, reason: "double top clue — waiting break" };
   }
   if (!hadPullback && !atNeckline) {
-    return {
-      type: "DOUBLE_TOP", status: "PLAN", direction: "SHORT",
-      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
-      confidence: 0.6, reason: "waiting retest at neckline @ " + round(neckline.price, 2)
-    };
+    return { type: "DOUBLE_TOP", status: "CLUE", direction: "SHORT", neckline: neckline.price, confidence: 0.5, reason: "double top — waiting retest" };
   }
 
   return {
-    type: "DOUBLE_TOP", status: "ENTRY", direction: "SHORT",
-    neckline: neckline.price,
-    entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2), rr: round(rr, 2),
-    confidence: 0.85, pattern: "DOUBLE_TOP", reason: "double top confirmed"
+    type: "DOUBLE_TOP", status: "CLUE", direction: "SHORT",
+    neckline: neckline.price, entry: round(last.close, 2),
+    tp: round(last.close - (h2.price - neckline.price), 2),
+    sl: round(h2.price * 1.0007, 2),
+    rr: round(Math.abs(last.close - (last.close - (h2.price - neckline.price))) / Math.abs(h2.price * 1.0007 - last.close), 2),
+    confidence: 0.7, pattern: "DOUBLE_TOP", reason: "double top pattern clue"
   };
 }
 
@@ -313,45 +312,25 @@ function detectDoubleBottomPro(candles) {
 
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
-
-  // BULLISH breakout — price closes ABOVE neckline
   var breakConfirmed = last.close > neckline.price;
-
   var retestZone = neckline.price * 0.001;
   var atNeckline = last.close >= neckline.price - retestZone && last.close <= neckline.price + retestZone;
-
-  var hadPullback = false;
-  if (prev && breakConfirmed) {
-    var touchedNeckline = prev.low <= neckline.price && prev.close > neckline.price;
-    hadPullback = touchedNeckline || atNeckline;
-  }
-
-  var entry = last.close;
-  var height = neckline.price - l2.price;
-  var tp = entry + height;
-  var sl = l2.price * 0.9993;
-  var rr = Math.abs(tp - entry) / Math.abs(entry - sl);
+  var hadPullback = prev && breakConfirmed && (prev.low <= neckline.price && prev.close > neckline.price || atNeckline);
 
   if (!breakConfirmed) {
-    return {
-      type: "DOUBLE_BOTTOM", status: "PLAN", direction: "LONG",
-      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
-      confidence: 0.5, reason: "waiting break above neckline @ " + round(neckline.price, 2)
-    };
+    return { type: "DOUBLE_BOTTOM", status: "CLUE", direction: "LONG", neckline: neckline.price, confidence: 0.4, reason: "double bottom clue — waiting break" };
   }
   if (!hadPullback && !atNeckline) {
-    return {
-      type: "DOUBLE_BOTTOM", status: "PLAN", direction: "LONG",
-      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
-      confidence: 0.6, reason: "waiting retest at neckline @ " + round(neckline.price, 2)
-    };
+    return { type: "DOUBLE_BOTTOM", status: "CLUE", direction: "LONG", neckline: neckline.price, confidence: 0.5, reason: "double bottom — waiting retest" };
   }
 
   return {
-    type: "DOUBLE_BOTTOM", status: "ENTRY", direction: "LONG",
-    neckline: neckline.price,
-    entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2), rr: round(rr, 2),
-    confidence: 0.85, pattern: "DOUBLE_BOTTOM", reason: "double bottom confirmed"
+    type: "DOUBLE_BOTTOM", status: "CLUE", direction: "LONG",
+    neckline: neckline.price, entry: round(last.close, 2),
+    tp: round(last.close + (neckline.price - l2.price), 2),
+    sl: round(l2.price * 0.9993, 2),
+    rr: round(Math.abs(last.close + (neckline.price - l2.price) - last.close) / Math.abs(last.close - l2.price * 0.9993), 2),
+    confidence: 0.7, pattern: "DOUBLE_BOTTOM", reason: "double bottom pattern clue"
   };
 }
 
@@ -372,57 +351,18 @@ function detectTrianglePro(candles) {
 
   if (last.close > upper) {
     if (prev && last.high > upper && last.close < upper) {
-      return {
-        type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
-        reason: "fake breakout above — rejected",
-        confidence: 0.4
-      };
+      return { type: "TRIANGLE", status: "CLUE", direction: "NEUTRAL", confidence: 0.3, reason: "fake breakout — rejected" };
     }
-    return {
-      type: "TRIANGLE_UP", status: "ENTRY", direction: "LONG",
-      entry: round(last.close, 2),
-      tp: round(last.close + (upper - lower), 2), sl: round(lower, 2),
-      rr: 2, confidence: 0.75, pattern: "TRIANGLE", reason: "triangle upside breakout"
-    };
+    return { type: "TRIANGLE", status: "CLUE", direction: "LONG", confidence: 0.65, pattern: "TRIANGLE", reason: "triangle upside clue" };
   }
-
   if (last.close < lower) {
     if (prev && last.low < lower && last.close > lower) {
-      return {
-        type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
-        reason: "fake breakdown below — rejected",
-        confidence: 0.4
-      };
+      return { type: "TRIANGLE", status: "CLUE", direction: "NEUTRAL", confidence: 0.3, reason: "fake breakdown — rejected" };
     }
-    return {
-      type: "TRIANGLE_DOWN", status: "ENTRY", direction: "SHORT",
-      entry: round(last.close, 2),
-      tp: round(last.close - (upper - lower), 2), sl: round(upper, 2),
-      rr: 2, confidence: 0.75, pattern: "TRIANGLE", reason: "triangle downside breakout"
-    };
+    return { type: "TRIANGLE", status: "CLUE", direction: "SHORT", confidence: 0.65, pattern: "TRIANGLE", reason: "triangle downside clue" };
   }
 
-  if (prev) {
-    if (last.high > upper && last.close < upper && last.close < last.open) {
-      return {
-        type: "TRIANGLE", status: "PLAN", direction: "SHORT",
-        reason: "liquidity sweep above upper — waiting",
-        confidence: 0.5
-      };
-    }
-    if (last.low < lower && last.close > lower && last.close > last.open) {
-      return {
-        type: "TRIANGLE", status: "PLAN", direction: "LONG",
-        reason: "liquidity sweep below lower — waiting",
-        confidence: 0.5
-      };
-    }
-  }
-
-  return {
-    type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
-    reason: "waiting triangle breakout", confidence: 0.5
-  };
+  return { type: "TRIANGLE", status: "CLUE", direction: "NEUTRAL", confidence: 0.4, reason: "triangle clue — waiting breakout" };
 }
 
 function isConfirmationCandle(candles, dir) {
@@ -453,7 +393,8 @@ function isConfirmationCandle(candles, dir) {
 }
 
 // ══════════════════════════════════════════════════════════
-// BUILD DECISION — MASTER FUNCTION
+// BUILD DECISION — ELITE BRAIN
+// Priority: SMC > PatternBoost > Wait
 // ══════════════════════════════════════════════════════════
 
 function buildDecision(opts) {
@@ -469,7 +410,7 @@ function buildDecision(opts) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // SMC ENGINE — PRIORITY 1 (KING)
+  // LAYER 1: SMC ENGINE — THE ONLY DECISION MAKER
   // ══════════════════════════════════════════════════════════
   var sweep = detectLiquiditySweep(candles);
   var inducement = detectInducement(candles);
@@ -478,6 +419,20 @@ function buildDecision(opts) {
 
   var smcEntry = getSMCEntry({ sweep: sweep, inducement: inducement, bos: bos, choch: choch });
 
+  // ══════════════════════════════════════════════════════════
+  // LAYER 2: PATTERN — ONLY A CONFIDENCE BOOSTER (NOT A DECISION)
+  // ══════════════════════════════════════════════════════════
+  var patterns = [
+    detectDoubleTopPro(candles),
+    detectDoubleBottomPro(candles),
+    detectTrianglePro(candles),
+  ].filter(Boolean);
+
+  var patternClue = patterns.length > 0 ? patterns[0] : null;
+
+  // ══════════════════════════════════════════════════════════
+  // DECISION: SMC IS KING — NO SMC = NO TRADE
+  // ══════════════════════════════════════════════════════════
   if (smcEntry && smcEntry.status === "ENTRY") {
     // HTF conflict check
     if (htfBias !== "NEUTRAL" && htfBias !== smcEntry.direction) {
@@ -487,7 +442,7 @@ function buildDecision(opts) {
         confidence: "LOW",
         source: "SMC_ENGINE",
         reason: "HTF conflict: " + smcEntry.direction + " vs HTF " + htfBias,
-        extra: { htfConflict: true }
+        extra: { htfConflict: true, smcComponents: smcEntry.smcComponents }
       };
     }
 
@@ -499,12 +454,22 @@ function buildDecision(opts) {
         confidence: "LOW",
         source: "SMC_ENGINE",
         reason: "sniper conflict: " + smcEntry.direction + " vs " + sniper.preferred,
-        extra: { conflict: true }
+        extra: { conflict: true, smcComponents: smcEntry.smcComponents }
       };
     }
 
-    // SMART ENTRY MODE: use SAFE confirmation for SMC
+    // ENHANCE WITH PATTERN: add confidence + reason
+    var finalConfidence = smcEntry.confidence;
+    var finalReason = smcEntry.reason;
+
+    if (patternClue && patternClue.direction === smcEntry.direction) {
+      finalConfidence = Math.min(1, finalConfidence + 0.05);
+      finalReason += " + " + patternClue.pattern + " confluence";
+    }
+
+    // SMART ENTRY MODE: SAFE confirmation required
     var confirmed = isConfirmationCandle(candles, smcEntry.direction);
+
     return {
       status: confirmed ? "ENTRY" : "PLAN",
       direction: smcEntry.direction,
@@ -513,123 +478,42 @@ function buildDecision(opts) {
       sl: smcEntry.sl,
       rr: smcEntry.rr,
       confidence: confirmed ? "HIGH" : "MEDIUM",
-      source: "SMC_ENGINE",
-      reason: smcEntry.reason,
-      extra: smcEntry.extra || {}
-    };
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // PATTERN ENGINE — PRIORITY 2 (CLASSIC PATTERNS)
-  // ══════════════════════════════════════════════════════════
-  var patterns = [
-    detectDoubleTopPro(candles),
-    detectDoubleBottomPro(candles),
-    detectTrianglePro(candles),
-  ].filter(Boolean);
-
-  var entryPatterns = patterns.filter(function(p) { return p.status === "ENTRY"; });
-  var planPatterns = patterns.filter(function(p) { return p.status === "PLAN"; });
-
-  if (entryPatterns.length > 0) {
-    var best = entryPatterns.reduce(function(a, b) {
-      var scoreA = (a.confidence || 0) + Math.min(1, (a.rr || 0) / 3);
-      var scoreB = (b.confidence || 0) + Math.min(1, (b.rr || 0) / 3);
-      return scoreA > scoreB ? a : b;
-    });
-
-    var confirmed = isConfirmationCandle(candles, best.direction);
-
-    // HTF conflict check
-    if (htfBias !== "NEUTRAL" && htfBias !== best.direction) {
-      return {
-        status: "WAIT",
-        direction: "NEUTRAL",
-        confidence: "LOW",
-        source: "PATTERN",
-        reason: "HTF conflict: " + best.direction + " vs HTF " + htfBias,
-        extra: { neckline: best.neckline || null, patternType: best.pattern || best.type, htfConflict: true }
-      };
-    }
-
-    // Sniper conflict check
-    if (sniper && sniper.preferred && sniper.preferred !== best.direction) {
-      return {
-        status: "WAIT",
-        direction: "NEUTRAL",
-        confidence: "LOW",
-        source: "PATTERN",
-        reason: "conflict: " + best.direction + " pattern but sniper " + sniper.preferred,
-        extra: { neckline: best.neckline || null, patternType: best.pattern || best.type, conflict: true }
-      };
-    }
-
-    return {
-      status: confirmed ? "ENTRY" : "PLAN",
-      direction: best.direction,
-      entry: best.entry,
-      tp: best.tp,
-      sl: best.sl,
-      rr: best.rr,
-      confidence: confirmed ? "HIGH" : "MEDIUM",
-      source: "PATTERN_MASTER",
-      reason: best.reason,
+      source: "ELITE_SMC",
+      reason: finalReason,
       extra: {
-        neckline: best.neckline || null,
-        patternType: best.pattern || best.type,
-        confirmed: confirmed,
-        patternOverride: true
+        smcComponents: smcEntry.smcComponents,
+        patternBoost: patternClue && patternClue.direction === smcEntry.direction ? patternClue.pattern : null
       }
     };
   }
 
   // ══════════════════════════════════════════════════════════
-  // SNIPER ENGINE — PRIORITY 3 (only if no SMC + no Pattern)
+  // PATTERN ONLY (NO SMC) — NOT AN ENTRY, JUST A CLUE
   // ══════════════════════════════════════════════════════════
-  if (sniper && (sniper.status && sniper.status.indexOf("ACTIVE") !== -1 || sniper.status && sniper.status.indexOf("READY") !== -1)) {
-    var preferred = sniper.preferred;
-    if (preferred === "LONG" || preferred === "SHORT") {
-      var conf = isConfirmationCandle(candles, preferred);
-      return {
-        status: conf ? "ENTRY" : "PLAN",
-        direction: preferred,
-        entry: payload.close,
-        tp: preferred === "LONG" ? round(payload.close + range * 0.4, 2) : round(payload.close - range * 0.4, 2),
-        sl: preferred === "LONG" ? payload.support : payload.resistance,
-        rr: 1.5,
-        confidence: conf ? "HIGH" : "MEDIUM",
-        source: "SNIPER",
-        reason: sniper.reason || "sniper zone active",
-        extra: { sniperStatus: sniper.status }
-      };
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // PATTERN PLAN — PRIORITY 4 (waiting for confirmation)
-  // ══════════════════════════════════════════════════════════
-  if (planPatterns.length > 0) {
-    var bp = planPatterns[0];
+  if (patternClue && patternClue.status === "CLUE") {
     return {
       status: "WAIT",
-      direction: bp.direction || "NEUTRAL",
+      direction: patternClue.direction || "NEUTRAL",
       confidence: "LOW",
       source: "PATTERN",
-      reason: bp.reason,
+      reason: patternClue.reason + " — waiting SMC confirmation (no entry without SMC)",
       extra: {
-        neckline: bp.neckline || null,
-        patternType: bp.pattern || bp.type,
-        planWaiting: true
+        patternType: patternClue.pattern || patternClue.type,
+        neckline: patternClue.neckline || null,
+        clueOnly: true
       }
     };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // NO SMC + NO PATTERN = WAIT
+  // ══════════════════════════════════════════════════════════
   return {
     status: "WAIT",
     direction: "NEUTRAL",
     confidence: "LOW",
     source: "NONE",
-    reason: "no valid setup — waiting confluence"
+    reason: "no SMC signal — waiting smart money entry"
   };
 }
 
