@@ -1,3 +1,4 @@
+// ── Decision Engine (PRO) — Single Source of Truth ───────────
 const round = function(v, d) {
   d = d || 2;
   return v == null || isNaN(v) ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
@@ -17,7 +18,7 @@ function getPivots(data, left, right) {
   return pivots;
 }
 
-function detectDoubleTop(candles) {
+function detectDoubleTopPro(candles) {
   var pivots = getPivots(candles);
   var highs = pivots.filter(function(p) { return p.type === "HIGH"; });
   if (highs.length < 2) return null;
@@ -35,17 +36,17 @@ function detectDoubleTop(candles) {
 
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
-  var breakConfirmed = last.close >= neckline.price;
 
-  // RETEST LOGIC: price pulled back to neckline after initial break
-  var retestPassed = false;
-  if (breakConfirmed && prev) {
-    // Check if price retested neckline (close near neckline but not below)
-    var retestTolerance = neckline.price * 0.001;
-    var priceRetested = last.close >= (neckline.price - retestTolerance) && last.close <= (neckline.price + retestTolerance);
-    var prevWasBelow = prev.close < neckline.price;
-    // Retest passes if price came back to neckline zone and bounced
-    retestPassed = priceRetested && !prevWasBelow && last.close > last.open;
+  // BEARISH breakdown — price closes BELOW neckline for SHORT
+  var breakConfirmed = last.close < neckline.price;
+
+  var retestZone = neckline.price * 0.001;
+  var atNeckline = last.close >= neckline.price - retestZone && last.close <= neckline.price + retestZone;
+
+  var hadPullback = false;
+  if (prev && breakConfirmed) {
+    var touchedNeckline = prev.high >= neckline.price && prev.close < neckline.price;
+    hadPullback = touchedNeckline || atNeckline;
   }
 
   var entry = last.close;
@@ -54,22 +55,30 @@ function detectDoubleTop(candles) {
   var sl = h2.price * 1.0007;
   var rr = Math.abs(entry - tp) / Math.abs(sl - entry);
 
+  if (!breakConfirmed) {
+    return {
+      type: "DOUBLE_TOP", status: "PLAN", direction: "SHORT",
+      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
+      confidence: 0.5, reason: "waiting break below neckline @ " + round(neckline.price, 2)
+    };
+  }
+  if (!hadPullback && !atNeckline) {
+    return {
+      type: "DOUBLE_TOP", status: "PLAN", direction: "SHORT",
+      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
+      confidence: 0.6, reason: "waiting retest at neckline @ " + round(neckline.price, 2)
+    };
+  }
+
   return {
-    type: "DOUBLE_TOP",
-    direction: "SHORT",
-    status: breakConfirmed ? "ENTRY" : "PLAN",
+    type: "DOUBLE_TOP", status: "ENTRY", direction: "SHORT",
     neckline: neckline.price,
-    entry: round(entry, 2),
-    tp: round(tp, 2),
-    sl: round(sl, 2),
-    rr: round(rr, 2),
-    confidence: 0.85,
-    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2),
-    retestPassed: retestPassed
+    entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2), rr: round(rr, 2),
+    confidence: 0.85, pattern: "DOUBLE_TOP", reason: "double top confirmed"
   };
 }
 
-function detectDoubleBottom(candles) {
+function detectDoubleBottomPro(candles) {
   var pivots = getPivots(candles);
   var lows = pivots.filter(function(p) { return p.type === "LOW"; });
   if (lows.length < 2) return null;
@@ -87,15 +96,17 @@ function detectDoubleBottom(candles) {
 
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
-  var breakConfirmed = last.close <= neckline.price;
 
-  // RETEST LOGIC
-  var retestPassed = false;
-  if (breakConfirmed && prev) {
-    var retestTolerance = neckline.price * 0.001;
-    var priceRetested = last.close <= (neckline.price + retestTolerance) && last.close >= (neckline.price - retestTolerance);
-    var prevWasAbove = prev.close > neckline.price;
-    retestPassed = priceRetested && !prevWasAbove && last.close < last.open;
+  // BULLISH breakout — price closes ABOVE neckline for LONG
+  var breakConfirmed = last.close > neckline.price;
+
+  var retestZone = neckline.price * 0.001;
+  var atNeckline = last.close >= neckline.price - retestZone && last.close <= neckline.price + retestZone;
+
+  var hadPullback = false;
+  if (prev && breakConfirmed) {
+    var touchedNeckline = prev.low <= neckline.price && prev.close > neckline.price;
+    hadPullback = touchedNeckline || atNeckline;
   }
 
   var entry = last.close;
@@ -104,22 +115,30 @@ function detectDoubleBottom(candles) {
   var sl = l2.price * 0.9993;
   var rr = Math.abs(tp - entry) / Math.abs(entry - sl);
 
+  if (!breakConfirmed) {
+    return {
+      type: "DOUBLE_BOTTOM", status: "PLAN", direction: "LONG",
+      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
+      confidence: 0.5, reason: "waiting break above neckline @ " + round(neckline.price, 2)
+    };
+  }
+  if (!hadPullback && !atNeckline) {
+    return {
+      type: "DOUBLE_BOTTOM", status: "PLAN", direction: "LONG",
+      neckline: neckline.price, entry: null, tp: null, sl: null, rr: null,
+      confidence: 0.6, reason: "waiting retest at neckline @ " + round(neckline.price, 2)
+    };
+  }
+
   return {
-    type: "DOUBLE_BOTTOM",
-    direction: "LONG",
-    status: breakConfirmed ? "ENTRY" : "PLAN",
+    type: "DOUBLE_BOTTOM", status: "ENTRY", direction: "LONG",
     neckline: neckline.price,
-    entry: round(entry, 2),
-    tp: round(tp, 2),
-    sl: round(sl, 2),
-    rr: round(rr, 2),
-    confidence: 0.85,
-    reason: breakConfirmed ? "neckline break confirmed" : "waiting neckline break @ " + round(neckline.price, 2),
-    retestPassed: retestPassed
+    entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2), rr: round(rr, 2),
+    confidence: 0.85, pattern: "DOUBLE_BOTTOM", reason: "double bottom confirmed"
   };
 }
 
-function detectTriangle(candles) {
+function detectTrianglePro(candles) {
   var pivots = getPivots(candles);
   var highs = pivots.filter(function(p) { return p.type === "HIGH"; }).slice(-3);
   var lows = pivots.filter(function(p) { return p.type === "LOW"; }).slice(-3);
@@ -132,40 +151,102 @@ function detectTriangle(candles) {
   var upper = highs[highs.length - 1].price;
   var lower = lows[lows.length - 1].price;
   var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
 
+  // LONG breakout: close ABOVE upper + fake breakout filter
   if (last.close > upper) {
+    if (prev && last.high > upper && last.close < upper) {
+      return {
+        type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
+        reason: "fake breakout above — rejected",
+        confidence: 0.4
+      };
+    }
     return {
-      type: "TRIANGLE_UP",
-      direction: "LONG",
-      status: "ENTRY",
+      type: "TRIANGLE_UP", status: "ENTRY", direction: "LONG",
       entry: round(last.close, 2),
-      tp: round(last.close + (upper - lower), 2),
-      sl: round(lower, 2),
-      rr: 2,
-      confidence: 0.75,
-      reason: "triangle breakout upside"
+      tp: round(last.close + (upper - lower), 2), sl: round(lower, 2),
+      rr: 2, confidence: 0.75, pattern: "TRIANGLE", reason: "triangle upside breakout"
     };
   }
+
+  // SHORT breakdown: close BELOW lower + fake breakdown filter
   if (last.close < lower) {
+    if (prev && last.low < lower && last.close > lower) {
+      return {
+        type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
+        reason: "fake breakdown below — rejected",
+        confidence: 0.4
+      };
+    }
     return {
-      type: "TRIANGLE_DOWN",
-      direction: "SHORT",
-      status: "ENTRY",
+      type: "TRIANGLE_DOWN", status: "ENTRY", direction: "SHORT",
       entry: round(last.close, 2),
-      tp: round(last.close - (upper - lower), 2),
-      sl: round(upper, 2),
-      rr: 2,
-      confidence: 0.75,
-      reason: "triangle breakout downside"
+      tp: round(last.close - (upper - lower), 2), sl: round(upper, 2),
+      rr: 2, confidence: 0.75, pattern: "TRIANGLE", reason: "triangle downside breakout"
     };
   }
+
+  // Liquidity sweep near upper/lower
+  if (prev) {
+    if (last.high > upper && last.close < upper && last.close < last.open) {
+      return {
+        type: "TRIANGLE", status: "PLAN", direction: "SHORT",
+        reason: "liquidity sweep above upper — waiting",
+        confidence: 0.5
+      };
+    }
+    if (last.low < lower && last.close > lower && last.close > last.open) {
+      return {
+        type: "TRIANGLE", status: "PLAN", direction: "LONG",
+        reason: "liquidity sweep below lower — waiting",
+        confidence: 0.5
+      };
+    }
+  }
+
   return {
-    type: "TRIANGLE",
-    direction: "NEUTRAL",
-    status: "PLAN",
-    reason: "waiting triangle breakout",
-    confidence: 0.5
+    type: "TRIANGLE", status: "PLAN", direction: "NEUTRAL",
+    reason: "waiting triangle breakout", confidence: 0.5
   };
+}
+
+function detectLiquiditySweep(candles) {
+  if (candles.length < 3) return null;
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  var prev2 = candles[candles.length - 3];
+  if (!last || !prev || !prev2) return null;
+
+  // Short sweep: spike above prev high then reject
+  if (prev.high > prev2.high) {
+    if (last.high > prev.high && last.close < prev.high && last.close < last.open) {
+      return {
+        type: "LIQUIDITY_SWEEP", status: "ENTRY", direction: "SHORT",
+        entry: round(last.close, 2),
+        tp: round(last.close - (prev.high - prev.low) * 0.5, 2),
+        sl: round(last.high * 1.001, 2),
+        rr: 1.5, confidence: 0.7, pattern: "LIQUIDITY_SWEEP",
+        reason: "liquidity sweep short"
+      };
+    }
+  }
+
+  // Long sweep: spike below prev low then bounce
+  if (prev.low < prev2.low) {
+    if (last.low < prev.low && last.close > prev.low && last.close > last.open) {
+      return {
+        type: "LIQUIDITY_SWEEP", status: "ENTRY", direction: "LONG",
+        entry: round(last.close, 2),
+        tp: round(last.close + (prev.high - prev.low) * 0.5, 2),
+        sl: round(last.low * 0.999, 2),
+        rr: 1.5, confidence: 0.7, pattern: "LIQUIDITY_SWEEP",
+        reason: "liquidity sweep long"
+      };
+    }
+  }
+
+  return null;
 }
 
 function isConfirmationCandle(candles, dir) {
@@ -195,25 +276,6 @@ function isConfirmationCandle(candles, dir) {
   return false;
 }
 
-function isRetestPhase(candles, direction, neckline) {
-  if (!neckline) return false;
-  var last = candles[candles.length - 1];
-  var prev = candles[candles.length - 2];
-  if (!last || !prev) return false;
-
-  var tolerance = neckline.price * 0.002;
-  var nearNeckline = direction === "SHORT"
-    ? last.close >= neckline.price - tolerance && last.close <= neckline.price + tolerance
-    : last.close <= neckline.price + tolerance && last.close >= neckline.price - tolerance;
-
-  // Price touched neckline but hasn't confirmed break yet
-  var touchedNeckline = direction === "SHORT"
-    ? prev.close >= neckline.price && last.close < neckline.price
-    : prev.close <= neckline.price && last.close > neckline.price;
-
-  return nearNeckline && !touchedNeckline;
-}
-
 function buildDecision(opts) {
   var candles = opts.candles;
   var sniper = opts.sniper;
@@ -224,17 +286,19 @@ function buildDecision(opts) {
     return { status: "WAIT", direction: "NEUTRAL", confidence: "LOW", source: "NONE", reason: "insufficient data" };
   }
 
-  // Run pattern detection
   var patterns = [
-    detectDoubleTop(candles),
-    detectDoubleBottom(candles),
-    detectTriangle(candles)
+    detectDoubleTopPro(candles),
+    detectDoubleBottomPro(candles),
+    detectTrianglePro(candles),
+    detectLiquiditySweep(candles),
   ].filter(Boolean);
 
   var entryPatterns = patterns.filter(function(p) { return p.status === "ENTRY"; });
+  var planPatterns = patterns.filter(function(p) { return p.status === "PLAN"; });
 
   // ══════════════════════════════════════════════════════════
-  // PRIORITY 1: PATTERN ENTRY — HARD OVERRIDE
+  // PRIORITY 1: PATTERN IS KING — absolute override
+  // When pattern confirms ENTRY, it overrides sniper completely
   // ══════════════════════════════════════════════════════════
   if (entryPatterns.length > 0) {
     var best = entryPatterns.reduce(function(a, b) {
@@ -243,46 +307,22 @@ function buildDecision(opts) {
       return scoreA > scoreB ? a : b;
     });
 
-    // Check retest phase — if not passed, keep as PLAN
-    if (best.retestPassed === false && best.neckline) {
-      // Check if currently in retest phase
-      if (isRetestPhase(candles, best.direction, { price: best.neckline })) {
-        return {
-          status: "WAIT",
-          direction: best.direction,
-          confidence: "MEDIUM",
-          source: "PATTERN",
-          reason: "retest in progress @ " + round(best.neckline, 2),
-          extra: {
-            neckline: best.neckline,
-            patternType: best.type,
-            retestPhase: true
-          }
-        };
-      }
-    }
-
     var confirmed = isConfirmationCandle(candles, best.direction);
 
-    // CONFLICT CHECK: pattern vs sniper
-    if (sniper && sniper.preferred) {
-      if (
-        (best.direction === "LONG" && sniper.preferred === "SHORT") ||
-        (best.direction === "SHORT" && sniper.preferred === "LONG")
-      ) {
-        return {
-          status: "WAIT",
-          direction: "NEUTRAL",
-          confidence: "LOW",
-          source: "PATTERN",
-          reason: "pattern vs sniper conflict — " + best.direction + " pattern but sniper signals " + sniper.preferred,
-          extra: {
-            neckline: best.neckline || null,
-            patternType: best.type,
-            conflict: true
-          }
-        };
-      }
+    // CONFLICT FILTER: sniper direction vs pattern direction
+    if (sniper && sniper.preferred && sniper.preferred !== best.direction) {
+      return {
+        status: "WAIT",
+        direction: "NEUTRAL",
+        confidence: "LOW",
+        source: "PATTERN",
+        reason: "conflict: " + best.direction + " pattern but sniper " + sniper.preferred + " — waiting resolution",
+        extra: {
+          neckline: best.neckline || null,
+          patternType: best.pattern || best.type,
+          conflict: true
+        }
+      };
     }
 
     return {
@@ -297,15 +337,15 @@ function buildDecision(opts) {
       reason: best.reason,
       extra: {
         neckline: best.neckline || null,
-        patternType: best.type,
+        patternType: best.pattern || best.type,
         confirmed: confirmed,
-        retestPassed: best.retestPassed || false
+        patternOverride: true
       }
     };
   }
 
   // ══════════════════════════════════════════════════════════
-  // PRIORITY 2: SNIPER ACTIVE — only if no valid pattern entry
+  // PRIORITY 2: SNIPER ACTIVE — only if no pattern ENTRY
   // ══════════════════════════════════════════════════════════
   if (sniper && (sniper.status && sniper.status.indexOf("ACTIVE") !== -1 || sniper.status && sniper.status.indexOf("READY") !== -1)) {
     var preferred = sniper.preferred;
@@ -327,9 +367,8 @@ function buildDecision(opts) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // PRIORITY 3: PATTERN PLAN (waiting for break)
+  // PRIORITY 3: PATTERN PLAN — waiting for break
   // ══════════════════════════════════════════════════════════
-  var planPatterns = patterns.filter(function(p) { return p.status === "PLAN"; });
   if (planPatterns.length > 0) {
     var bp = planPatterns[0];
     return {
@@ -340,15 +379,12 @@ function buildDecision(opts) {
       reason: bp.reason,
       extra: {
         neckline: bp.neckline || null,
-        patternType: bp.type,
+        patternType: bp.pattern || bp.type,
         planWaiting: true
       }
     };
   }
 
-  // ══════════════════════════════════════════════════════════
-  // PRIORITY 4: WAIT — no valid setup
-  // ══════════════════════════════════════════════════════════
   return {
     status: "WAIT",
     direction: "NEUTRAL",
