@@ -1873,6 +1873,14 @@ async function processPair(symbol) {
     const multiSignals  = buildMultiSignals(payload1m, htfBias, signal, prevStructure);
     signal.multi        = multiSignals;
 
+    console.log("MULTI SIGNAL:", JSON.stringify({
+      best_signal: multiSignals?.best_signal?.direction,
+      score: multiSignals?.best_signal?.score,
+      rr: multiSignals?.best_signal?.rr,
+      precision_entry: multiSignals?.signals?.precision_entry?.direction,
+      quick_strike: multiSignals?.signals?.quick_strike?.direction,
+    }, null, 2));
+
     // Signal scoring (legacy + new)
     signal.score = multiSignals.best_signal.score || 0;
     if (signal.score < 1 && signal.decision_now !== "SKIP") {
@@ -1912,8 +1920,8 @@ async function processPair(symbol) {
       }
     };
 
-    state.latestSignal = formatted;
-    state.signalHistory.unshift(formatted);
+    state.latestSignal = multiSignals; // 🔥 USE multiSignals for UI grid
+    state.signalHistory.unshift(multiSignals);
     if (state.signalHistory.length > 50) state.signalHistory.pop();
 
     // Also update global state for first pair (BTC-USDT) for backward compatibility
@@ -1933,7 +1941,7 @@ async function processPair(symbol) {
     broadcast({
       type: "signal",
       pair: symbol,
-      data: formatted
+      data: multiSignals
     });
 
     simulateDryTrade(signal, payload1m);
