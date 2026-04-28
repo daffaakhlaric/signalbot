@@ -685,7 +685,7 @@ header {
     </div>
     <div class="header-pill">
       <span class="lbl">TF</span>
-      <span class="val">15m</span>
+      <span class="val">1m</span>
     </div>
     <div class="header-pill">
       <span class="lbl">MODE</span>
@@ -1022,7 +1022,7 @@ header {
   <button class="sim-btn" id="sim-btn" onclick="simulate()">▶ SIMULATE</button>
   <span class="sim-lbl" style="margin-left:8px">📡 Source:</span>
   <code style="font-size:10px;color:var(--cyan);background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px;border:1px solid var(--border)">
-    <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">15m</span>
+    <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">1m</span>
   </code>
 </div>
 
@@ -1054,7 +1054,7 @@ setInterval(updateCountdown, 1000);
 let chart = null, candleSeries = null, ema20Series = null, ema50Series = null;
 let ema200Series = null, entryLine = null, tpLine = null, slLine = null;
 let currentCandles = [], currentSignal = null, currentPrice = null;
-let activeTf = '15m';
+let activeTf = '1m';
 
 function initChart() {
   const container = el('chart-container');
