@@ -84,6 +84,7 @@ SYMBOLS.forEach(symbol => {
     latestSignal: null,
     latestPayload: null,
     lastAnalyzedBarTime: 0,
+    lastBroadcastBarTime: 0,
   };
 });
 
@@ -1039,21 +1040,38 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure) {
   const momFilter = Math.abs(payload.close - payload.prevCandle.close) / payload.close;
 
   // Renamed signals (premium branding)
+  const isPlan = sniperSignal.decision_now === "SKIP";
+  const midPrice = (payload.support + payload.resistance) / 2;
+
   const precision_entry = {
-    direction: sniperSignal.decision_now === "SKIP" ? "WAIT" : sniperSignal.decision_now,
-    entry: sniperSignal.decision_now === "LONG"
-      ? sniperSignal.sniper_long?.entry_zone?.[0]
-      : sniperSignal.sniper_short?.entry_zone?.[0],
-    tp: sniperSignal.decision_now === "LONG"
-      ? sniperSignal.sniper_long?.tp?.[0]
-      : sniperSignal.sniper_short?.tp?.[0],
-    sl: sniperSignal.decision_now === "LONG"
-      ? sniperSignal.sniper_long?.sl
-      : sniperSignal.sniper_short?.sl,
+    direction: isPlan
+      ? (payload.close < midPrice ? "LONG" : "SHORT")
+      : sniperSignal.decision_now,
+    entry: !isPlan
+      ? (sniperSignal.decision_now === "LONG"
+          ? sniperSignal.sniper_long?.entry_zone?.[0]
+          : sniperSignal.sniper_short?.entry_zone?.[0])
+      : payload.close,
+    tp: !isPlan
+      ? (sniperSignal.decision_now === "LONG"
+          ? sniperSignal.sniper_long?.tp?.[0]
+          : sniperSignal.sniper_short?.tp?.[0])
+      : payload.close + (payload.resistance - payload.support) * (payload.close < midPrice ? 0.5 : -0.5),
+    sl: !isPlan
+      ? (sniperSignal.decision_now === "LONG"
+          ? sniperSignal.sniper_long?.sl
+          : sniperSignal.sniper_short?.sl)
+      : (payload.close < midPrice ? payload.support : payload.resistance),
     rr: null,
     confidence: sniperSignal.confidence,
-    reason: sniperSignal.reason,
-    status: sniperSignal.decision_now === "SKIP" ? "WAIT" : "ACTIVE",
+    reason: isPlan
+      ? `${sniperSignal.reason} — waiting sniper zone`
+      : sniperSignal.reason,
+    status: isPlan ? "PLAN" : "ACTIVE",
+    sniper_zone: {
+      long: sniperSignal.sniper_long?.entry_zone || null,
+      short: sniperSignal.sniper_short?.entry_zone || null
+    },
   };
   if (precision_entry.entry && precision_entry.tp && precision_entry.sl) {
     precision_entry.rr = round(
@@ -1881,23 +1899,55 @@ async function processPair(symbol) {
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
-    // Broadcast multi-pair signal
-    broadcast({
-      type: "multi_signal",
-      data: {
-        pair:   signal.pair,
-        symbol: symbol,
-        signal,
-        market: payload15m,
-        multi:  multiSignals,
-      }
-    });
+    // Broadcast only when new candle closes (not every poll)
+    const isNewCandle = payload15m.barTime !== state.lastBroadcastBarTime;
+    if (isNewCandle) {
+      state.lastBroadcastBarTime = payload15m.barTime;
+
+      // Broadcast multi-pair signal
+      broadcast({
+        type: "multi_signal",
+        data: {
+          pair:   signal.pair,
+          symbol: symbol,
+          signal,
+          market: payload15m,
+          multi:  multiSignals,
+        }
+      });
+    }
 
     simulateDryTrade(signal, payload15m);
     checkDryTrades(payload15m.close);
   } catch (err) {
     botLog("err", `❌ ${symbol} error: ${err.message}`);
   }
+}
+
+// ── Auto PLAN → ACTIVE realtime update ──────────────────────
+function updateSignalStatusRealtime(signal, currentPrice) {
+  if (!signal?.multi?.best_signal?.entry) return signal;
+
+  const entry = signal.multi.best_signal.entry;
+  const buffer = entry * 0.001;
+  const isInZone =
+    currentPrice >= entry - buffer &&
+    currentPrice <= entry + buffer;
+
+  if (isInZone && signal.multi.best_signal.status === "PLAN") {
+    return {
+      ...signal,
+      multi: {
+        ...signal.multi,
+        best_signal: {
+          ...signal.multi.best_signal,
+          status: "ACTIVE",
+          reason: signal.multi.best_signal.reason + " — entry zone reached"
+        }
+      }
+    };
+  }
+  return signal;
 }
 
 // ── Main tick: poll exchange, run sniper engine for all pairs ─
@@ -2097,6 +2147,32 @@ app.get("/diag", async (_req, res) => {
   res.json(out);
 });
 
+// ── GET /candles — chart data for frontend ───────────────────
+app.get("/candles", async (req, res) => {
+  try {
+    const tf = req.query.tf || "15m";
+    const symbol = SYMBOLS[0];
+    const candles = await fetchKlines(symbol, tf, 200);
+    if (!candles || !candles.length) return res.json({ candles: [] });
+
+    const closes = candles.map(c => c.close);
+    const highs  = candles.map(c => c.high);
+    const lows   = candles.map(c => c.low);
+
+    const result = candles.map((c, i) => ({
+      time: c.time,
+      open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
+      ema20:  i >= 19  ? round(ema(closes.slice(0, i+1), 20))  : null,
+      ema50:  i >= 49  ? round(ema(closes.slice(0, i+1), 50))  : null,
+      ema200: i >= 199 ? round(ema(closes.slice(0, i+1), 200)) : null,
+    }));
+
+    res.json({ candles: result, symbol, timeframe: tf });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /health ───────────────────────────────────────────────
 app.get("/health", (req, res) => {
   res.json({
@@ -2187,4 +2263,24 @@ server.listen(PORT, async () => {
   // Don't await — start polling in background so server can listen immediately
   tick().catch(e => console.error("Initial tick error:", e));
   setInterval(tick, POLL_MS);
+
+  // Realtime price update + PLAN→ACTIVE status change (every poll, not just candle close)
+  setInterval(async () => {
+    try {
+      const price = latestPayload?.close;
+      if (!price) return;
+
+      const updatedSignal = latestSignal
+        ? updateSignalStatusRealtime(latestSignal, price)
+        : null;
+
+      broadcast({
+        type: "price_update",
+        price,
+        best_signal: updatedSignal?.multi?.best_signal || null
+      });
+    } catch (e) {
+      // silent fail
+    }
+  }, POLL_MS);
 });

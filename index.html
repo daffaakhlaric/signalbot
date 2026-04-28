@@ -6,6 +6,7 @@
 <title>Apex Sniper — Multi-Strategy Signal Terminal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+lightweight-charts.standalone.production.js"></script>
 <!-- Auth guard -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/supabase-config.js"></script>
@@ -583,6 +584,33 @@ header {
 .sim-btn.loading { animation: blink 0.6s infinite; }
 
 /* ══════════════════════════════════════
+   CHART
+══════════════════════════════════════ */
+.chart-card { margin-top: 16px; }
+.chart-card .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.tf-toggle { display: flex; gap: 6px; }
+.tf-btn {
+  padding: 4px 12px; border-radius: 6px; font-size: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.tf-btn:hover { border-color: var(--green); color: var(--green); }
+.tf-btn.active { background: rgba(0,255,163,0.1); border-color: var(--green); color: var(--green); }
+.zone-display { display: flex; gap: 10px; flex-wrap: wrap; }
+.zone-long, .zone-short {
+  padding: 6px 12px; border-radius: 8px; font-size: 11px;
+  font-family: 'Space Mono', monospace; letter-spacing: 1px;
+}
+.zone-long { background: rgba(0,255,163,0.08); border: 1px solid rgba(0,255,163,0.3); color: var(--green); }
+.zone-short { background: rgba(255,77,77,0.08); border: 1px solid rgba(255,77,77,0.3); color: var(--red); }
+.chart-badges { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.chart-badge {
+  padding: 4px 10px; border-radius: 6px; font-size: 10px;
+  font-family: 'Space Mono', monospace; letter-spacing: 1px;
+}
+
+/* ══════════════════════════════════════
    ANIMATIONS
 ══════════════════════════════════════ */
 @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
@@ -823,6 +851,19 @@ header {
 
     </div><!-- /signal-grid -->
 
+    <!-- SNIPER CHART -->
+    <div class="card chart-card" id="chart-card" style="display:none">
+      <div class="card-header">
+        <span class="card-label">📊 Sniper Chart</span>
+        <div class="tf-toggle" id="tf-toggle"></div>
+      </div>
+      <div id="chart-container" style="height:320px;background:#0B0F14;border-radius:8px;overflow:hidden;"></div>
+      <div id="zone-display" class="zone-display" style="margin-top:8px;display:none">
+        <div class="zone-long" id="zone-long-display"></div>
+        <div class="zone-short" id="zone-short-display"></div>
+      </div>
+    </div>
+
     <!-- BOT LOG -->
     <div class="card log-card">
       <div class="card-header">
@@ -992,6 +1033,186 @@ function updateCountdown() {
 }
 updateCountdown();
 setInterval(updateCountdown, 1000);
+
+// ── Chart System ─────────────────────────────────────────────
+let chart = null, candleSeries = null, ema20Series = null, ema50Series = null;
+let ema200Series = null, entryLine = null, tpLine = null, slLine = null;
+let currentCandles = [], currentSignal = null, currentPrice = null;
+let activeTf = '15m';
+
+function initChart() {
+  const container = el('chart-container');
+  if (!container || chart) return;
+
+  chart = createChart(container, {
+    layout: {
+      background: { color: '#0B0F14' },
+      textColor: '#9ca3af',
+    },
+    grid: {
+      vertLines: { color: 'rgba(255,255,255,0.03)' },
+      horzLines: { color: 'rgba(255,255,255,0.03)' },
+    },
+    width: container.clientWidth,
+    height: 320,
+    handleScroll: { mouseWheel: true, pressedMouseMove: true },
+    handleScale: { mouseWheel: true, axisPressedMouseMove: true },
+    crosshair: {
+      vertLine: { color: 'rgba(255,255,255,0.15)' },
+      horzLine: { color: 'rgba(255,255,255,0.15)' },
+    },
+    timeScale: {
+      borderColor: 'rgba(255,255,255,0.05)',
+      timeVisible: true,
+    },
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00FFA3', downColor: '#FF4D4D',
+    borderUpColor: '#00FFA3', borderDownColor: '#FF4D4D',
+    wickUpColor: '#00FFA3', wickDownColor: '#FF4D4D',
+  });
+
+  ema20Series = chart.addLineSeries({ color: '#3B82F6', lineWidth: 1, title: 'EMA20' });
+  ema50Series = chart.addLineSeries({ color: '#f97316', lineWidth: 1, title: 'EMA50' });
+  ema200Series = chart.addLineSeries({ color: '#FF4D4D', lineWidth: 1, title: 'EMA200' });
+
+  chart.timeScale().fitContent();
+  el('chart-card').style.display = 'block';
+  renderTfButtons();
+}
+
+function renderTfButtons() {
+  const wrap = el('tf-toggle');
+  if (!wrap) return;
+  const tfs = ['5m','15m','1h','4h'];
+  wrap.innerHTML = tfs.map(tf =>
+    `<button class="tf-btn${tf===activeTf?' active':''}" onclick="switchTf('${tf}')">${tf}</button>`
+  ).join('');
+}
+
+async function switchTf(tf) {
+  activeTf = tf;
+  renderTfButtons();
+  loadChart();
+}
+
+async function loadChart() {
+  try {
+    const r = await fetch(API_URL + '/candles?tf=' + activeTf);
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.candles?.length) return;
+    currentCandles = data.candles;
+    renderChartCandles();
+    if (currentSignal) renderChartSignal();
+  } catch(e) {}
+}
+
+function renderChartCandles() {
+  if (!candleSeries || !currentCandles.length) return;
+  candleSeries.setData(currentCandles.map(c => ({
+    time: c.time / 1000,
+    open: c.open, high: c.high, low: c.low, close: c.close,
+  })));
+  if (ema20Series && currentCandles[0]?.ema20) {
+    ema20Series.setData(currentCandles.filter(c=>c.ema20).map(c => ({
+      time: c.time / 1000, value: c.ema20,
+    })));
+  }
+  if (ema50Series && currentCandles[0]?.ema50) {
+    ema50Series.setData(currentCandles.filter(c=>c.ema50).map(c => ({
+      time: c.time / 1000, value: c.ema50,
+    })));
+  }
+  if (ema200Series && currentCandles[0]?.ema200) {
+    ema200Series.setData(currentCandles.filter(c=>c.ema200).map(c => ({
+      time: c.time / 1000, value: c.ema200,
+    })));
+  }
+  chart.timeScale().fitContent();
+}
+
+function renderChartSignal() {
+  if (!chart || !currentCandles.length) return;
+  const sig = currentSignal;
+  if (!sig) return;
+
+  const lastCandle = currentCandles[currentCandles.length - 2];
+  const priceScale = chart.priceScale('');
+
+  // entry line
+  if (entryLine) { chart.removePriceLine(entryLine); entryLine = null; }
+  if (tpLine)    { chart.removePriceLine(tpLine);    tpLine = null; }
+  if (slLine)    { chart.removePriceLine(slLine);    slLine = null; }
+
+  if (sig.entry && sig.direction !== 'WAIT') {
+    const color = sig.direction === 'LONG' ? '#00FFA3' : '#FF4D4D';
+    entryLine = chart.addPriceLine({
+      price: sig.entry, color,
+      lineWidth: 2, lineStyle: 2,
+      axisLabelVisible: true, textColor: color,
+    });
+    if (sig.tp) {
+      tpLine = chart.addPriceLine({
+        price: sig.tp, color: '#22c55e',
+        lineWidth: 1, lineStyle: 0,
+        axisLabelVisible: true, textColor: '#22c55e',
+      });
+    }
+    if (sig.sl) {
+      slLine = chart.addPriceLine({
+        price: sig.sl, color: '#ef4444',
+        lineWidth: 1, lineStyle: 0,
+        axisLabelVisible: true, textColor: '#ef4444',
+      });
+    }
+
+    // marker
+    const dir = sig.direction;
+    candleSeries.setMarkers([{
+      time: lastCandle?.time ? lastCandle.time / 1000 : Date.now() / 1000,
+      position: dir === 'LONG' ? 'belowBar' : 'aboveBar',
+      color: dir === 'LONG' ? '#00FFA3' : '#FF4D4D',
+      shape: dir === 'LONG' ? 'arrowUp' : 'arrowDown',
+      text: dir,
+    }]);
+  }
+
+  // zone display
+  const zoneEl = el('zone-display');
+  const longEl = el('zone-long-display');
+  const shortEl = el('zone-short-display');
+  if (zoneEl && sig.sniper_zone) {
+    zoneEl.style.display = 'flex';
+    if (sig.sniper_zone.long) {
+      longEl.textContent = `LONG ZONE: ${sig.sniper_zone.long[0]} – ${sig.sniper_zone.long[1]}`;
+      longEl.style.display = 'block';
+    } else { longEl.style.display = 'none'; }
+    if (sig.sniper_zone.short) {
+      shortEl.textContent = `SHORT ZONE: ${sig.sniper_zone.short[0]} – ${sig.sniper_zone.short[1]}`;
+      shortEl.style.display = 'block';
+    } else { shortEl.style.display = 'none'; }
+  }
+}
+
+function updateChartRealtime(price) {
+  if (!candleSeries || !currentCandles.length) return;
+  currentPrice = price;
+  const lastCandle = currentCandles[currentCandles.length - 1];
+  if (lastCandle) {
+    candleSeries.update({
+      time: lastCandle.time / 1000,
+      open: lastCandle.open,
+      high: Math.max(lastCandle.high, price),
+      low: Math.min(lastCandle.low, price),
+      close: price,
+    });
+  }
+}
+
+// init chart on load
+setTimeout(initChart, 500);
 
 // ── Session UI ─────────────────────────────────────────────────
 function updateSession(sessionData) {
@@ -1243,6 +1464,33 @@ function connect() {
           if (multi)  renderMulti(multi);
           if (market) renderMarket(market);
           if (signal?.price) el('live-price').textContent = '$' + Number(signal.price).toLocaleString();
+        }
+        // Update chart with signal data
+        if (signal && multi?.signals?.precision_entry) {
+          currentSignal = multi.signals.precision_entry;
+          renderChartSignal();
+        }
+        if (market) {
+          currentCandles = market.lastCandle ? [market.lastCandle, market.prevCandle] : [];
+        }
+        return;
+      }
+      if (msg.type === 'signal') {
+        const sig = msg.data?.multi?.best_signal || msg.data;
+        if (sig) {
+          currentSignal = sig;
+          renderChartSignal();
+        }
+        return;
+      }
+      if (msg.type === 'price_update') {
+        if (msg.price) {
+          el('live-price').textContent = '$' + Number(msg.price).toLocaleString();
+          updateChartRealtime(msg.price);
+        }
+        if (msg.best_signal) {
+          currentSignal = msg.best_signal;
+          renderChartSignal();
         }
         return;
       }
