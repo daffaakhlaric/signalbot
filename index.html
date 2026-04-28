@@ -1023,7 +1023,7 @@ header {
   <button class="sim-btn" id="sim-btn" onclick="simulate()">▶ SIMULATE</button>
   <span class="sim-lbl" style="margin-left:8px">📡 Source:</span>
   <code style="font-size:10px;color:var(--cyan);background:rgba(255,255,255,0.04);padding:4px 10px;border-radius:6px;border:1px solid var(--border)">
-    <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">1m</span>
+    <span id="src-symbol">BTC-USDT</span> · <span id="src-tf">15m</span>
   </code>
 </div>
 
@@ -1042,8 +1042,9 @@ const el  = id => document.getElementById(id);
 
 // ── Countdown ─────────────────────────────────────────────────
 function updateCountdown() {
-  const now = new Date(), s = now.getSeconds();
-  const secs = 60 - s;
+  const now = new Date(), m = now.getMinutes(), s = now.getSeconds();
+  const next = m < 15 ? 15 : m < 30 ? 30 : m < 45 ? 45 : 0;
+  const secs = next === 0 ? (60 - m) * 60 - s : (next - m) * 60 - s;
   el('countdown-value').textContent =
     String(Math.floor(secs / 60)).padStart(2,'0') + ':' + String(secs % 60).padStart(2,'0');
 }
@@ -1054,7 +1055,7 @@ setInterval(updateCountdown, 1000);
 let chart = null, candleSeries = null, ema20Series = null, ema50Series = null;
 let ema200Series = null, entryLine = null, tpLine = null, slLine = null;
 let currentCandles = [], currentSignal = null, currentPrice = null;
-let activeTf = '1m';
+let activeTf = '15m';
 
 function initChart() {
   const container = el('chart-container');

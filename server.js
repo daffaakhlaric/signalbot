@@ -48,8 +48,8 @@ const FALLBACK_ORDER = ["bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
 const SYMBOLS = ["BTC-USDT"];
-const INTERVAL = "1m"; // 🔥 FORCE TEST
-const POLL_MS = 5000; // 🔥 5 detik untuk 1m
+const INTERVAL = "15m"; // 🔥 back to 15m
+const POLL_MS = 15000; // 15s for 15m timeframe
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 // ── Fixed Risk Execution Model ─────────────────────────────
@@ -1392,7 +1392,7 @@ function validateSignal(signal) {
 
 // ── Cooldown System ────────────────────────────────────────────
 let lastTradeTime = 0;
-const COOLDOWN_MS = 0; // 🔥 NO COOLDOWN (debug)
+const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 function checkCooldown(signal) {
   if (signal.decision_now === "SKIP") return signal;
