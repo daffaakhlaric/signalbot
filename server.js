@@ -1977,7 +1977,6 @@ async function processPair(symbol) {
     };
 
     // Broadcast on EVERY loop
-    const htfBias = getHTFBias(payload1h);
     broadcast({
       type: "market_data",
       pair: symbol,
