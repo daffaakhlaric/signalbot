@@ -48,7 +48,7 @@ const FALLBACK_ORDER = ["bybit", "okx", "binance", "bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
 const SYMBOLS = ["BTC-USDT"];
-const INTERVAL = process.env.INTERVAL || "15m";
+const INTERVAL = "1m"; // 🔥 FORCE TEST
 const POLL_MS = parseInt(process.env.POLL_INTERVAL_MS || "30000", 10);
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
@@ -62,7 +62,7 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
 // ── Entry Mode: SAFE=closed candle only, AGGRESSIVE=realtime ─
-const ENTRY_MODE = (process.env.ENTRY_MODE || "SAFE").toUpperCase(); // SAFE | AGGRESSIVE
+const ENTRY_MODE = "AGGRESSIVE"; // 🔥 FORCE AGGRESSIVE
 
 // ── Force Entry Mode ───────────────────────────────────────
 const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
@@ -1438,7 +1438,7 @@ function validateSignal(signal) {
 
 // ── Cooldown System ────────────────────────────────────────────
 let lastTradeTime = 0;
-const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+const COOLDOWN_MS = 0; // 🔥 NO COOLDOWN (debug)
 
 function checkCooldown(signal) {
   if (signal.decision_now === "SKIP") return signal;
