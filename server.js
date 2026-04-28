@@ -1809,6 +1809,15 @@ async function processPair(symbol) {
     signal = validateSignal(signal);
     signal = checkCooldown(signal);
 
+    console.log("SIGNAL GENERATED:", JSON.stringify({
+      decision_now: signal.decision_now,
+      reason: signal.reason,
+      price: signal.price,
+      hasEntry: !!signal.entry,
+      hasTp: !!signal.tp,
+      hasSl: !!signal.sl,
+    }, null, 2));
+
     const htfBias = getHTFBias(payload1h);
     signal.htf_bias = htfBias;
     signal.htf_structure = payload1h.structure;
