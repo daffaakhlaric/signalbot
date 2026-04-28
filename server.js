@@ -1879,6 +1879,9 @@ function rsi(closes, period = 14) {
   return 100 - 100 / (1 + avgGain / avgLoss);
 }
 
+const round = (v, d = 2) =>
+  v == null || Number.isNaN(v) ? null : Math.round(v * 10 ** d) / 10 ** d;
+
 function buildMarketPayload(candles) {
   const lastClosed = candles[candles.length - 2];
   const prevClosed = candles[candles.length - 3];
