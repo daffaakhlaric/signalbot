@@ -1873,13 +1873,19 @@ async function processPair(symbol) {
     const multiSignals  = buildMultiSignals(payload1m, htfBias, signal, prevStructure);
     signal.multi        = multiSignals;
 
-    console.log("MULTI SIGNAL:", JSON.stringify({
-      best_signal: multiSignals?.best_signal?.direction,
-      score: multiSignals?.best_signal?.score,
-      rr: multiSignals?.best_signal?.rr,
-      precision_entry: multiSignals?.signals?.precision_entry?.direction,
-      quick_strike: multiSignals?.signals?.quick_strike?.direction,
-    }, null, 2));
+    console.log("MULTI SIGNAL:", {
+      hasMulti: !!multiSignals,
+      best_dir: multiSignals?.best_signal?.direction,
+      best_rr: multiSignals?.best_signal?.rr,
+      scores: {
+        precision: multiSignals?.signals?.precision_entry?.score,
+        quick: multiSignals?.signals?.quick_strike?.score,
+        trend: multiSignals?.signals?.trend_rider?.score,
+        momentum: multiSignals?.signals?.momentum_break?.score,
+        liquidity: multiSignals?.signals?.liquidity_sweep?.score,
+        structure: multiSignals?.signals?.structure_flip?.score,
+      }
+    });
 
     // Signal scoring (legacy + new)
     signal.score = multiSignals.best_signal.score || 0;

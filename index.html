@@ -1265,7 +1265,7 @@ function renderTabs() {
 function applyPairState(pair) {
   const d = pairState[pair];
   if (!d) return;
-  if (d.multi)  renderMulti(d.multi);
+  if (d.latestSignal) renderMulti(d.latestSignal);
   if (d.market) renderMarket(d.market);
   if (d.signal) {
     const p = d.signal.price;
@@ -1517,11 +1517,12 @@ function connect() {
       if (msg.type === 'signal') {
         const key = (msg.pair || 'BTCUSDT').replace('-','').toUpperCase();
         if (pairState[key]) pairState[key].latestSignal = msg.data;
-        const sig = msg.data?.multi?.best_signal || msg.data;
+        const sig = msg.data?.best_signal || msg.data;
         if (sig) {
           currentSignal = sig;
           renderChartSignal();
         }
+        renderMulti(msg.data);
         return;
       }
       if (msg.type === 'price_update') {
