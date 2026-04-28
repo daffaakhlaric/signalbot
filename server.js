@@ -1977,10 +1977,20 @@ async function processPair(symbol) {
     };
 
     // Broadcast on EVERY loop
+    const htfBias = getHTFBias(payload1h);
     broadcast({
       type: "market_data",
       pair: symbol,
-      data: payload1m
+      data: {
+        ...payload1m,
+        htf: {
+          bias: htfBias,
+          ema20: payload1h.ema20,
+          ema50: payload1h.ema50,
+          ema200: payload1h.ema200,
+          structure: payload1h.structure
+        }
+      }
     });
     broadcast({
       type: "signal",
@@ -2184,6 +2194,76 @@ app.get("/trades", (req, res) => {
     losses: dryTradesHistory.filter(t => t.result === "LOSE").length,
     total_pnl: dryTradesHistory.reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0).toFixed(2),
   });
+});
+
+// ── POST /execute-trade — BingX auto/manual trade ───────────
+app.post("/execute-trade", async (req, res) => {
+  try {
+    const { direction, entry, tp, sl } = req.body;
+
+    if (!direction || !entry || !tp || !sl) {
+      return res.status(400).json({ error: "Missing direction/entry/tp/sl" });
+    }
+
+    if (direction !== "LONG" && direction !== "SHORT") {
+      return res.status(400).json({ error: "direction must be LONG or SHORT" });
+    }
+
+    // Prevent duplicate execution within 60s
+    const now = Date.now();
+    if (lastTradeTime && (now - lastTradeTime) < 60000) {
+      return res.status(429).json({ error: "cooldown active — 60s between trades" });
+    }
+
+    const entryZone = [parseFloat(entry) * 0.9995, parseFloat(entry) * 1.0005];
+    const slPrice = parseFloat(sl);
+    const tpPrice = parseFloat(tp);
+
+    let result;
+    if (DRY_RUN) {
+      lastTradeTime = now;
+      const fakeTrade = {
+        id: now,
+        side: direction,
+        entry: round(entry, 4),
+        tp: round(tpPrice, 4),
+        sl: round(slPrice, 4),
+        margin: FIXED_MARGIN,
+        leverage: LEVERAGE,
+        mode: "dry_run",
+        timestamp: new Date().toISOString(),
+      };
+      dryTrades.push(fakeTrade);
+      botLog("ok", `📋 DRY TRADE | ${direction} @ ${round(entry, 4)} | TP: ${round(tpPrice, 4)} | SL: ${round(slPrice, 4)}`);
+      broadcast({ type: "trade_executed", data: fakeTrade });
+      return res.json({ success: true, mode: "dry_run", trade: fakeTrade });
+    }
+
+    // LIVE execution
+    const orderResult = await placeBingXOrder(direction, entryZone, slPrice, tpPrice);
+    lastTradeTime = now;
+
+    botLog("ok", `🚀 LIVE TRADE EXECUTED | ${direction} @ ${round(entry, 4)} | TP: ${round(tpPrice, 4)} | SL: ${round(slPrice, 4)}`);
+
+    const tradeRecord = {
+      id: now,
+      side: direction,
+      entry: round(entry, 4),
+      tp: round(tpPrice, 4),
+      sl: round(slPrice, 4),
+      margin: FIXED_MARGIN,
+      leverage: LEVERAGE,
+      mode: "live",
+      result: orderResult,
+      timestamp: new Date().toISOString(),
+    };
+
+    broadcast({ type: "trade_executed", data: tradeRecord });
+    res.json({ success: true, mode: "live", trade: tradeRecord });
+  } catch (err) {
+    botLog("err", `❌ Trade execution failed: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── GET /diag — connectivity test to all exchanges ────────────

@@ -869,15 +869,29 @@ header {
     </div><!-- /signal-grid -->
 
     <!-- SNIPER CHART -->
-    <div class="card chart-card" id="chart-card" style="display:none">
+    <div class="card chart-card" id="chart-card" style="display:none;position:relative">
       <div class="card-header">
         <span class="card-label">📊 Sniper Chart</span>
-        <div class="tf-toggle" id="tf-toggle"></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="bias-banner" style="font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 10px;border-radius:6px;display:none"></div>
+          <div class="tf-toggle" id="tf-toggle"></div>
+        </div>
       </div>
       <div id="chart-container" style="height:320px;background:#0B0F14;border-radius:8px;overflow:hidden;"></div>
       <div id="zone-display" class="zone-display" style="margin-top:8px;display:none">
         <div class="zone-long" id="zone-long-display"></div>
         <div class="zone-short" id="zone-short-display"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <button class="tf-btn" onclick="startReplay(currentCandles)">▶ Replay</button>
+        <button class="tf-btn" onclick="pauseReplay()">⏸</button>
+        <button class="tf-btn" onclick="stopReplay()">⏹</button>
+        <select class="sim-input" style="width:60px" onchange="replay.speed=Number(this.value)">
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+        </select>
+        <span style="font-size:9px;color:var(--muted);letter-spacing:1px" id="replay-status"></span>
       </div>
     </div>
 
@@ -1008,6 +1022,59 @@ header {
       </div>
     </div>
 
+    <!-- TRADE CARD — AUTO/MANUAL EXECUTION -->
+    <div id="tradeCard" style="
+      background:#121821;
+      border:1px solid rgba(255,255,255,0.05);
+      border-radius:16px;
+      padding:18px 20px;
+      display:none;
+    ">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">🎯 Signal</div>
+        <div id="trade-status" style="font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:100px;font-weight:700;background:rgba(250,204,21,0.1);color:#FACC15;border:1px solid rgba(250,204,21,0.3)">WAITING</div>
+      </div>
+
+      <div id="trade-direction" style="font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:4px;margin-bottom:4px;color:var(--green)">——</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px" id="trade-reason">Waiting for confirmed signal…</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">ENTRY</div>
+          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#FACC15" id="trade-entry">——</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">TP</div>
+          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#00FFA3" id="trade-tp">——</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:4px">SL</div>
+          <div style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:#FF4D4D" id="trade-sl">——</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:10px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:var(--muted);letter-spacing:1px">AUTO</span>
+          <div id="auto-indicator" style="width:8px;height:8px;border-radius:50%;background:#FF4D4D"></div>
+        </div>
+        <button id="autoToggle" onclick="toggleAuto()" style="
+          padding:6px 14px;border:none;border-radius:100px;
+          background:#1a1f2e;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;
+          cursor:pointer;transition:all 0.2s
+        ">OFF</button>
+      </div>
+
+      <button id="manualExecBtn" onclick="manualTrade()" style="
+        width:100%;padding:12px;border:none;border-radius:10px;
+        background:linear-gradient(135deg,#FACC15,#f59e0b);color:#000;
+        font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+        cursor:pointer;display:none;transition:all 0.2s
+      ">⚡ EXECUTE TRADE</button>
+
+      <div id="trade-log" style="margin-top:10px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;min-height:16px"></div>
+    </div>
+
   </div><!-- /col-right -->
 
 </div><!-- /dashboard -->
@@ -1052,10 +1119,120 @@ updateCountdown();
 setInterval(updateCountdown, 1000);
 
 // ── Chart System ─────────────────────────────────────────────
-let chart = null, candleSeries = null, ema20Series = null, ema50Series = null;
-let ema200Series = null, entryLine = null, tpLine = null, slLine = null;
+let chart = null, candleSeries = null;
+let ema20Series = null, ema50Series = null, ema200Series = null;
+let emaHTFSeries = null;
 let currentCandles = [], currentSignal = null, currentPrice = null;
 let activeTf = '15m';
+
+// ── Zone Lines (upsert, no leak) ───────────────────────────
+let zoneLines = { longLow: null, longHigh: null, shortLow: null, shortHigh: null };
+let tradeLines = { entry: null, tp: null, sl: null };
+let heatSeries = [];
+
+function upsertLine(key, price, color, opts = {}) {
+  const lineOpts = { price, color, lineWidth: opts.lineWidth || 1, lineStyle: opts.lineStyle || 2, axisLabelVisible: true, ...opts };
+  if (!zoneLines[key]) {
+    zoneLines[key] = candleSeries.createPriceLine(lineOpts);
+  } else {
+    zoneLines[key].applyOptions({ price, color });
+  }
+}
+
+function upsertTradeLine(key, price, color, title) {
+  if (!tradeLines[key]) {
+    tradeLines[key] = candleSeries.createPriceLine({
+      price, color, lineWidth: 2, axisLabelVisible: true, title
+    });
+  } else {
+    tradeLines[key].applyOptions({ price, color });
+  }
+}
+
+function drawZones(longZone, shortZone) {
+  if (!candleSeries) return;
+  if (longZone?.[0]) upsertLine('longLow', longZone[0], 'rgba(0,255,163,0.4)', { title: 'Long Low' });
+  if (longZone?.[1]) upsertLine('longHigh', longZone[1], 'rgba(0,255,163,0.4)', { title: 'Long High' });
+  if (shortZone?.[0]) upsertLine('shortLow', shortZone[0], 'rgba(255,77,77,0.4)', { title: 'Short Low' });
+  if (shortZone?.[1]) upsertLine('shortHigh', shortZone[1], 'rgba(255,77,77,0.4)', { title: 'Short High' });
+}
+
+function drawTradeLines(sig) {
+  if (!sig) return;
+  if (sig.entry) upsertTradeLine('entry', sig.entry, '#FACC15', 'ENTRY');
+  if (sig.tp) upsertTradeLine('tp', sig.tp, '#22c55e', 'TP');
+  if (sig.sl) upsertTradeLine('sl', sig.sl, '#ef4444', 'SL');
+}
+
+function setMarkers(sniper, confirmed) {
+  if (!candleSeries) return;
+  const markers = [];
+  if (sniper?.candleTime) {
+    markers.push({
+      time: sniper.candleTime / 1000,
+      position: sniper.decision_now === 'LONG' ? 'belowBar' : 'aboveBar',
+      color: '#FACC15',
+      shape: 'circle',
+      text: 'SNIPER'
+    });
+  }
+  if (confirmed?.confirmedAt && confirmed?.sniperTime) {
+    markers.push({
+      time: confirmed.sniperTime / 1000,
+      position: confirmed.decision_now === 'LONG' ? 'belowBar' : 'aboveBar',
+      color: confirmed.decision_now === 'LONG' ? '#00FFA3' : '#FF4D4D',
+      shape: confirmed.decision_now === 'LONG' ? 'arrowUp' : 'arrowDown',
+      text: 'CONFIRM'
+    });
+  }
+  if (markers.length) candleSeries.setMarkers(markers);
+}
+
+function clearZones() {
+  Object.values(zoneLines).forEach(l => { try { l.applyOptions({ price: 0 }); } catch(e){} });
+  zoneLines = { longLow: null, longHigh: null, shortLow: null, shortHigh: null };
+}
+
+function clearTradeLines() {
+  Object.values(tradeLines).forEach(l => { try { l.applyOptions({ price: 0 }); } catch(e){} });
+  tradeLines = { entry: null, tp: null, sl: null };
+}
+
+function clearHeatmap() {
+  heatSeries.forEach(s => { try { chart.removeSeries(s); } catch(e){} });
+  heatSeries = [];
+}
+
+function generateHeatmap(support, resistance, steps = 15) {
+  if (!support || !resistance) return [];
+  const range = resistance - support;
+  return Array.from({ length: steps }, (_, i) => {
+    const price = support + (range * i / steps);
+    const midDist = Math.abs(price - (support + resistance) / 2) / (range / 2);
+    const score = 1 - midDist;
+    return { price, score: Math.max(0.1, Math.min(1, score)) };
+  });
+}
+
+function drawHeatmap(support, resistance) {
+  clearHeatmap();
+  const zones = generateHeatmap(support, resistance);
+  const t0 = currentCandles[0]?.time / 1000;
+  const t1 = currentCandles[currentCandles.length - 1]?.time / 1000;
+  if (!t0 || !t1) return;
+  zones.forEach(z => {
+    const r = Math.floor(255 * (1 - z.score));
+    const g = Math.floor(200 * z.score);
+    const color = `rgba(${r},${g},50,0.15)`;
+    const s = chart.addAreaSeries({
+      topColor: color, bottomColor: color,
+      lineColor: 'transparent', priceLineVisible: false,
+      lastValueVisible: false
+    });
+    s.setData([{ time: t0, value: z.price }, { time: t1, value: z.price }]);
+    heatSeries.push(s);
+  });
+}
 
 function initChart() {
   const container = el('chart-container');
@@ -1074,14 +1251,9 @@ function initChart() {
     height: 320,
     handleScroll: { mouseWheel: true, pressedMouseMove: true },
     handleScale: { mouseWheel: true, axisPressedMouseMove: true },
-    crosshair: {
-      vertLine: { color: 'rgba(255,255,255,0.15)' },
-      horzLine: { color: 'rgba(255,255,255,0.15)' },
-    },
-    timeScale: {
-      borderColor: 'rgba(255,255,255,0.05)',
-      timeVisible: true,
-    },
+    crosshair: { mode: 0, vertLine: { color: 'rgba(255,255,255,0.15)' }, horzLine: { color: 'rgba(255,255,255,0.15)' } },
+    timeScale: { borderColor: 'rgba(255,255,255,0.05)', timeVisible: true, rightBarStaysOnScroll: true },
+    rightPriceScale: { borderVisible: false },
   });
 
   candleSeries = chart.addCandlestickSeries({
@@ -1093,17 +1265,13 @@ function initChart() {
   ema20Series = chart.addLineSeries({ color: '#3B82F6', lineWidth: 1, title: 'EMA20' });
   ema50Series = chart.addLineSeries({ color: '#f97316', lineWidth: 1, title: 'EMA50' });
   ema200Series = chart.addLineSeries({ color: '#FF4D4D', lineWidth: 1, title: 'EMA200' });
+  emaHTFSeries = chart.addLineSeries({ color: 'rgba(59,130,246,0.4)', lineWidth: 2, title: 'EMA200 HTF' });
 
   chart.timeScale().fitContent();
   el('chart-card').style.display = 'block';
   el('chart-card').style.visibility = 'visible';
   renderTfButtons();
-  setTimeout(() => {
-    if (chart) {
-      const c = el('chart-container');
-      if (c) chart.resize(c.clientWidth, 320);
-    }
-  }, 100);
+  setTimeout(() => { if (chart) chart.resize(el('chart-container')?.clientWidth || 800, 320); }, 100);
 }
 
 function renderTfButtons() {
@@ -1113,11 +1281,15 @@ function renderTfButtons() {
   wrap.innerHTML = tfs.map(tf =>
     `<button class="tf-btn${tf===activeTf?' active':''}" onclick="switchTf('${tf}')">${tf}</button>`
   ).join('');
+  document.querySelectorAll('.tf-btn').forEach(b => {
+    if (b.textContent === '15m') b.classList.add('active');
+  });
 }
 
 async function switchTf(tf) {
   activeTf = tf;
-  renderTfButtons();
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[onclick="switchTf('${tf}')"]`)?.classList.add('active');
   loadChart();
 }
 
@@ -1135,24 +1307,19 @@ async function loadChart() {
 
 function renderChartCandles() {
   if (!candleSeries || !currentCandles.length) return;
-  candleSeries.setData(currentCandles.map(c => ({
+  const mapped = currentCandles.map(c => ({
     time: c.time / 1000,
     open: c.open, high: c.high, low: c.low, close: c.close,
-  })));
+  }));
+  candleSeries.setData(mapped);
   if (ema20Series && currentCandles[0]?.ema20) {
-    ema20Series.setData(currentCandles.filter(c=>c.ema20).map(c => ({
-      time: c.time / 1000, value: c.ema20,
-    })));
+    ema20Series.setData(currentCandles.filter(c=>c.ema20).map(c => ({ time: c.time / 1000, value: c.ema20 })));
   }
   if (ema50Series && currentCandles[0]?.ema50) {
-    ema50Series.setData(currentCandles.filter(c=>c.ema50).map(c => ({
-      time: c.time / 1000, value: c.ema50,
-    })));
+    ema50Series.setData(currentCandles.filter(c=>c.ema50).map(c => ({ time: c.time / 1000, value: c.ema50 })));
   }
   if (ema200Series && currentCandles[0]?.ema200) {
-    ema200Series.setData(currentCandles.filter(c=>c.ema200).map(c => ({
-      time: c.time / 1000, value: c.ema200,
-    })));
+    ema200Series.setData(currentCandles.filter(c=>c.ema200).map(c => ({ time: c.time / 1000, value: c.ema200 })));
   }
   chart.timeScale().fitContent();
 }
@@ -1162,54 +1329,20 @@ function renderChartSignal() {
   const sig = currentSignal;
   if (!sig) return;
 
+  clearTradeLines();
+  drawTradeLines(sig);
+
   const lastCandle = currentCandles[currentCandles.length - 2];
-  const priceScale = chart.priceScale('');
-
-  // entry line
-  if (entryLine) { try { chart.removePriceLine(entryLine); } catch(e){} entryLine = null; }
-  if (tpLine)    { try { chart.removePriceLine(tpLine); } catch(e){} tpLine = null; }
-  if (slLine)    { try { chart.removePriceLine(slLine); } catch(e){} slLine = null; }
-
   if (sig.entry && sig.direction !== 'WAIT') {
-    const color = sig.direction === 'LONG' ? '#00FFA3' : '#FF4D4D';
-    try {
-      if (candleSeries && typeof candleSeries.createPriceLine === 'function') {
-        entryLine = candleSeries.createPriceLine({
-          price: sig.entry, color,
-          lineWidth: 2, lineStyle: 2,
-          axisLabelVisible: true, textColor: color,
-        });
-        if (sig.tp) {
-          tpLine = candleSeries.createPriceLine({
-            price: sig.tp, color: '#22c55e',
-            lineWidth: 1, lineStyle: 0,
-            axisLabelVisible: true, textColor: '#22c55e',
-          });
-        }
-        if (sig.sl) {
-          slLine = candleSeries.createPriceLine({
-            price: sig.sl, color: '#ef4444',
-            lineWidth: 1, lineStyle: 0,
-            axisLabelVisible: true, textColor: '#ef4444',
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("PriceLine error:", e.message);
-    }
-
-    // marker
-    const dir = sig.direction;
     candleSeries.setMarkers([{
       time: lastCandle?.time ? lastCandle.time / 1000 : Date.now() / 1000,
-      position: dir === 'LONG' ? 'belowBar' : 'aboveBar',
-      color: dir === 'LONG' ? '#00FFA3' : '#FF4D4D',
-      shape: dir === 'LONG' ? 'arrowUp' : 'arrowDown',
-      text: dir,
+      position: sig.direction === 'LONG' ? 'belowBar' : 'aboveBar',
+      color: sig.direction === 'LONG' ? '#00FFA3' : '#FF4D4D',
+      shape: sig.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
+      text: sig.direction,
     }]);
   }
 
-  // zone display
   const zoneEl = el('zone-display');
   const longEl = el('zone-long-display');
   const shortEl = el('zone-short-display');
@@ -1239,6 +1372,49 @@ function updateChartRealtime(price) {
       close: price,
     });
   }
+}
+
+// ── Replay System ───────────────────────────────────────────
+let replay = {
+  active: false,
+  index: 50,
+  speed: 1,
+  timer: null,
+  data: []
+};
+
+function startReplay(fullData) {
+  pauseReplay();
+  replay.active = true;
+  replay.index = 50;
+  replay.data = fullData.slice();
+  tickReplay();
+}
+
+function pauseReplay() {
+  clearTimeout(replay.timer);
+  replay.timer = null;
+}
+
+function stopReplay() {
+  pauseReplay();
+  replay.active = false;
+  replay.index = 0;
+  replay.data = [];
+}
+
+function tickReplay() {
+  if (!replay.active || !replay.data.length) return;
+  const slice = replay.data.slice(0, replay.index);
+  if (candleSeries && slice.length) {
+    candleSeries.setData(slice);
+    chart.timeScale().fitContent();
+  }
+  const statusEl = el('replay-status');
+  if (statusEl) statusEl.textContent = `Replay ${replay.index}/${replay.data.length} (${replay.speed}x)`;
+  replay.index++;
+  if (replay.index >= replay.data.length) { stopReplay(); if (statusEl) statusEl.textContent = 'Replay done'; return; }
+  replay.timer = setTimeout(tickReplay, 500 / replay.speed);
 }
 
 // init chart via DOMContentLoaded check above
@@ -1589,21 +1765,39 @@ function connect() {
 
         if (pairState[key]) pairState[key].latestSignal = data;
 
-        // Set currentSignal for chart (prefer confirmed, fallback to sniper)
         const best = confirmed || sniper;
         if (best) {
           currentSignal = best;
           renderChartSignal();
         }
 
-        // Render sniper card
+        if (sniper) {
+          const longZone = sniper.sniper_long?.entry_zone;
+          const shortZone = sniper.sniper_short?.entry_zone;
+          drawZones(longZone, shortZone);
+          drawTradeLines(sniper);
+          setMarkers(sniper, confirmed);
+        }
+
+        if (multi?.market_context?.htf_bias) {
+          const banner = el('bias-banner');
+          if (banner) {
+            const bias = multi.market_context.htf_bias;
+            banner.style.display = 'block';
+            banner.textContent = bias === 'LONG' ? 'HTF BULLISH' : bias === 'SHORT' ? 'HTF BEARISH' : 'HTF NEUTRAL';
+            banner.style.color = bias === 'LONG' ? '#00FFA3' : bias === 'SHORT' ? '#FF4D4D' : '#FACC15';
+            banner.style.background = bias === 'LONG' ? 'rgba(0,255,163,0.1)' : bias === 'SHORT' ? 'rgba(255,77,77,0.1)' : 'rgba(250,204,21,0.1)';
+            banner.style.border = `1px solid ${banner.style.color}`;
+          }
+        }
+
         if (sniper) renderSniperSignal(sniper);
-
-        // Render confirmed card
         if (confirmed) renderConfirmedSignal(confirmed);
-
-        // Render multi signals grid
         if (multi) renderMulti(multi);
+
+        // Update trade card (auto/manual execution)
+        updateTradeCard(data);
+
         return;
       }
       if (msg.type === 'price_update') {
@@ -1622,21 +1816,18 @@ function connect() {
         if (pairState[key]) pairState[key].latestPayload = msg.data;
         renderMarket(msg.data);
         if (msg.data?.candles?.length && candleSeries) {
-          console.log("CANDLES DATA:", msg.data.candles.length);
-          console.log("FIRST CANDLE:", JSON.stringify(msg.data.candles[0]));
-          const chartData = msg.data.candles.map(c => ({
+          currentCandles = msg.data.candles;
+          const chartData = currentCandles.map(c => ({
             time: Math.floor(c.time / 1000),
             open: c.open, high: c.high, low: c.low, close: c.close,
           }));
-          console.log("CHART DATA SAMPLE:", JSON.stringify(chartData[0]));
           candleSeries.setData(chartData);
-          if (chart) {
-            chart.timeScale().fitContent();
-            requestAnimationFrame(() => {
-              if (chart && el('chart-card').style.display !== 'none') {
-                chart.resize(el('chart-container').clientWidth, 320);
-              }
-            });
+          chart.timeScale().fitContent();
+          if (msg.data.support && msg.data.resistance) {
+            drawHeatmap(msg.data.support, msg.data.resistance);
+          }
+          if (msg.data.htf?.ema200 && emaHTFSeries) {
+            emaHTFSeries.setData(currentCandles.filter(c=>c.ema200).map(c => ({ time: c.time / 1000, value: c.ema200 })));
           }
         }
         return;
@@ -1688,6 +1879,125 @@ async function simulate() {
 }
 
 connect();
+
+// ── AUTO/MANUAL TRADE SYSTEM ─────────────────────────────────
+let AUTO = false;
+let latestConfirmed = null;
+let lastExecTime = null;
+
+function toggleAuto() {
+  AUTO = !AUTO;
+  const btn = el('autoToggle');
+  const indicator = el('auto-indicator');
+  if (AUTO) {
+    btn.textContent = 'ON';
+    btn.style.background = '#00FFA3';
+    btn.style.color = '#000';
+    if (indicator) { indicator.style.background = '#00FFA3'; indicator.style.boxShadow = '0 0 8px rgba(0,255,163,0.5)'; }
+  } else {
+    btn.textContent = 'OFF';
+    btn.style.background = '#1a1f2e';
+    btn.style.color = '#fff';
+    if (indicator) { indicator.style.background = '#FF4D4D'; indicator.style.boxShadow = 'none'; }
+  }
+  updateManualBtn();
+}
+
+function updateManualBtn() {
+  const btn = el('manualExecBtn');
+  if (!btn) return;
+  btn.style.display = AUTO ? 'none' : 'block';
+}
+
+function updateTradeCard(signal) {
+  const card = el('tradeCard');
+  if (!card) return;
+
+  const confirmed = signal?.confirmed;
+  if (!confirmed || confirmed.status !== 'VALID') {
+    card.style.display = 'none';
+    return;
+  }
+
+  card.style.display = 'block';
+  latestConfirmed = confirmed;
+
+  const dirEl = el('trade-direction');
+  const entryEl = el('trade-entry');
+  const tpEl = el('trade-tp');
+  const slEl = el('trade-sl');
+  const reasonEl = el('trade-reason');
+  const statusEl = el('trade-status');
+
+  const dir = confirmed.decision_now || confirmed.direction || 'WAIT';
+  dirEl.textContent = dir;
+  dirEl.style.color = dir === 'LONG' ? 'var(--green)' : dir === 'SHORT' ? 'var(--red)' : 'var(--muted)';
+
+  entryEl.textContent = confirmed.entry ? fmt(confirmed.entry) : '——';
+  tpEl.textContent = confirmed.tp ? fmt(confirmed.tp) : '——';
+  slEl.textContent = confirmed.sl ? fmt(confirmed.sl) : '——';
+  reasonEl.textContent = confirmed.reason || 'Confirmed signal';
+
+  const isValid = confirmed.status === 'VALID';
+  statusEl.textContent = isValid ? 'VALID' : 'INVALID';
+  statusEl.style.background = isValid ? 'rgba(0,255,163,0.1)' : 'rgba(255,77,77,0.1)';
+  statusEl.style.color = isValid ? '#00FFA3' : '#FF4D4D';
+  statusEl.style.borderColor = isValid ? 'rgba(0,255,163,0.3)' : 'rgba(255,77,77,0.3)';
+
+  if (AUTO && isValid) executeTrade(confirmed);
+  updateManualBtn();
+}
+
+async function executeTrade(sig) {
+  if (!sig) return;
+  const execTime = sig.candleTime || sig.confirmedAt || Date.now();
+  if (lastExecTime === execTime) return;
+  lastExecTime = execTime;
+
+  const logEl = el('trade-log');
+  const statusEl = el('trade-status');
+
+  try {
+    statusEl.textContent = 'EXECUTING…';
+    statusEl.style.background = 'rgba(59,130,246,0.1)';
+    statusEl.style.color = '#3B82F6';
+
+    const res = await fetch(API_URL + '/execute-trade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        direction: sig.decision_now || sig.direction,
+        entry: sig.entry || sig.sniper_long?.entry_zone?.[0],
+        tp: sig.tp || sig.sniper_long?.tp?.[0],
+        sl: sig.sl || sig.sniper_long?.sl,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Execution failed');
+
+    if (logEl) logEl.textContent = `✅ ${data.mode.toUpperCase()} — ${sig.direction} @ ${sig.entry}`;
+    if (statusEl) {
+      statusEl.textContent = 'EXECUTED';
+      statusEl.style.background = 'rgba(0,255,163,0.1)';
+      statusEl.style.color = '#00FFA3';
+      statusEl.style.borderColor = 'rgba(0,255,163,0.3)';
+    }
+  } catch (err) {
+    if (logEl) logEl.textContent = `❌ ${err.message}`;
+    if (statusEl) {
+      statusEl.textContent = 'FAILED';
+      statusEl.style.background = 'rgba(255,77,77,0.1)';
+      statusEl.style.color = '#FF4D4D';
+      statusEl.style.borderColor = 'rgba(255,77,77,0.3)';
+    }
+  }
+}
+
+function manualTrade() {
+  if (!latestConfirmed) return;
+  executeTrade(latestConfirmed);
+}
 </script>
 </body>
 </html>
