@@ -2078,6 +2078,7 @@ async function processPair(symbol) {
       candles: candles1m,
       sniper: sniperRec,
       payload: payload1m,
+      htfBias: htfBias,
     });
 
     // ── Get priority recommendation ────────────────────────────

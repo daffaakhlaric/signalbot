@@ -280,6 +280,7 @@ function buildDecision(opts) {
   var candles = opts.candles;
   var sniper = opts.sniper;
   var payload = opts.payload;
+  var htfBias = opts.htfBias || "NEUTRAL";
   var range = payload.resistance - payload.support;
 
   if (!candles || candles.length < 20) {
@@ -325,6 +326,22 @@ function buildDecision(opts) {
       };
     }
 
+    // HTF FILTER: reject counter-trend pattern entries
+    if (htfBias !== "NEUTRAL" && htfBias !== best.direction) {
+      return {
+        status: "WAIT",
+        direction: "NEUTRAL",
+        confidence: "LOW",
+        source: "PATTERN",
+        reason: "HTF conflict: " + best.direction + " pattern vs HTF " + htfBias + " — waiting",
+        extra: {
+          neckline: best.neckline || null,
+          patternType: best.pattern || best.type,
+          htfConflict: true
+        }
+      };
+    }
+
     return {
       status: confirmed ? "ENTRY" : "PLAN",
       direction: best.direction,
@@ -333,7 +350,7 @@ function buildDecision(opts) {
       sl: best.sl,
       rr: best.rr,
       confidence: confirmed ? "HIGH" : "MEDIUM",
-      source: "PATTERN",
+      source: "PATTERN_MASTER",
       reason: best.reason,
       extra: {
         neckline: best.neckline || null,
