@@ -873,174 +873,158 @@ function getStructureFlipSignal(payload, prevStructure) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PATTERN DETECTION ENGINE — Standard Output Format
-// { type, direction, entry, tp, sl, confidence }
+// PATTERN DETECTION ENGINE — Pro Version with Pivot Detection
 // ══════════════════════════════════════════════════════════════
 
-function detectDoubleTop(candles) {
-  const highs = candles.slice(-30).map(c => c.high);
-  if (highs.length < 30) return null;
-  const h1 = Math.max(...highs.slice(0, 15));
-  const h2 = Math.max(...highs.slice(15, 30));
-  if (Math.abs(h1 - h2) < 150) return null;
-  const last = candles[candles.length - 1];
-  return {
-    type: "DOUBLE_TOP",
-    direction: "SHORT",
-    entry: round(last.close, 2),
-    tp: round(last.close - (h1 - last.close) * 0.8, 2),
-    sl: round(h1 + 30, 2),
-    confidence: 0.7,
-    pattern: "DOUBLE_TOP"
-  };
-}
-
-function detectDoubleBottom(candles) {
-  const lows = candles.slice(-30).map(c => c.low);
-  if (lows.length < 30) return null;
-  const l1 = Math.min(...lows.slice(0, 15));
-  const l2 = Math.min(...lows.slice(15, 30));
-  if (Math.abs(l1 - l2) < 150) return null;
-  const last = candles[candles.length - 1];
-  return {
-    type: "DOUBLE_BOTTOM",
-    direction: "LONG",
-    entry: round(last.close, 2),
-    tp: round(last.close + (last.close - l1) * 0.8, 2),
-    sl: round(l1 - 30, 2),
-    confidence: 0.7,
-    pattern: "DOUBLE_BOTTOM"
-  };
-}
-
-function detectTripleTop(candles) {
-  const highs = candles.slice(-40).map(c => c.high);
-  if (highs.length < 40) return null;
-  const recent = highs.slice(-40);
-  const peaks = [];
-  for (let i = 1; i < recent.length - 1; i++) {
-    if (recent[i] > recent[i-1] && recent[i] > recent[i+1]) peaks.push(recent[i]);
+function getPivots(data, left = 3, right = 3) {
+  const pivots = [];
+  for (let i = left; i < data.length - right; i++) {
+    const slice = data.slice(i - left, i + right + 1);
+    const isHigh = slice.every(c => data[i].high >= c.high);
+    const isLow  = slice.every(c => data[i].low <= c.low);
+    if (isHigh) pivots.push({ type: "HIGH", price: data[i].high, index: i });
+    if (isLow)  pivots.push({ type: "LOW",  price: data[i].low,  index: i });
   }
-  if (peaks.length < 2) return null;
-  const avgPeak = peaks.reduce((a, b) => a + b, 0) / peaks.length;
-  const nearPeaks = peaks.filter(p => Math.abs(p - avgPeak) < 80);
-  if (nearPeaks.length < 2) return null;
-  const last = candles[candles.length - 1];
-  return {
-    type: "TRIPLE_TOP",
-    direction: "SHORT",
-    entry: round(last.close, 2),
-    tp: round(last.close - (avgPeak - last.close) * 0.9, 2),
-    sl: round(avgPeak + 40, 2),
-    confidence: 0.65,
-    pattern: "TRIPLE_TOP"
-  };
+  return pivots;
 }
 
-function detectWedgeBreak(candles) {
-  if (candles.length < 25) return null;
-  const recent = candles.slice(-25);
-  const highs = recent.map(c => c.high);
-  const lows  = recent.map(c => c.low);
-
-  const highTrend = highs[0] > highs[highs.length - 1];
-  const lowTrend  = lows[0] < lows[lows.length - 1];
-
-  if (!highTrend || !lowTrend) return null;
-
-  const last = candles[candles.length - 1];
-  const range = recent[recent.length - 1].high - recent[recent.length - 1].low;
-  const breakout = range > (Math.max(...highs) - Math.min(...lows)) * 0.15;
-
-  if (!breakout) return null;
-
-  const dir = last.close > last.open ? "LONG" : "SHORT";
-  return {
-    type: "WEDGE_BREAK",
-    direction: dir,
-    entry: round(last.close, 2),
-    tp: dir === "LONG"
-      ? round(last.close + range * 1.5, 2)
-      : round(last.close - range * 1.5, 2),
-    sl: dir === "LONG"
-      ? round(last.close - range * 0.7, 2)
-      : round(last.close + range * 0.7, 2),
-    confidence: 0.6,
-    pattern: "WEDGE_BREAK"
-  };
-}
-
-function detectTrendContinuation(candles, payload) {
+function detectDoubleTopPro(candles) {
   if (candles.length < 20) return null;
-  const { ema20, ema50, rsi, structure } = payload;
+  const pivots = getPivots(candles);
+  const highs = pivots.filter(p => p.type === "HIGH");
+  const lows  = pivots.filter(p => p.type === "LOW");
+  if (highs.length < 2 || lows.length < 2) return null;
+
+  const h1 = highs[highs.length - 2];
+  const h2 = highs[highs.length - 1];
+  const tolerance = h2.price * 0.003;
+  if (Math.abs(h1.price - h2.price) > tolerance) return null;
+
+  const necklineCand = lows.filter(l => l.index > h1.index && l.index < h2.index);
+  if (!necklineCand.length) return null;
+  const neckline = necklineCand.reduce((a, b) => a.price < b.price ? a : b);
+
   const last = candles[candles.length - 1];
-  const closes = candles.slice(-10).map(c => c.close);
+  if (last.close >= neckline.price) {
+    return { type: "DOUBLE_TOP", status: "PLAN", direction: "SHORT", neckline: neckline.price, reason: "waiting neckline break" };
+  }
 
-  const emaUp = ema20 > ema50;
-  const priceAboveEma = last.close > ema20;
-  const strongTrend = closes.every((c, i) => i === 0 || c >= closes[i-1]);
-
-  if (!emaUp || !priceAboveEma || !strongTrend) return null;
+  const entry = last.close;
+  const height = h2.price - neckline.price;
+  const tp = entry - height;
+  const sl = h2.price * 1.0007;
+  const rr = (entry - tp) / (sl - entry);
+  if (rr < 1.5) return null;
 
   return {
-    type: "TREND_CONTINUATION",
-    direction: "LONG",
-    entry: round(last.close, 2),
-    tp: round(last.close + (last.close - ema20) * 1.5, 2),
-    sl: round(ema20 * 0.998, 2),
-    confidence: 0.65,
-    pattern: "TREND_CONTINUATION"
+    type: "DOUBLE_TOP", status: "ENTRY", source: "PATTERN",
+    direction: "SHORT", entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2),
+    rr: round(rr, 2), neckline: round(neckline.price, 2), confidence: 0.85, pattern: "DOUBLE_TOP"
   };
+}
+
+function detectDoubleBottomPro(candles) {
+  if (candles.length < 20) return null;
+  const pivots = getPivots(candles);
+  const lows  = pivots.filter(p => p.type === "LOW");
+  const highs = pivots.filter(p => p.type === "HIGH");
+  if (lows.length < 2 || highs.length < 2) return null;
+
+  const l1 = lows[lows.length - 2];
+  const l2 = lows[lows.length - 1];
+  const tolerance = l2.price * 0.003;
+  if (Math.abs(l1.price - l2.price) > tolerance) return null;
+
+  const necklineCand = highs.filter(h => h.index > l1.index && h.index < l2.index);
+  if (!necklineCand.length) return null;
+  const neckline = necklineCand.reduce((a, b) => a.price > b.price ? a : b);
+
+  const last = candles[candles.length - 1];
+  if (last.close <= neckline.price) {
+    return { type: "DOUBLE_BOTTOM", status: "PLAN", direction: "LONG", neckline: neckline.price, reason: "waiting neckline break" };
+  }
+
+  const entry = last.close;
+  const height = neckline.price - l2.price;
+  const tp = entry + height;
+  const sl = l2.price * 0.9993;
+  const rr = (tp - entry) / (entry - sl);
+  if (rr < 1.5) return null;
+
+  return {
+    type: "DOUBLE_BOTTOM", status: "ENTRY", source: "PATTERN",
+    direction: "LONG", entry: round(entry, 2), tp: round(tp, 2), sl: round(sl, 2),
+    rr: round(rr, 2), neckline: round(neckline.price, 2), confidence: 0.85, pattern: "DOUBLE_BOTTOM"
+  };
+}
+
+function detectTrianglePro(candles) {
+  if (candles.length < 20) return null;
+  const pivots = getPivots(candles);
+  const highs = pivots.filter(p => p.type === "HIGH").slice(-3);
+  const lows  = pivots.filter(p => p.type === "LOW").slice(-3);
+  if (highs.length < 2 || lows.length < 2) return null;
+
+  const descHighs = highs[0].price > highs[highs.length - 1].price;
+  const ascLows    = lows[0].price < lows[lows.length - 1].price;
+  if (!(descHighs && ascLows)) return null;
+
+  const upper = highs[highs.length - 1].price;
+  const lower = lows[lows.length - 1].price;
+  const last  = candles[candles.length - 1];
+
+  if (last.close > upper) {
+    return {
+      type: "TRIANGLE_BREAKOUT", status: "ENTRY",
+      direction: "LONG", entry: round(last.close, 2),
+      tp: round(last.close + (upper - lower), 2), sl: round(lower, 2),
+      rr: 2, confidence: 0.75, pattern: "TRIANGLE"
+    };
+  }
+  if (last.close < lower) {
+    return {
+      type: "TRIANGLE_BREAKDOWN", status: "ENTRY",
+      direction: "SHORT", entry: round(last.close, 2),
+      tp: round(last.close - (upper - lower), 2), sl: round(upper, 2),
+      rr: 2, confidence: 0.75, pattern: "TRIANGLE"
+    };
+  }
+  return { type: "TRIANGLE", status: "PLAN", reason: "waiting breakout" };
 }
 
 function runPatternEngine(candles, payload) {
   const patterns = [
-    detectDoubleTop(candles),
-    detectDoubleBottom(candles),
-    detectTripleTop(candles),
-    detectWedgeBreak(candles),
-    detectTrendContinuation(candles, payload),
+    detectDoubleTopPro(candles),
+    detectDoubleBottomPro(candles),
+    detectTrianglePro(candles),
   ].filter(Boolean);
 
-  if (!patterns.length) {
-    return { status: "WAIT", reason: "no pattern detected" };
-  }
+  if (!patterns.length) return { status: "WAIT", reason: "no pattern" };
 
-  const session = getSession();
-  const { rsi } = payload;
+  const entries = patterns.filter(p => p.status === "ENTRY");
+  const pool = entries.length ? entries : patterns;
 
   let best = null;
-  for (const p of patterns) {
-    let score = 0;
-    if (p.confidence > 0.6) score++;
-    if (session.active) score++;
-    if (rsi > 35 && rsi < 70) score++;
-    if (payload.structure === "HH" || payload.structure === "HL") {
-      if (p.direction === "LONG") score++;
-    }
-    if (payload.structure === "LL" || payload.structure === "LH") {
-      if (p.direction === "SHORT") score++;
-    }
-    p.score = score;
-    if (!best || score > best.score) best = p;
+  for (const p of pool) {
+    const score = (p.confidence || 0) + Math.min(1, (p.rr || 0) / 3);
+    if (!best || score > best.score) best = { ...p, score };
   }
 
-  if (!best || best.score < 2) {
-    return { status: "WAIT", reason: "low confluence" };
+  if (best.status !== "ENTRY") {
+    return { status: "WAIT", reason: best.reason || "waiting confirmation" };
   }
 
   return {
     status: "ENTRY",
+    source: "PATTERN",
     direction: best.direction,
     entry: best.entry,
     tp: best.tp,
     sl: best.sl,
-    rr: best.tp && best.sl && best.entry
-      ? round(Math.abs(best.tp - best.entry) / Math.abs(best.entry - best.sl), 2)
-      : null,
-    score: best.score,
-    pattern: best.type,
-    reason: `${best.type} detected — score ${best.score}/4`
+    rr: best.rr,
+    score: Math.round(best.score),
+    pattern: best.pattern || best.type,
+    reason: `${best.type} confirmed`
   };
 }
 
