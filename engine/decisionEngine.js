@@ -271,6 +271,20 @@ function buildDecision(opts) {
   var obDetected = ob.detectOrderBlock(candles);
   var fvgDetected = fvg.detectFVG(candles);
 
+  // ── Build context signals early (used in all return paths) ─
+  var smcSignal = smcEntry ? { direction: smcEntry.direction, entry: smcEntry.entry, tp: smcEntry.tp, sl: smcEntry.sl, reason: smcEntry.reason } : null;
+  var obSignal = obDetected ? { direction: obDetected.direction, zone: obDetected.zone, entry: obDetected.entry, tp: obDetected.tp, sl: obDetected.sl } : null;
+  var fvgSignal = fvgDetected ? { direction: fvgDetected.direction, zone: fvgDetected.zone, reason: fvgDetected.reason } : null;
+  var emaAlign = payload.close > payload.ema20 && payload.ema20 > payload.ema50
+    ? "LONG"
+    : payload.close < payload.ema20 && payload.ema20 < payload.ema50
+    ? "SHORT"
+    : "NEUTRAL";
+  var context = {
+    htf_bias: htfBiasActual, structure: structure, rsi: payload.rsi,
+    ema_align: emaAlign, smc: smcSignal, ob: obSignal, fvg: fvgSignal
+  };
+
   // ── Elite Decision: SMC + OB + FVG + HTF Confluence ─────────────
   var baseConfidence = smcEntry.confidence;
   var confluenceReasons = [];
@@ -337,26 +351,6 @@ function buildDecision(opts) {
   if (confluenceReasons.length > 0) {
     reasonText += " + " + confluenceReasons.join(" + ");
   }
-
-  var smcSignal = smcEntry ? { direction: smcEntry.direction, entry: smcEntry.entry, tp: smcEntry.tp, sl: smcEntry.sl, reason: smcEntry.reason } : null;
-  var obSignal = obDetected ? { direction: obDetected.direction, zone: obDetected.zone, entry: obDetected.entry, tp: obDetected.tp, sl: obDetected.sl } : null;
-  var fvgSignal = fvgDetected ? { direction: fvgDetected.direction, zone: fvgDetected.zone, reason: fvgDetected.reason } : null;
-
-  var emaAlign = payload.close > payload.ema20 && payload.ema20 > payload.ema50
-    ? "LONG"
-    : payload.close < payload.ema20 && payload.ema20 < payload.ema50
-    ? "SHORT"
-    : "NEUTRAL";
-
-  var context = {
-    htf_bias: htfBiasActual,
-    structure: structure,
-    rsi: payload.rsi,
-    ema_align: emaAlign,
-    smc: smcSignal,
-    ob: obSignal,
-    fvg: fvgSignal
-  };
 
   var result = {
     status: confirmed ? "ENTRY" : "PLAN",
