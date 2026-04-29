@@ -1857,11 +1857,12 @@ function renderMultiSignals(signals) {
   var card = document.getElementById("ai-multi-card");
   if (!el) return;
 
-  // Show card even if empty (for debugging)
+  // Always show the card
   if (card) card.style.display = "block";
-  el.innerHTML = "";
 
-  if (!signals || !signals.length) {
+  signals = signals || [];
+
+  if (!signals.length) {
     var emptyCard = document.createElement("div");
     emptyCard.className = "card sig-card";
     emptyCard.innerHTML =
@@ -1873,23 +1874,20 @@ function renderMultiSignals(signals) {
   }
 
   signals.forEach(function(sig) {
-    var card = document.createElement("div");
-    card.className = "card sig-card";
-
+    var c = document.createElement("div");
+    c.className = "card sig-card";
     var entryDisplay = Array.isArray(sig.entry) ? sig.entry.join(" - ") : sig.entry;
-
     var pips = "";
-    var filledPips = Math.round(sig.score / 20);
+    var filledPips = Math.round((sig.score || 0) / 20);
     for (var i = 0; i < 5; i++) {
       pips += '<div class="sig-pip' + (i < filledPips ? ' on' : '') + '"></div>';
     }
-
-    card.innerHTML =
+    c.innerHTML =
       '<div class="sig-top">' +
         '<div class="sig-name">' + (sig.name || "SIGNAL") + '</div>' +
         '<div class="sig-status">' + (sig.confidence || "LOW") + '</div>' +
       '</div>' +
-      '<div class="sig-dir ' + sig.type + '">' + sig.type + '</div>' +
+      '<div class="sig-dir ' + (sig.type || "WAIT") + '">' + (sig.type || "——") + '</div>' +
       '<div class="sig-reason">' + (sig.reason || "") + '</div>' +
       '<div class="sig-levels">' +
         '<div class="sig-lvl"><span class="sig-lbl">ENTRY</span><span class="sig-val y">' + entryDisplay + '</span></div>' +
@@ -1898,8 +1896,7 @@ function renderMultiSignals(signals) {
         '<div class="sig-lvl"><span class="sig-lbl">AI</span><span class="sig-val">' + (sig.score || 0) + '</span></div>' +
       '</div>' +
       '<div class="sig-score">' + pips + '</div>';
-
-    el.appendChild(card);
+    el.appendChild(c);
   });
 }
 
@@ -2076,12 +2073,13 @@ function connect() {
           syncDecisionToChart(serverDecision);
         }
 
-        // Render AI multi-signals
-        if (data.multi_signals) {
-          console.log("🔥 multi_signals received:", data.multi_signals);
-          renderMultiSignals(data.multi_signals);
+        // Render AI multi-signals (try multiple sources)
+        var ms = data.multi_signals || (data.decision && data.decision.multi_signals) || [];
+        if (ms && ms.length) {
+          console.log("🔥 multi_signals received:", ms);
+          renderMultiSignals(ms);
         } else {
-          console.log("❌ no multi_signals in data", Object.keys(data));
+          console.log("❌ no multi_signals", Object.keys(data), "decision keys:", data.decision ? Object.keys(data.decision) : "none");
         }
 
         return;
