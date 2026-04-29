@@ -41,6 +41,8 @@ try { multiSignal = require("./multiSignal"); } catch(e) {
   multiSignal = { generateMultiSignals: function(){ return []; } };
 }
 
+var LAST_MULTI_SIGNALS = [];
+
 // ── Pivot helper ────────────────────────────────────────────────
 var getPivots = null;
 try {
@@ -428,6 +430,32 @@ function buildDecision(opts) {
       confidence: "LOW"
     }];
   }
+
+  // Anti-spam: deduplicate and filter valid signals
+  function isSameSignal(a, b) {
+    if (!a || !b) return false;
+    return (
+      a.type === b.type &&
+      Math.abs((a.entry || 0) - (b.entry || 0)) < 20 &&
+      Math.abs((a.sl || 0) - (b.sl || 0)) < 20
+    );
+  }
+
+  var newSignals = result.multi_signals.filter(function(s) {
+    return s.entry && s.tp && s.sl;
+  });
+
+  newSignals = newSignals.filter(function(sig) {
+    return !LAST_MULTI_SIGNALS.some(function(prev) {
+      return isSameSignal(prev, sig);
+    });
+  });
+
+  if (newSignals.length > 0) {
+    LAST_MULTI_SIGNALS = LAST_MULTI_SIGNALS.concat(newSignals).slice(-10);
+  }
+
+  result.multi_signals = newSignals.length > 0 ? newSignals : LAST_MULTI_SIGNALS.slice(-1);
 
   return result;
 }

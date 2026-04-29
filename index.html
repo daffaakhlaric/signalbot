@@ -929,7 +929,7 @@ header {
     </div>
 
     <!-- AI MULTI SIGNAL -->
-    <div class="card" style="padding:20px;display:none" id="ai-multi-card">
+    <div class="card" style="padding:20px" id="ai-multi-card">
       <div class="card-header">
         <div class="card-label">⚡ AI MULTI SIGNAL</div>
       </div>
@@ -1857,8 +1857,9 @@ function renderMultiSignals(signals) {
   var card = document.getElementById("ai-multi-card");
   if (!el) return;
 
-  // Always show the card
+  // Always force show the card
   if (card) card.style.display = "block";
+  el.innerHTML = "";
 
   signals = signals || [];
 
