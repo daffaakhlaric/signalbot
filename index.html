@@ -928,6 +928,14 @@ header {
       </div>
     </div>
 
+    <!-- AI MULTI SIGNAL -->
+    <div class="card" style="padding:20px;display:none" id="ai-multi-card">
+      <div class="card-header">
+        <div class="card-label">⚡ AI MULTI SIGNAL</div>
+      </div>
+      <div id="multi-signal-list" class="signal-grid"></div>
+    </div>
+
     <!-- BOT LOG -->
     <div class="card log-card">
       <div class="card-header">
@@ -1844,6 +1852,45 @@ function renderConfirmedSignal(s) {
 }
 
 // ── Render market data ─────────────────────────────────────────
+function renderMultiSignals(signals) {
+  var el = document.getElementById("multi-signal-list");
+  var card = document.getElementById("ai-multi-card");
+  if (!el || !signals) return;
+
+  if (card) card.style.display = signals.length ? "block" : "none";
+  el.innerHTML = "";
+
+  signals.forEach(function(sig) {
+    var card = document.createElement("div");
+    card.className = "card sig-card";
+
+    var entryDisplay = Array.isArray(sig.entry) ? sig.entry.join(" - ") : sig.entry;
+
+    var pips = "";
+    var filledPips = Math.round(sig.score / 20);
+    for (var i = 0; i < 5; i++) {
+      pips += '<div class="sig-pip' + (i < filledPips ? ' on' : '') + '"></div>';
+    }
+
+    card.innerHTML =
+      '<div class="sig-top">' +
+        '<div class="sig-name">' + (sig.name || "SIGNAL") + '</div>' +
+        '<div class="sig-status">' + (sig.confidence || "LOW") + '</div>' +
+      '</div>' +
+      '<div class="sig-dir ' + sig.type + '">' + sig.type + '</div>' +
+      '<div class="sig-reason">' + (sig.reason || "") + '</div>' +
+      '<div class="sig-levels">' +
+        '<div class="sig-lvl"><span class="sig-lbl">ENTRY</span><span class="sig-val y">' + entryDisplay + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r">' + (sig.sl || "-") + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g">' + (sig.tp && sig.tp[0] ? sig.tp[0] : "-") + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">AI</span><span class="sig-val">' + (sig.score || 0) + '</span></div>' +
+      '</div>' +
+      '<div class="sig-score">' + pips + '</div>';
+
+    el.appendChild(card);
+  });
+}
+
 function renderMarket(m) {
   if (!m) return;
   const p = m.close || 0;
@@ -2015,6 +2062,11 @@ function connect() {
         if (serverDecision) {
           updateApexDecision(serverDecision);
           syncDecisionToChart(serverDecision);
+        }
+
+        // Render AI multi-signals
+        if (data.multi_signals) {
+          renderMultiSignals(data.multi_signals);
         }
 
         return;

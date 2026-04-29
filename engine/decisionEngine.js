@@ -33,7 +33,12 @@ try { fvg = require("./fvg"); } catch(e) {
 // ── Import HTF engine ───────────────────────────────────────────
 var htf;
 try { htf = require("./htf"); } catch(e) {
-  htf = { getHTFBias: function(){return "NEUTRAL";}, getStructure: function(){return "NA";} };
+  htf = { getHTFBias: function(){ return "NEUTRAL"; }, getStructure: function(){ return "NA"; } };
+}
+
+var multiSignal;
+try { multiSignal = require("./multiSignal"); } catch(e) {
+  multiSignal = { generateMultiSignals: function(){ return []; } };
 }
 
 // ── Pivot helper ────────────────────────────────────────────────
@@ -321,7 +326,27 @@ function buildDecision(opts) {
     reasonText += " + " + confluenceReasons.join(" + ");
   }
 
-  return {
+  var smcSignal = smcEntry ? { direction: smcEntry.direction, entry: smcEntry.entry, tp: smcEntry.tp, sl: smcEntry.sl, reason: smcEntry.reason } : null;
+  var obSignal = obDetected ? { direction: obDetected.direction, zone: obDetected.zone, entry: obDetected.entry, tp: obDetected.tp, sl: obDetected.sl } : null;
+  var fvgSignal = fvgDetected ? { direction: fvgDetected.direction, zone: fvgDetected.zone, reason: fvgDetected.reason } : null;
+
+  var emaAlign = payload.close > payload.ema20 && payload.ema20 > payload.ema50
+    ? "LONG"
+    : payload.close < payload.ema20 && payload.ema20 < payload.ema50
+    ? "SHORT"
+    : "NEUTRAL";
+
+  var context = {
+    htf_bias: htfBiasActual,
+    structure: structure,
+    rsi: payload.rsi,
+    ema_align: emaAlign,
+    smc: smcSignal,
+    ob: obSignal,
+    fvg: fvgSignal
+  };
+
+  var result = {
     status: confirmed ? "ENTRY" : "PLAN",
     direction: smcEntry.direction,
     entry: smcEntry.entry,
@@ -345,6 +370,10 @@ function buildDecision(opts) {
       }
     }
   };
+
+  result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
+
+  return result;
 }
 
 module.exports = { buildDecision: buildDecision };
