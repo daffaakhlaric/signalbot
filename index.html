@@ -2066,7 +2066,10 @@ function connect() {
 
         // Render AI multi-signals
         if (data.multi_signals) {
+          console.log("🔥 multi_signals received:", data.multi_signals);
           renderMultiSignals(data.multi_signals);
+        } else {
+          console.log("❌ no multi_signals in data", Object.keys(data));
         }
 
         return;
