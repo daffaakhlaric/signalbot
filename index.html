@@ -1843,6 +1843,38 @@ function renderConfirmedSignal(s) {
   }
 }
 
+function renderMultiSignals(signals) {
+  const container = document.querySelector(".signal-grid");
+  if (!container || !signals) return;
+
+  container.innerHTML = "";
+
+  signals.forEach(function(sig) {
+    var card = document.createElement("div");
+    card.className = "card sig-card";
+
+    var dirClass = sig.type === "LONG" ? "LONG" : "SHORT";
+
+    var entryDisplay = Array.isArray(sig.entry) ? sig.entry.join(" - ") : sig.entry;
+
+    card.innerHTML =
+      '<div class="sig-top">' +
+        '<div class="sig-name">' + (sig.name || "SIGNAL") + '</div>' +
+        '<div class="sig-status ' + sig.status + '">' + sig.status + '</div>' +
+      '</div>' +
+      '<div class="sig-dir ' + dirClass + '">' + sig.type + '</div>' +
+      '<div class="sig-reason">' + (sig.reason || "") + '</div>' +
+      '<div class="sig-levels">' +
+        '<div class="sig-lvl"><span class="sig-lbl">ENTRY</span><span class="sig-val y">' + entryDisplay + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g">' + (Array.isArray(sig.tp) ? sig.tp[0] : sig.tp) + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r">' + sig.sl + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val">' + sig.rr + '</span></div>' +
+      '</div>';
+
+    container.appendChild(card);
+  });
+}
+
 // ── Render market data ─────────────────────────────────────────
 function renderMarket(m) {
   if (!m) return;
@@ -2015,6 +2047,11 @@ function connect() {
         if (serverDecision) {
           updateApexDecision(serverDecision);
           syncDecisionToChart(serverDecision);
+        }
+
+        // Render static multi_signals cards
+        if (data.multi_signals) {
+          renderMultiSignals(data.multi_signals);
         }
 
         return;

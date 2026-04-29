@@ -2179,7 +2179,8 @@ async function processPair(symbol) {
         source: apexDecision.source,
         pattern: apexDecision.extra?.patternType || null,
         neckline: apexDecision.extra?.neckline || null,
-      }
+      },
+      multi_signals: finalDec.multi_signals || []
     };
 
     state.latestSignal = multiSignals; // 🔥 USE multiSignals for UI grid
