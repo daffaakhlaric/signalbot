@@ -432,7 +432,6 @@ function buildDecision(opts) {
     result.multi_signals = multiSignal.generateFallbackSignals(payload);
   }
 
-  // Pick best LONG and SHORT
   var bestSignals = pickBestLongShort(result.multi_signals);
   result.multi_signals = bestSignals;
 
@@ -443,6 +442,53 @@ function buildDecision(opts) {
       var tag = sig.type === "LONG" ? "BEST LONG" : "BEST SHORT";
       return { ...sig, tag: tag };
     });
+  }
+
+  // ── FORCE DIRECTION FIX ─────────────────────────────────
+  if (!result.direction || result.direction === "NEUTRAL" || result.status === "WAIT") {
+    var assigned = false;
+    var fallbackReason = "";
+
+    if (context.htf_bias === "LONG") {
+      result.direction = "LONG";
+      fallbackReason = "fallback HTF bias LONG";
+      assigned = true;
+    } else if (context.htf_bias === "SHORT") {
+      result.direction = "SHORT";
+      fallbackReason = "fallback HTF bias SHORT";
+      assigned = true;
+    } else if (payload.ema20 && payload.ema50) {
+      if (payload.ema20 > payload.ema50) {
+        result.direction = "LONG";
+        fallbackReason = "fallback EMA trend LONG";
+        assigned = true;
+      } else {
+        result.direction = "SHORT";
+        fallbackReason = "fallback EMA trend SHORT";
+        assigned = true;
+      }
+    } else {
+      if (payload.close > payload.open) {
+        result.direction = "LONG";
+        fallbackReason = "fallback bullish candle";
+        assigned = true;
+      } else {
+        result.direction = "SHORT";
+        fallbackReason = "fallback bearish candle";
+        assigned = true;
+      }
+    }
+
+    if (assigned) {
+      result.status = "PLAN";
+      result.reason = fallbackReason;
+      result.source = "FALLBACK MODE";
+      if (!result.entry) result.entry = payload.close;
+      if (!result.tp) result.tp = result.direction === "LONG" ? payload.close + 150 : payload.close - 150;
+      if (!result.sl) result.sl = result.direction === "LONG" ? payload.close - 100 : payload.close + 100;
+      if (!result.rr) result.rr = 1.5;
+      console.log("🔥 FORCE DIRECTION:", result.direction, fallbackReason);
+    }
   }
 
   if (result.multi_signals && result.multi_signals.length > 0) {
