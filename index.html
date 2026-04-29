@@ -936,6 +936,14 @@ header {
       <div id="multi-signal-list" class="signal-grid"></div>
     </div>
 
+    <!-- SIGNAL LIFECYCLE -->
+    <div class="card" style="padding:20px" id="lifecycle-card">
+      <div class="card-header">
+        <div class="card-label">📡 SIGNAL LIFECYCLE</div>
+      </div>
+      <div id="lifecycle-list" class="signal-grid"></div>
+    </div>
+
     <!-- BOT LOG -->
     <div class="card log-card">
       <div class="card-header">
@@ -1901,6 +1909,37 @@ function renderMultiSignals(signals) {
   });
 }
 
+function renderLifecycle(signals) {
+  var el = document.getElementById("lifecycle-list");
+  if (!el) return;
+
+  el.innerHTML = "";
+
+  signals = signals || [];
+
+  signals.forEach(function(sig) {
+    var c = document.createElement("div");
+    c.className = "card sig-card";
+
+    var statusColor = sig.status === "TP" ? "#22c55e" : sig.status === "SL" ? "#ef4444" : sig.status === "ACTIVE" ? "#FACC15" : "#6b7280";
+
+    c.innerHTML =
+      '<div class="sig-top">' +
+        '<div class="sig-name">' + (sig.name || "SIGNAL") + '</div>' +
+        '<div class="sig-status" style="color:' + statusColor + ';font-weight:700">' + (sig.status || "WAIT") + '</div>' +
+      '</div>' +
+      '<div class="sig-dir ' + (sig.type || "WAIT") + '">' + (sig.type || "——") + '</div>' +
+      '<div class="sig-reason">' + (sig.reason || "") + '</div>' +
+      '<div class="sig-levels">' +
+        '<div class="sig-lvl"><span class="sig-lbl">ENTRY</span><span class="sig-val y">' + (sig.entry || "-") + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g">' + (sig.tp || "-") + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r">' + (sig.sl || "-") + '</span></div>' +
+        '<div class="sig-lvl"><span class="sig-lbl">AI</span><span class="sig-val">' + (sig.score || 0) + '</span></div>' +
+      '</div>';
+    el.appendChild(c);
+  });
+}
+
 function renderMarket(m) {
   if (!m) return;
   const p = m.close || 0;
@@ -2075,13 +2114,18 @@ function connect() {
         }
 
         // Render AI multi-signals (try multiple sources)
-        var ms = data.multi_signals || (data.decision && data.decision.multi_signals) || [];
-        console.log("🔍 check:", JSON.stringify({ has_ms: !!data.multi_signals, ms_len: ms.length, decision_ms: !!(data.decision && data.decision.multi_signals) }));
+var ms = data.multi_signals || (data.decision && data.decision.multi_signals) || [];
         if (ms.length) {
           console.log("🔥 multi_signals received:", ms);
           renderMultiSignals(ms);
         } else {
           console.log("❌ no multi_signals", Object.keys(data));
+        }
+
+        // Render lifecycle signals
+        var ls = data.lifecycle_signals || (data.decision && data.decision.lifecycle_signals) || [];
+        if (ls.length) {
+          renderLifecycle(ls);
         }
 
         return;

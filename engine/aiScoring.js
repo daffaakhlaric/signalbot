@@ -20,9 +20,10 @@ function scoreSignal(signal, context) {
   if (signal.status === "ACTIVE") score += 5;
 
   if (score > 100) score = 100;
+  if (score < 15) score = 15; // minimum baseline
 
   return {
-    score,
+    score: score,
     confidence:
       score >= 75 ? "HIGH" :
       score >= 50 ? "MEDIUM" : "LOW"

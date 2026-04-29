@@ -1,11 +1,74 @@
 const { scoreSignal } = require("./aiScoring");
 
+function generateFallbackSignals(payload) {
+  var price = payload.close;
+  var range = (payload.high - payload.low) || 300;
+
+  return [
+    {
+      name: "RANGE SHORT",
+      type: "SHORT",
+      entry: price + range * 0.3,
+      tp: [price - range * 0.3],
+      sl: price + range * 0.6,
+      status: "PLAN",
+      reason: "range resistance play",
+      score: 30,
+      confidence: "LOW"
+    },
+    {
+      name: "RANGE LONG",
+      type: "LONG",
+      entry: price - range * 0.3,
+      tp: [price + range * 0.3],
+      sl: price - range * 0.6,
+      status: "PLAN",
+      reason: "range support play",
+      score: 30,
+      confidence: "LOW"
+    },
+    {
+      name: "BREAKOUT LONG",
+      type: "LONG",
+      entry: price + range * 0.5,
+      tp: [price + range],
+      sl: price + range * 0.2,
+      status: "WAIT",
+      reason: "breakout upside",
+      score: 35,
+      confidence: "MEDIUM"
+    },
+    {
+      name: "BREAKDOWN SHORT",
+      type: "SHORT",
+      entry: price - range * 0.5,
+      tp: [price - range],
+      sl: price - range * 0.2,
+      status: "WAIT",
+      reason: "breakdown downside",
+      score: 35,
+      confidence: "MEDIUM"
+    },
+    {
+      name: "SCALP",
+      type: payload.close > payload.open ? "SHORT" : "LONG",
+      entry: price,
+      tp: [price + (payload.close > payload.open ? -100 : 100)],
+      sl: price + (payload.close > payload.open ? 100 : -100),
+      status: "ACTIVE",
+      reason: "micro scalp",
+      score: 25,
+      confidence: "LOW"
+    }
+  ];
+}
+
 function generateMultiSignals(payload, signal, context) {
-  const price = payload.close;
-  let signals = [];
+  var price = payload.close;
+  var signals = [];
 
   // SMC
-  if (context.smc?.direction) {
+  if (context.smc && context.smc.direction) {
     signals.push({
       name: "SMC",
       type: context.smc.direction,
@@ -18,7 +81,7 @@ function generateMultiSignals(payload, signal, context) {
   }
 
   // ORDER BLOCK
-  if (context.ob?.zone) {
+  if (context.ob && context.ob.zone) {
     signals.push({
       name: "ORDER BLOCK",
       type: context.ob.direction,
@@ -31,22 +94,21 @@ function generateMultiSignals(payload, signal, context) {
   }
 
   // FVG
-  if (context.fvg?.zone) {
+  if (context.fvg && context.fvg.zone) {
+    var fvgEntry = Array.isArray(context.fvg.zone) ? context.fvg.zone[0] : context.fvg.zone;
     signals.push({
       name: "FVG",
       type: context.fvg.direction,
-      entry: context.fvg.zone,
+      entry: fvgEntry,
       tp: [price + (context.fvg.direction === "LONG" ? 200 : -200)],
-      sl: context.fvg.direction === "LONG"
-        ? context.fvg.zone[0] - 50
-        : context.fvg.zone[1] + 50,
+      sl: context.fvg.direction === "LONG" ? fvgEntry - 50 : fvgEntry + 50,
       status: "WAIT",
       reason: context.fvg.reason
     });
   }
 
   // SNIPER
-  if (signal.sniperSignal?.direction) {
+  if (signal && signal.sniperSignal && signal.sniperSignal.direction) {
     signals.push({
       name: "SNIPER",
       type: signal.sniperSignal.direction,
@@ -58,20 +120,33 @@ function generateMultiSignals(payload, signal, context) {
     });
   }
 
+  // Fallback if not enough signals
+  if (signals.length < 2) {
+    var fallback = generateFallbackSignals(payload);
+    signals = signals.concat(fallback);
+  }
+
   // AI scoring
-  signals = signals.map(sig => {
-    const ai = scoreSignal(sig, context);
+  signals = signals.map(function(sig) {
+    var ai = scoreSignal(sig, context);
+    var finalScore = ai.score;
+    if (finalScore === 0) finalScore = 30;
     return {
       ...sig,
-      score: ai.score,
+      score: finalScore,
       confidence: ai.confidence
     };
   });
 
+  // Ensure exactly 5 max
+  signals = signals.filter(function(s) {
+    return s.entry && s.tp && s.sl;
+  }).slice(0, 5);
+
   // sort best → worst
-  signals.sort((a, b) => b.score - a.score);
+  signals.sort(function(a, b) { return b.score - a.score; });
 
   return signals;
 }
 
-module.exports = { generateMultiSignals };
+module.exports = { generateMultiSignals: generateMultiSignals };

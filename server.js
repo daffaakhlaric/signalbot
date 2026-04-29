@@ -2133,7 +2133,8 @@ async function processPair(symbol) {
         ? rawDec.multi_signals
         : (confirmedDecision && confirmedDecision.multi_signals && confirmedDecision.multi_signals.length
           ? confirmedDecision.multi_signals
-          : [{ name: "ENGINE", type: "WAIT", entry: payload1m.close, tp: [payload1m.close], sl: payload1m.close, status: "WAIT", reason: rawDec.reason || "no setup", score: 0, confidence: "LOW" }])
+          : [{ name: "ENGINE", type: "WAIT", entry: payload1m.close, tp: [payload1m.close], sl: payload1m.close, status: "WAIT", reason: rawDec.reason || "no setup", score: 0, confidence: "LOW" }]),
+      lifecycle_signals: rawDec.lifecycle_signals || (confirmedDecision && confirmedDecision.lifecycle_signals) || []
     };
 
     // 🔥 PATTERN OVERRIDE: If pattern engine finds ENTRY, use pattern as final decision
@@ -2190,7 +2191,8 @@ async function processPair(symbol) {
         pattern: apexDecision.extra?.patternType || null,
         neckline: apexDecision.extra?.neckline || null,
       },
-      multi_signals: finalDec.multi_signals || []
+      multi_signals: finalDec.multi_signals || [],
+      lifecycle_signals: finalDec.lifecycle_signals || []
     };
 
     state.latestSignal = multiSignals; // 🔥 USE multiSignals for UI grid
@@ -2205,14 +2207,15 @@ async function processPair(symbol) {
       if (signalHistory.length > 50) signalHistory.pop();
     }
 
-    // Broadcast dual signal (sniper + confirmed + pattern)
+// Broadcast dual signal (sniper + confirmed + pattern)
     const dualSignal = {
       sniper: state.sniperSignal,
       confirmed: state.confirmedSignal,
       multi: multiSignals,
       pattern: patternResult.status === "ENTRY" ? patternResult : null,
-      decision: apexDecision, // 🔥 FINAL DECISION
-      multi_signals: finalDec.multi_signals || []
+      decision: apexDecision,
+      multi_signals: finalDec.multi_signals || [],
+      lifecycle_signals: finalDec.lifecycle_signals || []
     };
 
     // Broadcast on EVERY loop
