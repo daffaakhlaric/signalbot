@@ -2075,11 +2075,11 @@ function connect() {
 
         // Render AI multi-signals (try multiple sources)
         var ms = data.multi_signals || (data.decision && data.decision.multi_signals) || [];
-        if (ms && ms.length) {
+        if (ms.length) {
           console.log("🔥 multi_signals received:", ms);
           renderMultiSignals(ms);
         } else {
-          console.log("❌ no multi_signals", Object.keys(data), "decision keys:", data.decision ? Object.keys(data.decision) : "none");
+          console.log("❌ no multi_signals", Object.keys(data));
         }
 
         return;

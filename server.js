@@ -2126,7 +2126,11 @@ async function processPair(symbol) {
     signal.bar_time = payload1m.barTime;
 
     // ── FORMAT FINAL DECISION SIGNAL ──────────────────────────
-    const finalDec = confirmedDecision || decision;
+    const rawDec = confirmedDecision || decision;
+    const finalDec = {
+      ...rawDec,
+      multi_signals: rawDec.multi_signals || (confirmedDecision && confirmedDecision.multi_signals) || []
+    };
 
     // 🔥 PATTERN OVERRIDE: If pattern engine finds ENTRY, use pattern as final decision
     let apexDecision;

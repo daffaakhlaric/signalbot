@@ -236,24 +236,34 @@ function buildDecision(opts) {
 
   // Chop filter: no clear structure = wait
   if (!sweep && !bos && !choch) {
+    var emptyContext = {
+      htf_bias: htfBiasActual, structure: "NA", rsi: payload.rsi,
+      ema_align: "NEUTRAL", smc: null, ob: null, fvg: null
+    };
     return {
       status: "WAIT",
       direction: "NEUTRAL",
       confidence: "LOW",
       source: "ELITE_ENGINE",
-      reason: "no clear SMC structure — waiting for sweep/BOS/CHOCH"
+      reason: "no clear SMC structure — waiting for sweep/BOS/CHOCH",
+      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, emptyContext)
     };
   }
 
   var smcEntry = smc.getSMCEntry({ sweep: sweep, inducement: inducement, bos: bos, choch: choch });
 
   if (!smcEntry || !smcEntry.entry || !smcEntry.tp || !smcEntry.sl) {
+    var emptyContext2 = {
+      htf_bias: htfBiasActual, structure: structure, rsi: payload.rsi,
+      ema_align: "NEUTRAL", smc: null, ob: null, fvg: null
+    };
     return {
       status: "WAIT",
       direction: "NEUTRAL",
       confidence: "LOW",
       source: "ELITE_ENGINE",
-      reason: "SMC detected but missing valid entry/tp/sl — waiting"
+      reason: "SMC detected but missing valid entry/tp/sl — waiting",
+      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, emptyContext2)
     };
   }
 
@@ -302,7 +312,8 @@ function buildDecision(opts) {
         htfConflict: true,
         smcComponents: smcEntry.smcComponents,
         htfBias: htfBiasActual
-      }
+      },
+      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, context)
     };
   }
 
@@ -314,7 +325,8 @@ function buildDecision(opts) {
       confidence: "LOW",
       source: "ELITE_ENGINE",
       reason: "sniper conflict: " + smcEntry.direction + " vs " + sniper.preferred,
-      extra: { conflict: true, smcComponents: smcEntry.smcComponents }
+      extra: { conflict: true, smcComponents: smcEntry.smcComponents },
+      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, context)
     };
   }
 
