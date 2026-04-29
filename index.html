@@ -1855,10 +1855,22 @@ function renderConfirmedSignal(s) {
 function renderMultiSignals(signals) {
   var el = document.getElementById("multi-signal-list");
   var card = document.getElementById("ai-multi-card");
-  if (!el || !signals) return;
+  if (!el) return;
 
-  if (card) card.style.display = signals.length ? "block" : "none";
+  // Show card even if empty (for debugging)
+  if (card) card.style.display = "block";
   el.innerHTML = "";
+
+  if (!signals || !signals.length) {
+    var emptyCard = document.createElement("div");
+    emptyCard.className = "card sig-card";
+    emptyCard.innerHTML =
+      '<div class="sig-top"><div class="sig-name">NO SIGNALS</div><div class="sig-status WAIT">WAIT</div></div>' +
+      '<div class="sig-dir WAIT">——</div>' +
+      '<div class="sig-reason">Waiting for SMC/OB/FVG setup…</div>';
+    el.appendChild(emptyCard);
+    return;
+  }
 
   signals.forEach(function(sig) {
     var card = document.createElement("div");
