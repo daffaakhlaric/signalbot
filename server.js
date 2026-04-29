@@ -2145,6 +2145,7 @@ async function processPair(symbol) {
           patternType: patternResult.pattern,
           neckline: patternResult.neckline || null,
         },
+        multi_signals: finalDec.multi_signals || []
       };
       botLog("ok", `🎯 PATTERN SIGNAL OVERRIDE: ${patternResult.pattern} ${patternResult.direction} @ ${patternResult.entry}`);
     } else {
@@ -2159,6 +2160,7 @@ async function processPair(symbol) {
         reason: finalDec.reason,
         source: finalDec.source,
         extra: finalDec.extra || {},
+        multi_signals: finalDec.multi_signals || []
       };
     }
 
@@ -2202,6 +2204,7 @@ async function processPair(symbol) {
       multi: multiSignals,
       pattern: patternResult.status === "ENTRY" ? patternResult : null,
       decision: apexDecision, // 🔥 FINAL DECISION
+      multi_signals: finalDec.multi_signals || []
     };
 
     // Broadcast on EVERY loop
