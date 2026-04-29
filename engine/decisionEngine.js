@@ -422,19 +422,64 @@ function buildDecision(opts) {
 
   result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
 
-  if (!result.multi_signals || !result.multi_signals.length) {
-    result.multi_signals = [{
-      name: "ENGINE",
-      type: result.direction || "WAIT",
-      entry: payload.close,
-      tp: [payload.close + (result.direction === "LONG" ? 200 : result.direction === "SHORT" ? -200 : 0)],
-      sl: result.direction === "LONG" ? payload.close - 100 : result.direction === "SHORT" ? payload.close + 100 : payload.close,
-      status: result.status || "WAIT",
-      reason: result.reason || "no clear setup",
-      score: 0,
-      confidence: "LOW"
-    }];
+  console.log("SMC:", context.smc);
+  console.log("OB:", context.ob);
+  console.log("FVG:", context.fvg);
+  console.log("MULTI RAW:", result.multi_signals ? result.multi_signals.length : 0);
+
+  if (!result.multi_signals || result.multi_signals.length === 0) {
+    console.log("⚠️ FORCE FALLBACK SIGNAL");
+    result.multi_signals = multiSignal.generateFallbackSignals(payload);
   }
+
+  // Pick best LONG and SHORT
+  var bestSignals = pickBestLongShort(result.multi_signals);
+  result.multi_signals = bestSignals;
+
+  console.log("🔥 BEST 2 SIGNAL:", bestSignals.length);
+
+  if (result.multi_signals.length > 0) {
+    result.multi_signals = result.multi_signals.map(function(sig) {
+      var tag = sig.type === "LONG" ? "BEST LONG" : "BEST SHORT";
+      return { ...sig, tag: tag };
+    });
+  }
+
+  if (result.multi_signals && result.multi_signals.length > 0) {
+    lifecycle.addSignals(result.multi_signals);
+  }
+
+  var lifecycleSignals = lifecycle.updateLifecycle(payload.close);
+  result.lifecycle_signals = lifecycleSignals.slice(-5);
+
+  return result;
+}
+
+function pickBestLongShort(signals) {
+  if (!signals || !signals.length) return [];
+
+  var bestLong = null;
+  var bestShort = null;
+
+  signals.forEach(function(s) {
+    if (!s.score) return;
+
+    if (s.type === "LONG") {
+      if (!bestLong || s.score > bestLong.score) {
+        bestLong = s;
+      }
+    }
+
+    if (s.type === "SHORT") {
+      if (!bestShort || s.score > bestShort.score) {
+        bestShort = s;
+      }
+    }
+  });
+
+  var result = [];
+  if (bestLong) result.push(bestLong);
+  if (bestShort) result.push(bestShort);
 
   return result;
 }
