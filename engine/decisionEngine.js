@@ -236,34 +236,48 @@ function buildDecision(opts) {
 
   // Chop filter: no clear structure = wait
   if (!sweep && !bos && !choch) {
-    var emptyContext = {
-      htf_bias: htfBiasActual, structure: "NA", rsi: payload.rsi,
-      ema_align: "NEUTRAL", smc: null, ob: null, fvg: null
-    };
+    var fallback = [{
+      name: "ENGINE",
+      type: "WAIT",
+      entry: payload.close,
+      tp: [payload.close],
+      sl: payload.close,
+      status: "WAIT",
+      reason: "no clear SMC structure",
+      score: 0,
+      confidence: "LOW"
+    }];
     return {
       status: "WAIT",
       direction: "NEUTRAL",
       confidence: "LOW",
       source: "ELITE_ENGINE",
       reason: "no clear SMC structure — waiting for sweep/BOS/CHOCH",
-      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, emptyContext)
+      multi_signals: fallback
     };
   }
 
   var smcEntry = smc.getSMCEntry({ sweep: sweep, inducement: inducement, bos: bos, choch: choch });
 
   if (!smcEntry || !smcEntry.entry || !smcEntry.tp || !smcEntry.sl) {
-    var emptyContext2 = {
-      htf_bias: htfBiasActual, structure: structure, rsi: payload.rsi,
-      ema_align: "NEUTRAL", smc: null, ob: null, fvg: null
-    };
+    var fallback2 = [{
+      name: "ENGINE",
+      type: "WAIT",
+      entry: payload.close,
+      tp: [payload.close],
+      sl: payload.close,
+      status: "WAIT",
+      reason: "SMC detected but missing valid entry/tp/sl",
+      score: 0,
+      confidence: "LOW"
+    }];
     return {
       status: "WAIT",
       direction: "NEUTRAL",
       confidence: "LOW",
       source: "ELITE_ENGINE",
       reason: "SMC detected but missing valid entry/tp/sl — waiting",
-      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, emptyContext2)
+      multi_signals: fallback2
     };
   }
 
@@ -316,6 +330,17 @@ function buildDecision(opts) {
 
   // HTF conflict check — reject counter-trend
   if (htfBiasActual !== "NEUTRAL" && htfBiasActual !== smcEntry.direction) {
+    var htfFallback = [{
+      name: "ENGINE",
+      type: "WAIT",
+      entry: payload.close,
+      tp: [payload.close],
+      sl: payload.close,
+      status: "WAIT",
+      reason: "HTF conflict: " + smcEntry.direction + " vs HTF " + htfBiasActual,
+      score: 0,
+      confidence: "LOW"
+    }];
     return {
       status: "WAIT",
       direction: "NEUTRAL",
@@ -327,12 +352,23 @@ function buildDecision(opts) {
         smcComponents: smcEntry.smcComponents,
         htfBias: htfBiasActual
       },
-      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, context)
+      multi_signals: htfFallback
     };
   }
 
   // Sniper conflict check
   if (sniper && sniper.preferred && sniper.preferred !== smcEntry.direction) {
+    var snFallback = [{
+      name: "ENGINE",
+      type: "WAIT",
+      entry: payload.close,
+      tp: [payload.close],
+      sl: payload.close,
+      status: "WAIT",
+      reason: "sniper conflict: " + smcEntry.direction + " vs " + sniper.preferred,
+      score: 0,
+      confidence: "LOW"
+    }];
     return {
       status: "WAIT",
       direction: "NEUTRAL",
@@ -340,7 +376,7 @@ function buildDecision(opts) {
       source: "ELITE_ENGINE",
       reason: "sniper conflict: " + smcEntry.direction + " vs " + sniper.preferred,
       extra: { conflict: true, smcComponents: smcEntry.smcComponents },
-      multi_signals: multiSignal.generateMultiSignals(payload, { direction: "NEUTRAL" }, context)
+      multi_signals: snFallback
     };
   }
 
@@ -378,6 +414,20 @@ function buildDecision(opts) {
   };
 
   result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
+
+  if (!result.multi_signals || !result.multi_signals.length) {
+    result.multi_signals = [{
+      name: "ENGINE",
+      type: result.direction || "WAIT",
+      entry: payload.close,
+      tp: [payload.close + (result.direction === "LONG" ? 200 : result.direction === "SHORT" ? -200 : 0)],
+      sl: result.direction === "LONG" ? payload.close - 100 : result.direction === "SHORT" ? payload.close + 100 : payload.close,
+      status: result.status || "WAIT",
+      reason: result.reason || "no clear setup",
+      score: 0,
+      confidence: "LOW"
+    }];
+  }
 
   return result;
 }

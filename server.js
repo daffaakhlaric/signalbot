@@ -2129,7 +2129,11 @@ async function processPair(symbol) {
     const rawDec = confirmedDecision || decision;
     const finalDec = {
       ...rawDec,
-      multi_signals: rawDec.multi_signals || (confirmedDecision && confirmedDecision.multi_signals) || []
+      multi_signals: rawDec.multi_signals && rawDec.multi_signals.length
+        ? rawDec.multi_signals
+        : (confirmedDecision && confirmedDecision.multi_signals && confirmedDecision.multi_signals.length
+          ? confirmedDecision.multi_signals
+          : [{ name: "ENGINE", type: "WAIT", entry: payload1m.close, tp: [payload1m.close], sl: payload1m.close, status: "WAIT", reason: rawDec.reason || "no setup", score: 0, confidence: "LOW" }])
     };
 
     // 🔥 PATTERN OVERRIDE: If pattern engine finds ENTRY, use pattern as final decision

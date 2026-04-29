@@ -2075,6 +2075,7 @@ function connect() {
 
         // Render AI multi-signals (try multiple sources)
         var ms = data.multi_signals || (data.decision && data.decision.multi_signals) || [];
+        console.log("🔍 check:", JSON.stringify({ has_ms: !!data.multi_signals, ms_len: ms.length, decision_ms: !!(data.decision && data.decision.multi_signals) }));
         if (ms.length) {
           console.log("🔥 multi_signals received:", ms);
           renderMultiSignals(ms);
