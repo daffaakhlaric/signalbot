@@ -343,69 +343,8 @@ function buildDecision(opts) {
         fvg: !!fvgDetected && fvgDetected.direction === smcEntry.direction,
         pattern: !!patternClue && patternClue.direction === smcEntry.direction
       }
-    },
-    multi_signals: buildMultiSignals(payload, null)
+    }
   };
 }
 
-// ══════════════════════════════════════════════════════════
-// MULTI SIGNALS — Static Price Zone Signals
-// ══════════════════════════════════════════════════════════
-
-function buildMultiSignals(payload, baseSignal) {
-  var price = payload.close;
-
-  var signals = [];
-
-  // PRIMARY SHORT (Pullback)
-  signals.push({
-    name: "PRIMARY SHORT",
-    type: "SHORT",
-    status: price >= 77900 && price <= 78000 ? "ACTIVE" : "WAIT",
-    entry: [77900, 78000],
-    tp: [77650, 77530, 77300],
-    sl: 78200,
-    rr: 2.5,
-    reason: "EMA + resistance pullback"
-  });
-
-  // BREAKDOWN SHORT
-  signals.push({
-    name: "BREAKDOWN SHORT",
-    type: "SHORT",
-    status: price < 77600 ? "ACTIVE" : "WAIT",
-    entry: 77600,
-    tp: [77300, 77000, 76700],
-    sl: 77800,
-    rr: 3.2,
-    reason: "support break + continuation"
-  });
-
-  // COUNTER LONG
-  signals.push({
-    name: "COUNTER LONG",
-    type: "LONG",
-    status: price >= 77500 && price <= 77600 ? "ACTIVE" : "WAIT",
-    entry: [77500, 77600],
-    tp: [77800, 78000],
-    sl: 77300,
-    rr: 1.8,
-    reason: "bounce support (scalp)"
-  });
-
-  // BREAKOUT LONG
-  signals.push({
-    name: "BREAKOUT LONG",
-    type: "LONG",
-    status: price > 78200 ? "ACTIVE" : "WAIT",
-    entry: 78200,
-    tp: [78600, 79000, 79500],
-    sl: 77900,
-    rr: 3.5,
-    reason: "break resistance strong"
-  });
-
-  return signals;
-}
-
-module.exports = { buildDecision: buildDecision, buildMultiSignals: buildMultiSignals };
+module.exports = { buildDecision: buildDecision };
