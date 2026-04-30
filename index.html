@@ -1874,7 +1874,7 @@ function renderMulti(multi) {
 
   // SNIPER SUPER card update
   if (multi.signals) {
-    var sniperSig = multi.signals.find(function(s) { return s && s.name === "SNIPER SUPER"; });
+    var sniperSig = multi.signals ? Object.values(multi.signals).find(function(s) { return s && s.name === "SNIPER SUPER"; }) : null;
     updateSniperSuper(sniperSig || null);
   }
 }
