@@ -49,8 +49,9 @@ const FALLBACK_ORDER = ["bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
 const SYMBOLS = ["BTC-USDT"];
-const INTERVAL = "15m"; // 🔥 back to 15m
-const POLL_MS = 15000; // 15s for 15m timeframe
+const INTERVAL = "15m"; // HTF interval
+const LTF_INTERVAL = "1m"; // LTF for fast sniper entry
+const POLL_MS = 3000; // 3s for ultra-fast signal
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 // ── Fixed Risk Execution Model ─────────────────────────────
@@ -89,6 +90,7 @@ SYMBOLS.forEach(symbol => {
     sniperSignal: null,
     confirmedSignal: null,
     lastClosedCandleTime: 0,
+    lastEntryTime: 0,
   };
 });
 
@@ -1974,6 +1976,11 @@ async function processPair(symbol) {
       return;
     }
 
+    // Entry lock — max 1 entry per minute per pair
+    if (Date.now() - state.lastEntryTime < 60000) {
+      return;
+    }
+
     // Real-time analysis
     if (payload1m.barTime !== state.lastAnalyzedBarTime) {
       state.lastAnalyzedBarTime = payload1m.barTime;
@@ -2084,6 +2091,7 @@ async function processPair(symbol) {
     const decision = buildDecision({
       candles: candles1m,
       htfCandles: candles1h,
+      ltfCandles: candles1m,
       sniper: sniperRec,
       payload: payload1m,
       htfBias: htfBias,
@@ -2258,6 +2266,9 @@ async function processPair(symbol) {
 
     simulateDryTrade(signal, payload1m);
     checkDryTrades(payload1m.close);
+    if (signal.decision_now === "LONG" || signal.decision_now === "SHORT") {
+      state.lastEntryTime = Date.now();
+    }
   } catch (err) {
     botLog("err", `❌ ${symbol} error: ${err.message}`);
   }

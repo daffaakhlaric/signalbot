@@ -133,6 +133,75 @@ function pickBestSignal(signals, context) {
   return best;
 }
 
+// ── RSI (lightweight, no external lib) ────────────────────
+function calcRSI(closes, period) {
+  period = period || 14;
+  if (closes.length < period + 1) return 50;
+  var gains = 0, losses = 0;
+  for (var i = closes.length - period; i < closes.length; i++) {
+    var diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff; else losses -= diff;
+  }
+  var rs = gains / (losses || 1);
+  return 100 - (100 / (1 + rs));
+}
+
+// ── OB Proximity Check ───────────────────────────────────
+function isNearOB(price, ob) {
+  if (!ob || !ob.zone) return false;
+  var zone = Array.isArray(ob.zone) ? ob.zone : [ob.zone, ob.zone];
+  var low = zone[0], high = zone[1];
+  var buffer = (high - low) * 0.5;
+  return price >= (low - buffer) && price <= (high + buffer);
+}
+
+// ── LTF Sniper (ultra-fast entry using 1m) ────────────────
+function detectLTFSignal(htfContext, ltfCandles) {
+  var last = ltfCandles[ltfCandles.length - 1];
+  var prev = ltfCandles[ltfCandles.length - 2];
+  if (!last || !prev) return null;
+
+  var range = last.high - last.low;
+  var body = Math.abs(last.close - last.open);
+  var bodyPct = range > 0 ? body / range : 0;
+  if (bodyPct < 0.4) return null;
+
+  var closes = ltfCandles.map(function(c) { return c.close; });
+  var rsi = calcRSI(closes);
+
+  if (!isNearOB(last.close, htfContext.ob)) return null;
+  if (htfContext.structure === "NA") return null;
+
+  var hour = new Date().getUTCHours();
+  if (hour < 6 || hour > 23) return null;
+
+  if (htfContext.htf_bias === "LONG" && last.close > prev.high && rsi < 65) {
+    return {
+      name: "LTF SNIPER",
+      type: "LONG",
+      entry: last.close,
+      tp: last.close + 150,
+      sl: last.low,
+      status: "ACTIVE",
+      reason: "HTF LONG + OB zone + RSI " + Math.round(rsi)
+    };
+  }
+
+  if (htfContext.htf_bias === "SHORT" && last.close < prev.low && rsi > 35) {
+    return {
+      name: "LTF SNIPER",
+      type: "SHORT",
+      entry: last.close,
+      tp: last.close - 150,
+      sl: last.high,
+      status: "ACTIVE",
+      reason: "HTF SHORT + OB zone + RSI " + Math.round(rsi)
+    };
+  }
+
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════
 // PATTERN ENGINE — Confidence Booster Only (NOT a Decision)
 // ══════════════════════════════════════════════════════════
@@ -286,6 +355,7 @@ function buildDecision(opts) {
   var payload = opts.payload;
   var htfBias = opts.htfBias || "NEUTRAL";
   var htfCandles = opts.htfCandles || null;
+  var ltfCandles = opts.ltfCandles || null;
 
   if (!candles || candles.length < 20) {
     return { status: "WAIT", direction: "NEUTRAL", confidence: "LOW", source: "NONE", reason: "insufficient data" };
@@ -488,6 +558,14 @@ function buildDecision(opts) {
   var sniperSuper = detectSniperSuper(context, candles);
   if (sniperSuper) {
     result.multi_signals.push(sniperSuper);
+  }
+
+  // ── LTF SNIPER (ultra-fast entry from 1m candle) ───────────
+  if (ltfCandles && ltfCandles.length > 5) {
+    var ltfSignal = detectLTFSignal(context, ltfCandles);
+    if (ltfSignal) {
+      result.multi_signals.push(ltfSignal);
+    }
   }
 
   console.log("SMC:", context.smc);
