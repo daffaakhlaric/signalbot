@@ -63,10 +63,10 @@ const DRY_RUN = (process.env.DRY_RUN || "false").toLowerCase() === "true";
 const MODE = (process.env.MODE || "BALANCED").toUpperCase();  // AGGRESSIVE | BALANCED | SAFE
 
 // ── Entry Mode: SAFE=closed candle only, AGGRESSIVE=realtime ─
-const ENTRY_MODE = "SAFE"; // SMC requires candle close confirmation
+const ENTRY_MODE = "AGGRESSIVE"; // AGGRESSIVE = realtime entry, no wait for candle close
 
 // ── Force Entry Mode ───────────────────────────────────────
-const FORCE_ENTRY = (process.env.FORCE_ENTRY || "false").toLowerCase() === "true";
+const FORCE_ENTRY = true;
 
 const BINGX_BASE   = process.env.BINGX_BASE   || "https://open-api.bingx.com";
 const BINGX_API_KEY    = process.env.BINGX_API_KEY    || "";
@@ -101,7 +101,7 @@ let lastAnalyzedBarTime = 0;
 // ── Daily Trade Limit ─────────────────────────────────────────
 let tradeCountToday = 0;
 let lastTradeDate = new Date().toDateString();
-const MAX_TRADES_PER_DAY = 5;
+const MAX_TRADES_PER_DAY = 15;
 
 function checkDailyLimit() {
   const today = new Date().toDateString();
@@ -362,6 +362,7 @@ function getCandleDetail(candle) {
 
 // ── Entry Confirmation Engine ─────────────────────────────────
 function confirmEntry(signal, payload) {
+  if (ENTRY_MODE === "AGGRESSIVE") return signal;
   if (signal.decision_now === "SKIP") return signal;
 
   const last = payload.lastCandle;
@@ -1967,6 +1968,12 @@ async function processPair(symbol) {
     const payload1h  = buildMarketPayloadForSymbol(candles1h, symbol);
     state.latestPayload = payload1m;
 
+    // Session filter — skip if market is dead
+    const utcHour = new Date().getUTCHours();
+    if (!isTradingSession(utcHour)) {
+      return;
+    }
+
     // Real-time analysis
     if (payload1m.barTime !== state.lastAnalyzedBarTime) {
       state.lastAnalyzedBarTime = payload1m.barTime;
@@ -2214,6 +2221,16 @@ async function processPair(symbol) {
       multi: multiSignals,
       pattern: patternResult.status === "ENTRY" ? patternResult : null,
       decision: apexDecision,
+      best_signal: apexDecision.status === "ENTRY" ? {
+        name: apexDecision.source || "ENGINE",
+        type: apexDecision.decision_now,
+        entry: apexDecision.entry,
+        tp: Array.isArray(apexDecision.tp) ? apexDecision.tp : [apexDecision.tp],
+        sl: apexDecision.sl,
+        score: apexDecision.status === "ENTRY" ? 4 : 0,
+        reason: apexDecision.reason,
+        status: apexDecision.status
+      } : null,
       multi_signals: finalDec.multi_signals || [],
       lifecycle_signals: finalDec.lifecycle_signals || []
     };

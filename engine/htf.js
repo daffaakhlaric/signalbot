@@ -39,8 +39,8 @@ function getHTFBias(candles) {
   var lowest = Math.min.apply(null, recentLows);
 
   // Break of structure bias
-  var bullStructure = lastClose > highest * 0.995;
-  var bearStructure = lastClose < lowest * 1.005;
+  var bullStructure = lastClose > highest * 0.998;
+  var bearStructure = lastClose < lowest * 1.002;
 
   if (emaBull || bullStructure) return "LONG";
   if (emaBear || bearStructure) return "SHORT";

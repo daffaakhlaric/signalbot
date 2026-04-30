@@ -7,7 +7,7 @@ function generateId(sig) {
 function isSameSignal(a, b) {
   return (
     a.type === b.type &&
-    Math.abs(a.entry - b.entry) < 20
+    Math.abs(a.entry - b.entry) < 50
   );
 }
 
@@ -44,7 +44,7 @@ function updateLifecycle(price) {
     }
 
     if (sig.status === "NEW" || sig.status === "READY") {
-      if (Math.abs(price - sig.entry) < 30) {
+      if (Math.abs(price - sig.entry) < 120) {
         sig.status = "ACTIVE";
       } else {
         sig.status = "READY";
@@ -60,6 +60,10 @@ function updateLifecycle(price) {
         if (price <= sig.tp) sig.status = "TP";
         if (price >= sig.sl) sig.status = "SL";
       }
+    }
+
+    if (sig.status === "TP") {
+      sig.status = "RE-ENTRY";
     }
 
     return sig;

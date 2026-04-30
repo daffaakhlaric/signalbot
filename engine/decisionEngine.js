@@ -71,6 +71,69 @@ try {
 }
 
 // ══════════════════════════════════════════════════════════
+// SNIPER SUPER — Elite Momentum Entry System
+
+function detectSniperSuper(context, candles) {
+  var closedCandle = candles[candles.length - 2]; // prev = confirmed closed
+  var lastCandle = candles[candles.length - 1];
+
+  if (!closedCandle || !lastCandle) return null;
+
+  var range = closedCandle.high - closedCandle.low;
+  var body = Math.abs(closedCandle.close - closedCandle.open);
+  var bodyPct = range > 0 ? body / range : 0;
+  var isImpulse = bodyPct > 0.6;
+
+  if (!isImpulse) return null;
+
+  var ob = context.ob;
+  var smc = context.smc;
+  var htf_bias = context.htf_bias;
+  var structure = context.structure;
+
+  if (htf_bias === "LONG" && ["HH", "HL"].includes(structure) && ob && ob.direction === "LONG" && smc && smc.direction === "LONG") {
+    return {
+      name: "SNIPER SUPER",
+      type: "LONG",
+      entry: ob.entry || ob.zone,
+      tp: ob.tp,
+      sl: ob.sl,
+      status: "ACTIVE",
+      reason: "SMC + OB + bullish impulse confirmed",
+      score_boost: 30
+    };
+  }
+
+  if (htf_bias === "SHORT" && ["LL", "LH"].includes(structure) && ((ob && ob.direction === "SHORT") || (smc && smc.direction === "SHORT"))) {
+    return {
+      name: "SNIPER SUPER",
+      type: "SHORT",
+      entry: ob.entry || ob.zone,
+      tp: ob.tp,
+      sl: ob.sl,
+      status: "ACTIVE",
+      reason: "SMC + OB + bearish impulse confirmed",
+      score_boost: 30
+    };
+  }
+
+  return null;
+}
+
+function pickBestSignal(signals, context) {
+  if (!signals || signals.length === 0) return null;
+  var scoring = require("./aiScoring");
+  var scored = signals.map(function(s) {
+    var res = scoring.scoreSignal(s, context);
+    return { ...s, score: res.score };
+  });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  var best = scored[0];
+  if (best.score < 50) return null;
+  return best;
+}
+
+// ══════════════════════════════════════════════════════════
 // PATTERN ENGINE — Confidence Booster Only (NOT a Decision)
 // ══════════════════════════════════════════════════════════
 
@@ -422,6 +485,11 @@ function buildDecision(opts) {
 
   result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
 
+  var sniperSuper = detectSniperSuper(context, candles);
+  if (sniperSuper) {
+    result.multi_signals.push(sniperSuper);
+  }
+
   console.log("SMC:", context.smc);
   console.log("OB:", context.ob);
   console.log("FVG:", context.fvg);
@@ -434,6 +502,9 @@ function buildDecision(opts) {
 
   var bestSignals = pickBestLongShort(result.multi_signals);
   result.multi_signals = bestSignals;
+
+  var bestSignal = pickBestSignal(result.multi_signals, context);
+  result.best_signal = bestSignal;
 
   console.log("🔥 BEST 2 SIGNAL:", bestSignals.length);
 

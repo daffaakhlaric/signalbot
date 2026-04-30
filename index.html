@@ -98,6 +98,38 @@ body::before {
   opacity: 0.5;
 }
 
+.sniper-super { padding: 20px; border-radius: 16px; background: #0f172a; border: 1px solid rgba(255,255,255,0.05); }
+.sniper-super.LONG { border-color: rgba(0,255,163,0.3); box-shadow: 0 0 20px rgba(0,255,163,0.2); }
+.sniper-super.SHORT { border-color: rgba(255,77,77,0.3); box-shadow: 0 0 20px rgba(255,77,77,0.2); }
+.sniper-super.WAIT { border-color: rgba(255,255,255,0.05); }
+.sniper-header { font-size: 10px; letter-spacing: 2px; color: var(--gold); margin-bottom: 10px; text-transform: uppercase; }
+.sniper-body .dir { font-size: 28px; font-weight: bold; font-family: 'Bebas Neue', sans-serif; letter-spacing: 3px; }
+.sniper-body .dir.LONG { color: var(--green); }
+.sniper-body .dir.SHORT { color: var(--red); }
+.sniper-body .dir.WAIT { color: var(--muted); }
+.sniper-levels { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sniper-lvl { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.sniper-lbl { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+.sniper-val { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: #fff; }
+.sniper-reason { margin-top: 10px; font-size: 11px; color: var(--muted); min-height: 20px; }
+
+/* BEST SIGNAL CARD */
+.best-signal { padding: 20px; border-radius: 16px; background: #0f172a; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
+.best-signal.LONG { border-color: rgba(0,255,163,0.4); box-shadow: 0 0 25px rgba(0,255,163,0.25); }
+.best-signal.SHORT { border-color: rgba(255,77,77,0.4); box-shadow: 0 0 25px rgba(255,77,77,0.25); }
+.best-signal.WAIT { opacity: 0.6; }
+.best-header { font-size: 10px; letter-spacing: 2px; color: #facc15; margin-bottom: 10px; }
+.best-name { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.best-dir { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+.best-dir.LONG { color: #00FFA3; }
+.best-dir.SHORT { color: #FF4D4D; }
+.best-dir.WAIT { color: var(--muted); }
+.best-levels { display: flex; justify-content: space-between; margin-top: 10px; }
+.best-levels .lvl { text-align: center; font-size: 11px; }
+.best-levels b { display: block; font-family: monospace; margin-top: 2px; }
+.best-score { margin-top: 10px; font-size: 11px; color: #facc15; }
+.best-reason { margin-top: 10px; font-size: 11px; color: #94a3b8; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -746,6 +778,45 @@ header {
 
   <!-- LEFT COLUMN -->
   <div class="col-left">
+
+    <!-- SNIPER SUPER CARD -->
+    <div class="card sniper-super WAIT" id="sniper-card">
+      <div class="sniper-header">⚡ SNIPER SUPER</div>
+      <div class="sniper-body">
+        <div class="dir WAIT" id="sniper-dir">——</div>
+        <div class="sniper-levels">
+          <div class="sniper-lvl">
+            <div class="sniper-lbl">Entry</div>
+            <div class="sniper-val" id="sniper-entry" style="color:var(--gold)">——</div>
+          </div>
+          <div class="sniper-lvl">
+            <div class="sniper-lbl">TP</div>
+            <div class="sniper-val" id="sniper-tp" style="color:var(--green)">——</div>
+          </div>
+          <div class="sniper-lvl">
+            <div class="sniper-lbl">SL</div>
+            <div class="sniper-val" id="sniper-sl" style="color:var(--red)">——</div>
+          </div>
+        </div>
+        <div class="sniper-reason" id="sniper-reason">waiting setup...</div>
+      </div>
+    </div>
+
+    <!-- BEST SIGNAL CARD -->
+    <div class="card best-signal WAIT" id="best-signal-card">
+      <div class="best-header">⚡ FINAL SIGNAL</div>
+      <div class="best-body">
+        <div class="best-name" id="best-name">--</div>
+        <div class="best-dir WAIT" id="best-dir">WAIT</div>
+        <div class="best-levels">
+          <div class="lvl"><span>ENTRY</span><b id="best-entry">--</b></div>
+          <div class="lvl"><span>TP</span><b id="best-tp">--</b></div>
+          <div class="lvl"><span>SL</span><b id="best-sl">--</b></div>
+        </div>
+        <div class="best-score">SCORE: <span id="best-score">0</span></div>
+        <div class="best-reason" id="best-reason">waiting best setup...</div>
+      </div>
+    </div>
 
     <!-- ELITE SIGNAL HERO -->
     <div class="card elite-card WAIT" id="elite-card">
@@ -1800,6 +1871,12 @@ function renderMulti(multi) {
       }
     });
   }
+
+  // SNIPER SUPER card update
+  if (multi.signals) {
+    var sniperSig = multi.signals.find(function(s) { return s && s.name === "SNIPER SUPER"; });
+    updateSniperSuper(sniperSig || null);
+  }
 }
 
 function renderSniperSignal(s) {
@@ -1827,6 +1904,44 @@ function renderSniperSignal(s) {
     el('elite-tag').textContent = '⚡ SNIPER ENTRY';
     el('elite-price').textContent = s.price ? '$' + Number(s.price).toLocaleString() : '——';
   }
+}
+
+function updateSniperSuper(sig) {
+  if (!sig || sig.name !== "SNIPER SUPER") {
+    const card = el("sniper-card");
+    if (card) { card.className = "card sniper-super WAIT"; }
+    el("sniper-dir").textContent = "——";
+    el("sniper-dir").className = "dir WAIT";
+    el("sniper-entry").textContent = "——";
+    el("sniper-entry").style.color = "var(--gold)";
+    el("sniper-tp").textContent = "——";
+    el("sniper-sl").textContent = "——";
+    el("sniper-reason").textContent = "waiting setup...";
+    return;
+  }
+  const dir = sig.type || sig.direction || "WAIT";
+  const card = el("sniper-card");
+  if (card) { card.className = "card sniper-super " + dir; }
+  el("sniper-dir").textContent = dir;
+  el("sniper-dir").className = "dir " + dir;
+  el("sniper-entry").textContent = sig.entry ? fmt(sig.entry) : "——";
+  el("sniper-tp").textContent = sig.tp ? fmt(Array.isArray(sig.tp) ? sig.tp[0] : sig.tp) : "——";
+  el("sniper-sl").textContent = sig.sl ? fmt(sig.sl) : "——";
+  el("sniper-reason").textContent = sig.reason || "——";
+}
+
+function updateBestSignal(sig) {
+  if (!sig) return;
+  el("best-name").innerText = sig.name || "--";
+  el("best-dir").innerText = sig.type || "WAIT";
+  el("best-dir").className = "best-dir " + (sig.type || "WAIT");
+  el("best-entry").innerText = sig.entry ? fmt(sig.entry) : "--";
+  el("best-tp").innerText = sig.tp ? fmt(Array.isArray(sig.tp) ? sig.tp[0] : sig.tp) : "--";
+  el("best-sl").innerText = sig.sl ? fmt(sig.sl) : "--";
+  el("best-score").innerText = sig.score || 0;
+  el("best-reason").innerText = sig.reason || "--";
+  const card = el("best-signal-card");
+  card.className = "card best-signal " + (sig.type || "WAIT");
 }
 
 function renderConfirmedSignal(s) {
@@ -2102,6 +2217,7 @@ function connect() {
         if (sniper) renderSniperSignal(sniper);
         if (confirmed) renderConfirmedSignal(confirmed);
         if (multi) renderMulti(multi);
+        if (data.best_signal) updateBestSignal(data.best_signal);
 
         // Update trade card (auto/manual execution)
         updateTradeCard(data);

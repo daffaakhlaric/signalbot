@@ -1,5 +1,14 @@
 const { scoreSignal } = require("./aiScoring");
 
+function getPriority(sig) {
+  if (sig.name === "SNIPER SUPER") return 5;
+  if (sig.name === "SMC") return 4;
+  if (sig.name === "ORDER BLOCK") return 3;
+  if (sig.name === "FVG") return 2;
+  if (sig.name === "PRE SNIPER") return 3;
+  return 1;
+}
+
 function generateFallbackSignals(payload) {
   var price = payload.close;
   var range = (payload.high - payload.low) || 300;
@@ -55,7 +64,7 @@ function generateFallbackSignals(payload) {
       entry: price,
       tp: [price + (payload.close > payload.open ? -100 : 100)],
       sl: price + (payload.close > payload.open ? 100 : -100),
-      status: "ACTIVE",
+      status: "WAIT",
       reason: "micro scalp",
       score: 25,
       confidence: "LOW"
@@ -120,6 +129,19 @@ function generateMultiSignals(payload, signal, context) {
     });
   }
 
+  // PRE SNIPER — early momentum entry before breakout
+  if (context.htf_bias && context.htf_bias !== "NEUTRAL") {
+    signals.push({
+      name: "PRE SNIPER",
+      type: context.htf_bias,
+      entry: price,
+      tp: [price + (context.htf_bias === "LONG" ? 200 : -200)],
+      sl: context.htf_bias === "LONG" ? price - 100 : price + 100,
+      status: "READY",
+      reason: "pre momentum entry"
+    });
+  }
+
   // Fallback if not enough signals
   if (signals.length < 2) {
     var fallback = generateFallbackSignals(payload);
@@ -144,7 +166,12 @@ function generateMultiSignals(payload, signal, context) {
   }).slice(0, 5);
 
   // sort best → worst
-  signals.sort(function(a, b) { return b.score - a.score; });
+  signals.sort(function(a, b) {
+    var pa = getPriority(a);
+    var pb = getPriority(b);
+    if (pb !== pa) return pb - pa;
+    return b.score - a.score;
+  });
 
   return signals;
 }

@@ -7,43 +7,64 @@ var round = function(v, d) {
 function detectOrderBlock(candles) {
   if (!candles || candles.length < 20) return null;
 
-  var last = candles[candles.length - 1];
-  var prev = candles[candles.length - 2];
-  var obCandle = candles[candles.length - 3];
+  var closedCandle = candles[candles.length - 2];
+  var prevCandle = candles[candles.length - 3];
+  var obCandle = candles[candles.length - 4];
 
-  if (!last || !prev || !obCandle) return null;
+  if (!closedCandle || !prevCandle || !obCandle) return null;
 
-  // Bullish OB: price breaks above previous high after impulse
-  if (last.close > prev.high && obCandle.close > obCandle.open) {
+  var range = closedCandle.high - closedCandle.low;
+  var body = Math.abs(closedCandle.close - closedCandle.open);
+  var bodyPct = range > 0 ? body / range : 0;
+  var isImpulse = bodyPct > 0.5;
+
+  if (!isImpulse) return null;
+
+  var lastClose = closedCandle.close;
+  var lastHigh = closedCandle.high;
+  var lastLow = closedCandle.low;
+
+  if (lastClose > prevCandle.high && obCandle.close > obCandle.open) {
+    var obRange = obCandle.high - obCandle.low;
+    var retraceEntry = obCandle.low + obRange * 0.3;
+    var tpDistance = obRange * 2;
+    var slDistance = obCandle.low * 0.002;
+
     return {
       type: "OB",
       status: "ACTIVE",
       direction: "LONG",
       zone: [round(obCandle.low, 2), round(obCandle.high, 2)],
-      entry: round(obCandle.low, 2),
-      tp: round(last.close + (obCandle.high - obCandle.low) * 2, 2),
-      sl: round(obCandle.low * 0.998, 2),
-      rr: round((last.close + (obCandle.high - obCandle.low) * 2 - obCandle.low) / (obCandle.low - obCandle.low * 0.998), 2),
-      confidence: 0.25,
+      entry: round(retraceEntry, 2),
+      tp: round(lastClose + tpDistance, 2),
+      sl: round(obCandle.low - slDistance, 2),
+      rr: round(tpDistance / (retraceEntry - (obCandle.low - slDistance)), 2),
+      confidence: 0.3,
       pattern: "ORDER_BLOCK",
-      reason: "bullish order block detected"
+      reason: "bullish order block + impulse confirmed",
+      impulse_pct: round(bodyPct * 100, 0) + "%"
     };
   }
 
-  // Bearish OB: price breaks below previous low after impulse
-  if (last.close < prev.low && obCandle.close < obCandle.open) {
+  if (lastClose < prevCandle.low && obCandle.close < obCandle.open) {
+    var obRange = obCandle.high - obCandle.low;
+    var retraceEntry = obCandle.high - obRange * 0.3;
+    var tpDistance = obRange * 2;
+    var slDistance = obCandle.high * 0.002;
+
     return {
       type: "OB",
       status: "ACTIVE",
       direction: "SHORT",
       zone: [round(obCandle.low, 2), round(obCandle.high, 2)],
-      entry: round(obCandle.high, 2),
-      tp: round(last.close - (obCandle.high - obCandle.low) * 2, 2),
-      sl: round(obCandle.high * 1.002, 2),
-      rr: round((obCandle.high - (last.close - (obCandle.high - obCandle.low) * 2)) / (obCandle.high * 1.002 - obCandle.high), 2),
-      confidence: 0.25,
+      entry: round(retraceEntry, 2),
+      tp: round(lastClose - tpDistance, 2),
+      sl: round(obCandle.high + slDistance, 2),
+      rr: round(tpDistance / ((obCandle.high + slDistance) - retraceEntry), 2),
+      confidence: 0.3,
       pattern: "ORDER_BLOCK",
-      reason: "bearish order block detected"
+      reason: "bearish order block + impulse confirmed",
+      impulse_pct: round(bodyPct * 100, 0) + "%"
     };
   }
 
