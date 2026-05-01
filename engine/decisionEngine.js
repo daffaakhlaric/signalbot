@@ -89,6 +89,17 @@ function detectSniperSuper(context, candles) {
   var ob = context.ob;
   var htf_bias = context.htf_bias;
 
+  // Fallback if NEUTRAL — use structure or EMA
+  if (htf_bias === "NEUTRAL" || !htf_bias) {
+    if (context.structure === "HH" || context.structure === "HL") {
+      htf_bias = "LONG";
+    } else if (context.structure === "LL" || context.structure === "LH") {
+      htf_bias = "SHORT";
+    } else {
+      htf_bias = payload.close > payload.ema20 ? "LONG" : "SHORT";
+    }
+  }
+
   if (htf_bias === "LONG") {
     return {
       name: "SNIPER SUPER",
@@ -566,7 +577,7 @@ function buildDecision(opts) {
     }
   };
 
-  result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
+  result.multi_signals = multiSignal.generateMultiSignals(payload, result, context, candles);
 
   var sniperSuper = detectSniperSuper(context, candles);
   console.log("SNIPER:", sniperSuper ? sniperSuper.name + " " + sniperSuper.type : null, "| HTF:", context.htf_bias, "| bodyPct:", (candles[candles.length-2] && ((candles[candles.length-2].high - candles[candles.length-2].low) > 0 ? Math.abs(candles[candles.length-2].close - candles[candles.length-2].open) / (candles[candles.length-2].high - candles[candles.length-2].low) : 0)).toFixed(2));

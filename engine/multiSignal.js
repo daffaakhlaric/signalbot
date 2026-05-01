@@ -73,7 +73,7 @@ function generateFallbackSignals(payload) {
   ];
 }
 
-function generateMultiSignals(payload, signal, context) {
+function generateMultiSignals(payload, signal, context, candles) {
   var price = payload.close;
   var signals = [];
 
@@ -98,7 +98,7 @@ function generateMultiSignals(payload, signal, context) {
       entry: context.ob.entry || context.ob.zone,
       tp: [context.ob.tp],
       sl: context.ob.sl,
-      status: "PLAN",
+      status: "ACTIVE",
       reason: "OB zone reaction"
     });
   }
@@ -112,12 +112,12 @@ function generateMultiSignals(payload, signal, context) {
       entry: fvgEntry,
       tp: [price + (context.fvg.direction === "LONG" ? 200 : -200)],
       sl: context.fvg.direction === "LONG" ? fvgEntry - 50 : fvgEntry + 50,
-      status: "WAIT",
+      status: "ACTIVE",
       reason: context.fvg.reason
     });
   }
 
-  // SNIPER
+  // SNIPER (from sniperSignal)
   if (signal && signal.sniperSignal && signal.sniperSignal.direction) {
     signals.push({
       name: "SNIPER",
@@ -138,7 +138,7 @@ function generateMultiSignals(payload, signal, context) {
       entry: price,
       tp: [price + (context.htf_bias === "LONG" ? 200 : -200)],
       sl: context.htf_bias === "LONG" ? price - 100 : price + 100,
-      status: "READY",
+      status: "ACTIVE",
       reason: "pre momentum entry"
     });
   }
