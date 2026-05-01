@@ -74,7 +74,7 @@ try {
 // SNIPER SUPER — Elite Momentum Entry System
 
 function detectSniperSuper(context, candles) {
-  var closedCandle = candles[candles.length - 2]; // prev = confirmed closed
+  var closedCandle = candles[candles.length - 2];
   var lastCandle = candles[candles.length - 1];
 
   if (!closedCandle || !lastCandle) return null;
@@ -82,35 +82,33 @@ function detectSniperSuper(context, candles) {
   var range = closedCandle.high - closedCandle.low;
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
-  var isImpulse = bodyPct > 0.25;
 
-  if (!isImpulse) return null;
+  if (bodyPct < 0.25) return null;
 
+  var price = context.close || closedCandle.close;
   var ob = context.ob;
-  var smc = context.smc;
   var htf_bias = context.htf_bias;
-  var structure = context.structure;
 
-  if (htf_bias === "LONG" && (htf_bias === "LONG" || htf_bias === "SHORT")) {
+  if (htf_bias === "LONG") {
     return {
       name: "SNIPER SUPER",
       type: "LONG",
-      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[0] : null) || payload.close,
-      tp: ob && ob.tp ? ob.tp : payload.close + 150,
-      sl: ob && ob.sl ? ob.sl : payload.close - 100,
+      entry: ob?.entry || ob?.zone?.[0] || price,
+      tp: ob?.tp || price + 150,
+      sl: ob?.sl || price - 100,
       status: "ACTIVE",
       reason: "HTF bias + impulse",
       score_boost: 30
     };
   }
 
-  if (htf_bias === "SHORT" && (htf_bias === "LONG" || htf_bias === "SHORT")) {
+  if (htf_bias === "SHORT") {
     return {
       name: "SNIPER SUPER",
       type: "SHORT",
-      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[1] : null) || payload.close,
-      tp: ob && ob.tp ? ob.tp : payload.close - 150,
-      sl: ob && ob.sl ? ob.sl : payload.close + 100,
+      entry: ob?.entry || ob?.zone?.[1] || price,
+      tp: ob?.tp || price - 150,
+      sl: ob?.sl || price + 100,
       status: "ACTIVE",
       reason: "HTF bias + impulse",
       score_boost: 30
@@ -450,7 +448,8 @@ function buildDecision(opts) {
     : "NEUTRAL";
   var context = {
     htf_bias: htfBiasActual, structure: structure, rsi: payload.rsi,
-    ema_align: emaAlign, smc: smcSignal, ob: obSignal, fvg: fvgSignal
+    ema_align: emaAlign, smc: smcSignal, ob: obSignal, fvg: fvgSignal,
+    close: payload.close
   };
 
   // ── Elite Decision: SMC + OB + FVG + HTF Confluence ─────────────
@@ -570,6 +569,7 @@ function buildDecision(opts) {
   result.multi_signals = multiSignal.generateMultiSignals(payload, result, context);
 
   var sniperSuper = detectSniperSuper(context, candles);
+  console.log("SNIPER:", sniperSuper ? sniperSuper.name + " " + sniperSuper.type : null, "| HTF:", context.htf_bias, "| bodyPct:", (candles[candles.length-2] && ((candles[candles.length-2].high - candles[candles.length-2].low) > 0 ? Math.abs(candles[candles.length-2].close - candles[candles.length-2].open) / (candles[candles.length-2].high - candles[candles.length-2].low) : 0)).toFixed(2));
   if (sniperSuper) {
     result.multi_signals.push(sniperSuper);
   }
