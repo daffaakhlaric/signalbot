@@ -181,4 +181,4 @@ function generateMultiSignals(payload, signal, context, candles) {
   return signals;
 }
 
-module.exports = { generateMultiSignals: generateMultiSignals };
+module.exports = { generateMultiSignals: generateMultiSignals, generateFallbackSignals: generateFallbackSignals };
