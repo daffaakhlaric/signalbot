@@ -1956,6 +1956,7 @@ function buildMarketPayloadForSymbol(candles, symbol) {
 // ── Process a single trading pair ───────────────────────────
 async function processPair(symbol) {
   try {
+    console.log("RUN LOOP:", symbol);
     const state = pairState[symbol];
     if (!state) return;
 
@@ -1963,6 +1964,12 @@ async function processPair(symbol) {
       fetchKlines(symbol, INTERVAL, KLINE_LIMIT),
       fetchKlines(symbol, "1h",  KLINE_LIMIT),
     ]);
+
+    console.log("KLINES:", symbol, "1m:", candles1m.length, "1h:", candles1h.length);
+    if (candles1m.length === 0) {
+      botLog("err", "❌ API returned 0 klines for " + symbol);
+      return;
+    }
 
     if (candles1m.length < 20) return;
 
@@ -2096,6 +2103,14 @@ async function processPair(symbol) {
       payload: payload1m,
       htfBias: htfBias,
     });
+
+    console.log("DECISION:", JSON.stringify({
+      status: decision?.status,
+      direction: decision?.direction,
+      best_signal: decision?.best_signal?.name,
+      multi_count: decision?.multi_signals?.length,
+      market_mode: decision?.market_mode
+    }, null, 2));
 
     // Apply confirmation candle filter (SAFE mode — requires candle close)
     const confirmedDecision = confirmEntry(decision, payload1m);
@@ -2303,6 +2318,7 @@ function updateSignalStatusRealtime(signal, currentPrice) {
 // ── Main tick: poll exchange, run sniper engine for all pairs ─
 async function tick() {
   try {
+    console.log("=== TICK START ===");
     // Process all trading pairs in parallel
     await Promise.all(SYMBOLS.map(symbol => processPair(symbol)));
 
@@ -2427,7 +2443,9 @@ app.post("/simulate", async (req, res) => {
     if (signalHistory.length > 50) signalHistory.pop();
 
     broadcast({ type: "market_data", data: payload });
+    botLog("info", "sending market data...");
     broadcast({ type: "signal", data: signal });
+    botLog("info", "sending signal: " + signal.decision_now);
     broadcast({ type: "history", data: signalHistory });
     res.json({ success: true, signal, market_data: payload });
   } catch (err) {
