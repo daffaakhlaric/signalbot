@@ -21,7 +21,7 @@ function generateFallbackSignals(payload) {
       entry: price + range * 0.3,
       tp: [price - range * 0.3],
       sl: price + range * 0.6,
-      status: "PLAN",
+      status: "ACTIVE",
       reason: "range resistance play",
       score: 30,
       confidence: "LOW"
@@ -32,7 +32,7 @@ function generateFallbackSignals(payload) {
       entry: price - range * 0.3,
       tp: [price + range * 0.3],
       sl: price - range * 0.6,
-      status: "PLAN",
+      status: "ACTIVE",
       reason: "range support play",
       score: 30,
       confidence: "LOW"
@@ -43,7 +43,7 @@ function generateFallbackSignals(payload) {
       entry: price + range * 0.5,
       tp: [price + range],
       sl: price + range * 0.2,
-      status: "WAIT",
+      status: "ACTIVE",
       reason: "breakout upside",
       score: 35,
       confidence: "MEDIUM"
@@ -54,7 +54,7 @@ function generateFallbackSignals(payload) {
       entry: price - range * 0.5,
       tp: [price - range],
       sl: price - range * 0.2,
-      status: "WAIT",
+      status: "ACTIVE",
       reason: "breakdown downside",
       score: 35,
       confidence: "MEDIUM"
@@ -65,7 +65,7 @@ function generateFallbackSignals(payload) {
       entry: price,
       tp: [price + (payload.close > payload.open ? -100 : 100)],
       sl: price + (payload.close > payload.open ? 100 : -100),
-      status: "WAIT",
+      status: "ACTIVE",
       reason: "micro scalp",
       score: 25,
       confidence: "LOW"

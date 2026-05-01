@@ -1774,11 +1774,11 @@ function renderMulti(multi) {
   const best  = multi.best_signal;
   const ecard = el('elite-card');
   if (best) {
-    const dir = best.direction || 'WAIT';
+    const dir = best.direction || best.type || 'WAIT';
     ecard.className = 'card elite-card ' + dir;
     el('elite-dir').textContent    = dir;
     el('elite-dir').className      = 'elite-direction ' + dir;
-    el('elite-reason').textContent = best.reason || '—';
+    el('elite-reason').textContent = best.reason || (dir === 'WAIT' ? 'Market sideways — no high probability setup' : '—');
     el('elite-entry').textContent  = best.entry  ? fmt(best.entry)  : '——';
     el('elite-tp').textContent     = best.tp     ? fmt(best.tp)     : '——';
     el('elite-sl').textContent     = best.sl     ? fmt(best.sl)     : '——';

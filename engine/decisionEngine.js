@@ -553,6 +553,19 @@ function buildDecision(opts) {
     result.multi_signals.push(sniperSuper);
   }
 
+  // 🔥 FORCE SIGNAL (ANTI KOSONG)
+  if (!result.multi_signals || result.multi_signals.length === 0) {
+    result.multi_signals = [{
+      name: "FORCED SIGNAL",
+      type: context.htf_bias || "LONG",
+      entry: context.close,
+      tp: [context.close + 100],
+      sl: context.close - 100,
+      status: "ACTIVE",
+      reason: "fallback signal (no setup)"
+    }];
+  }
+
   // ── LTF SNIPER (ultra-fast entry from 1m candle) ───────────
   if (ltfCandles && ltfCandles.length > 5) {
     var ltfSignal = detectLTFSignal(context, ltfCandles);
@@ -572,6 +585,9 @@ function buildDecision(opts) {
   }
 
   var bestSignals = pickBestLongShort(result.multi_signals);
+  if (!bestSignals || bestSignals.length === 0) {
+    bestSignals = result.multi_signals;
+  }
   result.multi_signals = bestSignals;
 
   var bestSignal = pickBestSignal(result.multi_signals, context);
