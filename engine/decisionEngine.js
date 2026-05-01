@@ -82,7 +82,7 @@ function detectSniperSuper(context, candles) {
   var range = closedCandle.high - closedCandle.low;
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
-  var isImpulse = bodyPct > 0.4;
+  var isImpulse = bodyPct > 0.25;
 
   if (!isImpulse) return null;
 
@@ -91,28 +91,28 @@ function detectSniperSuper(context, candles) {
   var htf_bias = context.htf_bias;
   var structure = context.structure;
 
-  if (htf_bias === "LONG" && ["HH", "HL"].includes(structure) && ((ob && ob.direction === "LONG") || (smc && smc.direction === "LONG"))) {
+  if (htf_bias === "LONG" && (htf_bias === "LONG" || htf_bias === "SHORT")) {
     return {
       name: "SNIPER SUPER",
       type: "LONG",
-      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[0] : null) || context.ob?.zone || htf_bias,
-      tp: ob && ob.tp ? ob.tp : null,
-      sl: ob && ob.sl ? ob.sl : null,
+      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[0] : null) || payload.close,
+      tp: ob && ob.tp ? ob.tp : payload.close + 150,
+      sl: ob && ob.sl ? ob.sl : payload.close - 100,
       status: "ACTIVE",
-      reason: "SMC + OB + bullish impulse",
+      reason: "HTF bias + impulse",
       score_boost: 30
     };
   }
 
-  if (htf_bias === "SHORT" && ["LL", "LH"].includes(structure) && ((ob && ob.direction === "SHORT") || (smc && smc.direction === "SHORT"))) {
+  if (htf_bias === "SHORT" && (htf_bias === "LONG" || htf_bias === "SHORT")) {
     return {
       name: "SNIPER SUPER",
       type: "SHORT",
-      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[1] : null) || context.ob?.zone || htf_bias,
-      tp: ob && ob.tp ? ob.tp : null,
-      sl: ob && ob.sl ? ob.sl : null,
+      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[1] : null) || payload.close,
+      tp: ob && ob.tp ? ob.tp : payload.close - 150,
+      sl: ob && ob.sl ? ob.sl : payload.close + 100,
       status: "ACTIVE",
-      reason: "SMC + OB + bearish impulse",
+      reason: "HTF bias + impulse",
       score_boost: 30
     };
   }
