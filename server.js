@@ -51,7 +51,7 @@ const FALLBACK_ORDER = ["bingx"];
 const SYMBOLS = ["BTC-USDT"];
 const INTERVAL = "15m"; // HTF interval
 const LTF_INTERVAL = "1m"; // LTF for fast sniper entry
-const POLL_MS = 15000; // 15s — balanced (was 3000 which caused 429 rate limit)
+const POLL_MS = 30000; // 30s — safe rate limit (avoid 429)
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 // ── Fixed Risk Execution Model ─────────────────────────────
@@ -2319,8 +2319,11 @@ function updateSignalStatusRealtime(signal, currentPrice) {
 async function tick() {
   try {
     console.log("=== TICK START ===");
-    // Process all trading pairs in parallel
-    await Promise.all(SYMBOLS.map(symbol => processPair(symbol)));
+    // Process all trading pairs sequentially with delay to avoid rate limit
+    for (const symbol of SYMBOLS) {
+      await processPair(symbol);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay between symbols
+    }
 
     // Try to fetch positions (for first pair or all)
     try {
