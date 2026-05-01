@@ -83,20 +83,23 @@ function detectSniperSuper(context, candles) {
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
 
-  if (bodyPct < 0.25) return null;
+  if (bodyPct < 0.15) return null;
 
   var price = context.close || closedCandle.close;
   var ob = context.ob;
   var htf_bias = context.htf_bias;
 
-  // Fallback if NEUTRAL — use structure or EMA
+  // Fallback if NEUTRAL — use structure or EMA or candle direction
   if (htf_bias === "NEUTRAL" || !htf_bias) {
     if (context.structure === "HH" || context.structure === "HL") {
       htf_bias = "LONG";
     } else if (context.structure === "LL" || context.structure === "LH") {
       htf_bias = "SHORT";
+    } else if (context.ema20 && context.ema50) {
+      htf_bias = context.close > context.ema20 ? "LONG" : "SHORT";
     } else {
-      htf_bias = payload.close > payload.ema20 ? "LONG" : "SHORT";
+      // Last resort: use candle direction
+      htf_bias = closedCandle.close > closedCandle.open ? "LONG" : "SHORT";
     }
   }
 
@@ -460,7 +463,7 @@ function buildDecision(opts) {
   var context = {
     htf_bias: htfBiasActual, structure: structure, rsi: payload.rsi,
     ema_align: emaAlign, smc: smcSignal, ob: obSignal, fvg: fvgSignal,
-    close: payload.close
+    close: payload.close, ema20: payload.ema20, ema50: payload.ema50
   };
 
   // ── Elite Decision: SMC + OB + FVG + HTF Confluence ─────────────
@@ -580,10 +583,16 @@ function buildDecision(opts) {
   result.multi_signals = multiSignal.generateMultiSignals(payload, result, context, candles);
 
   var sniperSuper = detectSniperSuper(context, candles);
-  console.log("SNIPER:", sniperSuper ? sniperSuper.name + " " + sniperSuper.type : null, "| HTF:", context.htf_bias, "| bodyPct:", (candles[candles.length-2] && ((candles[candles.length-2].high - candles[candles.length-2].low) > 0 ? Math.abs(candles[candles.length-2].close - candles[candles.length-2].open) / (candles[candles.length-2].high - candles[candles.length-2].low) : 0)).toFixed(2));
+  var closedCandle = candles[candles.length - 2];
+  var bodyPctCalc = closedCandle ? ((closedCandle.high - closedCandle.low) > 0 ? (Math.abs(closedCandle.close - closedCandle.open) / (closedCandle.high - closedCandle.low) * 100).toFixed(1) : 0) : 0;
+  console.log("=== SNIPER DEBUG ===");
+  console.log("HTF:", context.htf_bias, "| STRUCTURE:", context.structure, "| bodyPct:", bodyPctCalc + "%");
+  console.log("SNIPER:", sniperSuper ? sniperSuper.name + " " + sniperSuper.type : null);
+  console.log("MULTI before sniper:", result.multi_signals ? result.multi_signals.length : 0);
   if (sniperSuper) {
     result.multi_signals.push(sniperSuper);
   }
+  console.log("MULTI after sniper:", result.multi_signals ? result.multi_signals.length : 0);
 
   // 🔥 FORCE SIGNAL (ANTI KOSONG)
   if (!result.multi_signals || result.multi_signals.length === 0) {
