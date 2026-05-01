@@ -154,6 +154,27 @@ function isNearOB(price, ob) {
   return price >= (low - buffer) && price <= (high + buffer);
 }
 
+// ── Market Mode Detection (TRENDING vs SIDEWAYS) ───────────
+function detectMarketMode(context, candles) {
+  if (!candles || candles.length < 20) return "SIDEWAYS";
+  var closes = candles.map(function(c) { return c.close; });
+  var ema20 = context.ema20;
+  var ema50 = context.ema50;
+  var last = closes[closes.length - 1];
+  var prev = closes[closes.length - 10];
+  var move = Math.abs(last - prev);
+  var range = Math.max.apply(null, closes.slice(-20)) - Math.min.apply(null, closes.slice(-20));
+
+  if (
+    context.structure === "HH" || context.structure === "LL" ||
+    (ema20 && ema50 && Math.abs(ema20 - ema50) > 50) ||
+    (range > 0 && move > range * 0.5)
+  ) {
+    return "TRENDING";
+  }
+  return "SIDEWAYS";
+}
+
 // ── LTF Sniper (ultra-fast entry using 1m) ────────────────
 function detectLTFSignal(htfContext, ltfCandles) {
   var last = ltfCandles[ltfCandles.length - 1];
@@ -574,10 +595,39 @@ function buildDecision(opts) {
     }
   }
 
+  // ── MARKET MODE ADAPTIVE ─────────────────────────────────
+  context.market_mode = detectMarketMode(context, candles);
+
   console.log("SMC:", context.smc);
   console.log("OB:", context.ob);
   console.log("FVG:", context.fvg);
+  console.log("MODE:", context.market_mode);
   console.log("MULTI RAW:", result.multi_signals ? result.multi_signals.length : 0);
+
+  // ── SIDEWAYS: keep only RANGE/SCALP signals ──────────────
+  if (context.market_mode === "SIDEWAYS") {
+    var allowedNames = ["RANGE LONG", "RANGE SHORT", "SCALP", "BREAKOUT LONG", "BREAKDOWN SHORT", "FORCED SIGNAL"];
+    result.multi_signals = result.multi_signals.filter(function(s) {
+      return allowedNames.indexOf(s.name) !== -1;
+    });
+    if (result.multi_signals.length === 0) {
+      result.multi_signals = multiSignal.generateFallbackSignals(payload);
+    }
+  }
+
+  // ── TRENDING: boost sniper signals ────────────────────────
+  if (context.market_mode === "TRENDING") {
+    var sniperSuper = detectSniperSuper(context, candles);
+    if (sniperSuper) {
+      result.multi_signals.push(sniperSuper);
+    }
+    result.multi_signals = result.multi_signals.map(function(s) {
+      if (s.name === "SNIPER SUPER" || s.name === "LTF SNIPER") {
+        s.score = (s.score || 30) + 30;
+      }
+      return s;
+    });
+  }
 
   if (!result.multi_signals || result.multi_signals.length === 0) {
     console.log("⚠️ FORCE FALLBACK SIGNAL");
@@ -668,6 +718,7 @@ function buildDecision(opts) {
 
   var lifecycleSignals = lifecycle.updateLifecycle(payload.close);
   result.lifecycle_signals = lifecycleSignals.slice(-5);
+  result.market_mode = context.market_mode || "SIDEWAYS";
 
   return result;
 }

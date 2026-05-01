@@ -985,6 +985,7 @@ header {
         <span class="card-label">📊 Sniper Chart</span>
         <div style="display:flex;align-items:center;gap:12px">
           <div id="bias-banner" style="font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 10px;border-radius:6px;display:none"></div>
+          <div id="market-mode" style="font-size:9px;font-weight:700;letter-spacing:2px;padding:3px 10px;border-radius:6px;color:#facc15;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3)">MODE: --</div>
           <div class="tf-toggle" id="tf-toggle"></div>
         </div>
       </div>
@@ -2222,6 +2223,18 @@ function connect() {
             banner.style.color = bias === 'LONG' ? '#00FFA3' : bias === 'SHORT' ? '#FF4D4D' : '#FACC15';
             banner.style.background = bias === 'LONG' ? 'rgba(0,255,163,0.1)' : bias === 'SHORT' ? 'rgba(255,77,77,0.1)' : 'rgba(250,204,21,0.1)';
             banner.style.border = `1px solid ${banner.style.color}`;
+          }
+        }
+
+        // Market mode display
+        if (data.decision?.market_mode) {
+          const mmEl = el('market-mode');
+          if (mmEl) {
+            const mode = data.decision.market_mode;
+            mmEl.textContent = 'MODE: ' + mode;
+            mmEl.style.color = mode === 'TRENDING' ? '#00FFA3' : '#facc15';
+            mmEl.style.background = mode === 'TRENDING' ? 'rgba(0,255,163,0.1)' : 'rgba(250,204,21,0.1)';
+            mmEl.style.borderColor = mode === 'TRENDING' ? 'rgba(0,255,163,0.3)' : 'rgba(250,204,21,0.3)';
           }
         }
 

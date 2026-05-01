@@ -51,7 +51,7 @@ const FALLBACK_ORDER = ["bingx"];
 const SYMBOLS = ["BTC-USDT"];
 const INTERVAL = "15m"; // HTF interval
 const LTF_INTERVAL = "1m"; // LTF for fast sniper entry
-const POLL_MS = 3000; // 3s for ultra-fast signal
+const POLL_MS = 15000; // 15s — balanced (was 3000 which caused 429 rate limit)
 const KLINE_LIMIT = 250;                                      // enough for EMA200
 
 // ── Fixed Risk Execution Model ─────────────────────────────
