@@ -299,7 +299,7 @@ const FETCHERS = {
 
 // ── Session Filter ────────────────────────────────────────────
 function isTradingSession(utcHour) {
-  return utcHour >= 6 && utcHour < 23;
+  return utcHour >= 0 && utcHour < 24; // Always on (24/7 market)
 }
 
 // ── Market Structure Detection ─────────────────────────────────
