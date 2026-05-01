@@ -174,6 +174,10 @@ function generateMultiSignals(payload, signal, context) {
     return b.score - a.score;
   });
 
+  if (signals.length === 0) {
+    signals = generateFallbackSignals(payload);
+  }
+
   return signals;
 }
 

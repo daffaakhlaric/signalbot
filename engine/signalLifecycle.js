@@ -44,7 +44,7 @@ function updateLifecycle(price) {
     }
 
     if (sig.status === "NEW" || sig.status === "READY") {
-      if (Math.abs(price - sig.entry) < 120) {
+      if (Math.abs(price - sig.entry) < 300) {
         sig.status = "ACTIVE";
       } else {
         sig.status = "READY";

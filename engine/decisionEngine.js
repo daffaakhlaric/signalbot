@@ -82,7 +82,7 @@ function detectSniperSuper(context, candles) {
   var range = closedCandle.high - closedCandle.low;
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
-  var isImpulse = bodyPct > 0.6;
+  var isImpulse = bodyPct > 0.4;
 
   if (!isImpulse) return null;
 
@@ -91,15 +91,15 @@ function detectSniperSuper(context, candles) {
   var htf_bias = context.htf_bias;
   var structure = context.structure;
 
-  if (htf_bias === "LONG" && ["HH", "HL"].includes(structure) && ob && ob.direction === "LONG" && smc && smc.direction === "LONG") {
+  if (htf_bias === "LONG" && ["HH", "HL"].includes(structure) && ((ob && ob.direction === "LONG") || (smc && smc.direction === "LONG"))) {
     return {
       name: "SNIPER SUPER",
       type: "LONG",
-      entry: ob.entry || ob.zone,
-      tp: ob.tp,
-      sl: ob.sl,
+      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[0] : null) || context.ob?.zone || htf_bias,
+      tp: ob && ob.tp ? ob.tp : null,
+      sl: ob && ob.sl ? ob.sl : null,
       status: "ACTIVE",
-      reason: "SMC + OB + bullish impulse confirmed",
+      reason: "SMC + OB + bullish impulse",
       score_boost: 30
     };
   }
@@ -108,11 +108,11 @@ function detectSniperSuper(context, candles) {
     return {
       name: "SNIPER SUPER",
       type: "SHORT",
-      entry: ob.entry || ob.zone,
-      tp: ob.tp,
-      sl: ob.sl,
+      entry: ob && ob.entry ? ob.entry : (ob && ob.zone ? ob.zone[1] : null) || context.ob?.zone || htf_bias,
+      tp: ob && ob.tp ? ob.tp : null,
+      sl: ob && ob.sl ? ob.sl : null,
       status: "ACTIVE",
-      reason: "SMC + OB + bearish impulse confirmed",
+      reason: "SMC + OB + bearish impulse",
       score_boost: 30
     };
   }
@@ -129,8 +129,7 @@ function pickBestSignal(signals, context) {
   });
   scored.sort(function(a, b) { return b.score - a.score; });
   var best = scored[0];
-  if (best.score < 50) return null;
-  return best;
+  return best || signals[0];
 }
 
 // ── RSI (lightweight, no external lib) ────────────────────
@@ -169,12 +168,6 @@ function detectLTFSignal(htfContext, ltfCandles) {
   var closes = ltfCandles.map(function(c) { return c.close; });
   var rsi = calcRSI(closes);
 
-  if (!isNearOB(last.close, htfContext.ob)) return null;
-  if (htfContext.structure === "NA") return null;
-
-  var hour = new Date().getUTCHours();
-  if (hour < 6 || hour > 23) return null;
-
   if (htfContext.htf_bias === "LONG" && last.close > prev.high && rsi < 65) {
     return {
       name: "LTF SNIPER",
@@ -183,7 +176,7 @@ function detectLTFSignal(htfContext, ltfCandles) {
       tp: last.close + 150,
       sl: last.low,
       status: "ACTIVE",
-      reason: "HTF LONG + OB zone + RSI " + Math.round(rsi)
+      reason: "HTF LONG + LTF breakout + RSI " + Math.round(rsi)
     };
   }
 
@@ -195,7 +188,7 @@ function detectLTFSignal(htfContext, ltfCandles) {
       tp: last.close - 150,
       sl: last.high,
       status: "ACTIVE",
-      reason: "HTF SHORT + OB zone + RSI " + Math.round(rsi)
+      reason: "HTF SHORT + LTF breakdown + RSI " + Math.round(rsi)
     };
   }
 
@@ -582,6 +575,19 @@ function buildDecision(opts) {
   result.multi_signals = bestSignals;
 
   var bestSignal = pickBestSignal(result.multi_signals, context);
+
+  if (!bestSignal) {
+    bestSignal = {
+      name: "FORCED SIGNAL",
+      type: context.htf_bias || "LONG",
+      entry: payload.close,
+      tp: payload.close + (context.htf_bias === "SHORT" ? -100 : 100),
+      sl: context.htf_bias === "SHORT" ? payload.close + 100 : payload.close - 100,
+      status: "ACTIVE",
+      reason: "always-on signal"
+    };
+  }
+
   result.best_signal = bestSignal;
 
   console.log("🔥 BEST 2 SIGNAL:", bestSignals.length);
