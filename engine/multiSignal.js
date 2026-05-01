@@ -178,6 +178,24 @@ function generateMultiSignals(payload, signal, context, candles) {
     signals = generateFallbackSignals(payload);
   }
 
+  // 🔥 SNIPER SUPER INJECTION (WAJIB)
+  try {
+    var detectSniper = require("./decisionEngine").detectSniperSuper;
+    if (detectSniper) {
+      var sniperSignal = detectSniper(context, candles);
+      if (sniperSignal) {
+        sniperSignal.status = "ACTIVE";
+        signals.push(sniperSignal);
+      }
+    }
+  } catch(e) {
+    // ignore
+  }
+
+  console.log("=== MULTI SIGNAL ===");
+  console.log("SIGNALS:", signals.map(function(s) { return s.name; }));
+  console.log("SNIPER:", sniperSignal ? sniperSignal.name + " " + sniperSignal.type : null);
+
   return signals;
 }
 

@@ -83,13 +83,15 @@ function detectSniperSuper(context, candles) {
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
 
-  if (bodyPct < 0.15) return null;
+  if (bodyPct < 0.05) return null;
 
   var price = context.close || closedCandle.close;
   var ob = context.ob;
   var htf_bias = context.htf_bias;
 
   // Fallback if NEUTRAL — use structure or EMA or candle direction
+  if (!htf_bias) htf_bias = "LONG";
+
   if (htf_bias === "NEUTRAL" || !htf_bias) {
     if (context.structure === "HH" || context.structure === "HL") {
       htf_bias = "LONG";
