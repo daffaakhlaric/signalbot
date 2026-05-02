@@ -20,6 +20,21 @@ function detectEngulfing(prev, curr) {
   return null;
 }
 
+function detectFakeBreakout(candles) {
+  if (!candles || candles.length < 5) return null;
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  if (!last || !prev) return null;
+
+  if (last.high > prev.high && last.close < prev.high) {
+    return { type: "FAKE_BREAKOUT", direction: "SHORT", reason: "break high then rejection" };
+  }
+  if (last.low < prev.low && last.close > prev.low) {
+    return { type: "FAKE_BREAKOUT", direction: "LONG", reason: "break low then rejection" };
+  }
+  return null;
+}
+
 function nearZone(price, zone, tolPct) {
   tolPct = tolPct || 0.002;
   if (!zone) return false;
@@ -35,6 +50,7 @@ function buildSniperSignal(context, candles) {
   if (!last || !prev) return null;
 
   var engulf = detectEngulfing(prev, last);
+  var fake = detectFakeBreakout(candles);
   var ob = context.ob;
   var fvg = context.fvg;
   var smc = context.smc;
@@ -46,11 +62,17 @@ function buildSniperSignal(context, candles) {
   var score = 0;
   var reasons = [];
 
-  if (engulf) {
+  if (fake) {
+    dir = fake.direction;
+    score += 40;
+    reasons.push("fake breakout");
+  } else if (engulf) {
     dir = engulf.type;
     score += 25;
     reasons.push("engulfing");
   }
+
+  if (!dir) return null;
 
   if ((structure === "LL" || structure === "LH") && dir === "SHORT") {
     score += 15;
@@ -68,7 +90,7 @@ function buildSniperSignal(context, candles) {
 
   if (ob && ob.direction === dir && nearZone(price, ob.zone)) {
     score += 15;
-    reasons.push("OB confluence");
+    reasons.push("OB zone");
   }
   if (fvg && fvg.direction === dir && nearZone(price, fvg.zone)) {
     score += 10;
@@ -80,11 +102,11 @@ function buildSniperSignal(context, candles) {
     reasons.push("SMC confirm");
   }
 
-  if (score < 50) return null;
+  if (score < 60) return null;
 
   var entry = price;
-  var tp = dir === "LONG" ? price + 250 : price - 250;
-  var sl = dir === "LONG" ? price - 120 : price + 120;
+  var tp = dir === "LONG" ? price + 150 : price - 150;
+  var sl = dir === "LONG" ? price - 80 : price + 80;
 
   return {
     type: dir,
@@ -101,4 +123,4 @@ function buildSniperSignal(context, candles) {
   };
 }
 
-module.exports = { detectEngulfing, buildSniperSignal };
+module.exports = { detectEngulfing, detectFakeBreakout, buildSniperSignal };

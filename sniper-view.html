@@ -295,12 +295,13 @@ function drawSignalArrow(sig) {
 
 function drawSignalArrowOnly(sig) {
   if (!sig) return;
+  var time = sig.candle ? sig.candle.time / 1000 : (sig.time ? sig.time / 1000 : Math.floor(Date.now() / 1000));
   markers.push({
-    time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+    time: time,
     position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
     color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
     shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
-    text: sig.type + ' ' + (sig.confidence || '').toUpperCase()
+    text: (sig.type || '') + ' SNIPER'
   });
   candleSeries.setMarkers(markers);
 }
@@ -465,6 +466,65 @@ function connect() {
           updateBias(cp.market_context.htf_bias);
           updateMode(cp.market_context.market_mode);
         }
+      }
+      if (msg.type === 'smart_money_overlay') {
+        var sig = msg.data;
+        if (sig) {
+          if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
+          if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
+          if (sig.entry && sig.tp && sig.sl) {
+            drawLevels(sig.entry, sig.tp, sig.sl);
+          }
+          if (sig.candle) {
+            drawSignalArrowOnly(sig);
+          }
+        }
+      }
+      if (msg.type === 'smart_money') {
+        var sm = msg.data || {};
+        var sig = sm.signal;
+        if (!sig) return;
+
+        if (sig.type === 'CHOPPY') {
+          markers.push({
+            time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+            position: 'aboveBar',
+            color: '#94a3b8',
+            shape: 'circle',
+            text: 'CHOPPY ⚠️'
+          });
+          if (sm.stats && sm.stats.volatility) {
+            markers.push({
+              time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+              position: 'aboveBar',
+              color: '#38bdf8',
+              shape: 'circle',
+              text: 'VOL ' + sm.stats.volatility + '%'
+            });
+          }
+          candleSeries.setMarkers(markers);
+          return;
+        }
+
+        markers.push({
+          time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+          position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
+          color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
+          shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
+          text: (sig.type || '') + ' (' + (sig.confidence || 'MED') + ')'
+        });
+        if (sm.stats && sm.stats.volatility) {
+          markers.push({
+            time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+            position: 'aboveBar',
+            color: '#38bdf8',
+            shape: 'circle',
+            text: 'VOL ' + sm.stats.volatility + '%'
+          });
+        }
+        if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
+        if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
+        candleSeries.setMarkers(markers);
       }
     } catch(e) { console.log('parse error:', e); }
   };

@@ -2332,6 +2332,10 @@ async function processPair(symbol) {
     };
     broadcast({ type: "chart_pack", pair: symbol, data: chartPack });
 
+    if (sniperFusion) {
+      broadcast({ type: "smart_money_overlay", pair: symbol, data: sniperFusion });
+    }
+
     simulateDryTrade(signal, payload1m);
     checkDryTrades(payload1m.close);
     if (signal.decision_now === "LONG" || signal.decision_now === "SHORT") {
@@ -2809,6 +2813,9 @@ server.listen(PORT, async () => {
     onDisconnect: function() { console.log("⚡ Realtime stream disconnected"); }
   });
 
+  var runEngine;
+  try { runEngine = require("./engine/runEngine"); } catch(e) { runEngine = null; }
+
   function handleClosedCandleRealtime(candle, allCandles) {
     try {
       var closes = allCandles.map(function(c) { return c.close; });
@@ -2821,6 +2828,17 @@ server.listen(PORT, async () => {
       );
       var support = Math.min.apply(null, allCandles.slice(-20).map(function(c) { return c.low; }));
       var resistance = Math.max.apply(null, allCandles.slice(-20).map(function(c) { return c.high; }));
+
+      var context = { htf_bias: latestSignal && latestSignal.htf_bias || "NEUTRAL" };
+      var engineResult = null;
+      if (runEngine) {
+        engineResult = runEngine.runEngine(context, allCandles);
+      }
+
+      var smData = engineResult || {};
+      if (engineResult && engineResult.signal) {
+        broadcast({ type: "smart_money", pair: symbol, data: smData });
+      }
 
       broadcast({
         type: "realtime_decision",
