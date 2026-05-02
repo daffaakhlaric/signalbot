@@ -650,13 +650,18 @@ function connect() {
         var sig = data.signal || data;
         var overlay = data.overlay || {};
         var htf = data.htf || {};
+        console.log('smart_money_overlay received:', { hasSignal: !!sig, hasOb: !!(sig && sig.ob), hasFvg: !!(sig && sig.fvg), obData: sig && sig.ob, fvgData: sig && sig.fvg, dataOb: !!data.ob, dataFvg: !!data.fvg, obZone: sig && sig.ob && sig.ob.zone, fvgZone: sig && sig.fvg && sig.fvg.zone });
         if (!sig) return;
 
         if (sig.ob && sig.ob.zone) {
           handleZone("OB", sig.ob);
+        } else if (data.ob && data.ob.zone) {
+          handleZone("OB", data.ob);
         }
         if (sig.fvg && sig.fvg.zone) {
           handleZone("FVG", sig.fvg);
+        } else if (data.fvg && data.fvg.zone) {
+          handleZone("FVG", data.fvg);
         }
         if (sig.entry && sig.tp && sig.sl) {
           drawLevels(sig.entry, sig.tp, sig.sl);

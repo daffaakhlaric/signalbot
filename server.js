@@ -2170,14 +2170,15 @@ async function processPair(symbol) {
         fvg: decision.extra && decision.extra.fvg,
         smc: sniperRec && { direction: sniperRec.preferred },
         structure: payload1m.structure,
-        htf_bias: htfBias
+        htf_bias: htfBias,
+        market: { choppyLevel: apexDecision.market_mode === "CHOPPY" ? "HIGH" : apexDecision.market_mode === "RANGE" ? "MED" : "LOW" }
       };
       sniperFusion = fusion.buildSniperSignal(fusionContext, candles1m);
       if (sniperFusion) {
         console.log("💥 SNIPER FUSION:", sniperFusion.type, "| score:", sniperFusion.score, "| reasons:", sniperFusion.reasons);
       }
     } catch(e) {
-      console.log("sniperFusion error:", e.message);
+      console.log("sniperFusion error:", e.message, e.stack);
     }
 
     console.log("DECISION:", JSON.stringify({
@@ -2393,10 +2394,13 @@ async function processPair(symbol) {
       var htfZones = buildHTFContext(candles1m);
       var combinedOverlay = {
         signal: sniperFusion,
+        ob: sniperFusion.ob,
+        fvg: sniperFusion.fvg,
         overlay: overlay,
         htf: htfZones
       };
-      console.log("Broadcasting smart_money_overlay:", { hasOb: !!sniperFusion.ob, hasFvg: !!sniperFusion.fvg, obZone: sniperFusion.ob ? sniperFusion.ob.zone : null, fvgZone: sniperFusion.fvg ? sniperFusion.fvg.zone : null, bos: !!overlay.bos, sweep: !!overlay.sweep });
+      console.log("Broadcasting smart_money_overlay:", { hasOb: !!sniperFusion.ob, hasFvg: !!sniperFusion.fvg, obZone: sniperFusion.ob ? sniperFusion.ob.zone : null, fvgZone: sniperFusion.fvg ? sniperFusion.fvg.zone : null, bos: !!overlay.bos, sweep: !!overlay.sweep, combinedKeys: Object.keys(combinedOverlay) });
+      console.log("combinedOverlay.signal.ob:", sniperFusion.ob, "combinedOverlay.ob:", combinedOverlay.ob);
       broadcast({ type: "smart_money_overlay", pair: symbol, data: combinedOverlay });
     }
 
@@ -2905,7 +2909,16 @@ server.listen(PORT, async () => {
       }
 
       var overlay = buildOverlay(allCandles, {});
-      if (overlay.bos || overlay.sweep) {
+      var obZone = null, fvgZone = null;
+      try {
+        var obMod = require("./engine/ob");
+        var fvgMod = require("./engine/fvg");
+        var obDet = obMod && obMod.detectOrderBlock ? obMod.detectOrderBlock(allCandles) : null;
+        var fvgDet = fvgMod && fvgMod.detectFVG ? fvgMod.detectFVG(allCandles) : null;
+        if (obDet) obZone = { direction: obDet.direction, zone: obDet.zone, rank: null };
+        if (fvgDet) fvgZone = { direction: fvgDet.direction, zone: fvgDet.zone, rank: null };
+      } catch(e) {}
+      if (overlay.bos || overlay.sweep || obZone || fvgZone) {
         broadcast({
           type: "smart_money_overlay",
           pair: symbol,
@@ -2915,7 +2928,9 @@ server.listen(PORT, async () => {
               entry: candle.close,
               candle: { time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close }
             },
-            overlay: overlay
+            overlay: overlay,
+            ob: obZone,
+            fvg: fvgZone
           }
         });
       }
