@@ -162,6 +162,7 @@ let activeLines = [];
 let activeZones = [];
 let sniperModeOn = true;
 let candleData = [];
+const ZONES = { ob: [], fvg: [] };
 
 function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
@@ -237,23 +238,111 @@ function buildZones(candles) {
   return { support: support, resistance: resistance };
 }
 
-function drawLevel(price, color, style) {
+function getZoneColor(rank) {
+  if (!rank) return "#64748b";
+  if (rank.strength === "STRONG") return "#22c55e";
+  if (rank.strength === "MEDIUM") return "#f59e0b";
+  return "#64748b";
+}
+
+function createZoneBox(zone, color) {
   var now = Math.floor(Date.now() / 1000);
-  var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: style || 0, priceLineVisible: false });
-  l.setData([{ time: now, value: price }]);
-  activeLines.push(l);
-  return l;
+  var top = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
+  var bot = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
+  top.setData([{ time: now, value: zone.high }]);
+  bot.setData([{ time: now, value: zone.low }]);
+  zone.seriesTop = top;
+  zone.seriesBot = bot;
+  zone.createdAt = now;
+  return zone;
+}
+
+function updateZoneBox(zone, currentTime) {
+  if (!zone.seriesTop || !zone.seriesBot) return;
+  zone.seriesTop.setData([
+    { time: zone.createdAt, value: zone.high },
+    { time: currentTime, value: zone.high }
+  ]);
+  zone.seriesBot.setData([
+    { time: zone.createdAt, value: zone.low },
+    { time: currentTime, value: zone.low }
+  ]);
+}
+
+function checkMitigation(zone, price) {
+  if (zone.mitigated) return true;
+  if (price >= zone.low && price <= zone.high) {
+    zone.mitigated = true;
+    return true;
+  }
+  return false;
+}
+
+function applyMitigatedStyle(zone) {
+  if (!zone.seriesTop || !zone.seriesBot) return;
+  zone.seriesTop.applyOptions({ color: "rgba(255,255,255,0.2)", lineWidth: 1 });
+  zone.seriesBot.applyOptions({ color: "rgba(255,255,255,0.2)", lineWidth: 1 });
+}
+
+function handleZone(type, zoneData) {
+  if (!zoneData || !zoneData.zone) return;
+  var now = Math.floor(Date.now() / 1000);
+  var color = type === "OB" ? "rgba(59,130,246,0.8)" : "rgba(168,85,247,0.8)";
+  var zone = {
+    id: type + "-" + now,
+    type: type,
+    low: zoneData.zone[0],
+    high: zoneData.zone[1],
+    direction: zoneData.direction,
+    createdAt: now,
+    mitigated: false,
+    seriesTop: null,
+    seriesBot: null,
+    rank: zoneData.rank
+  };
+  if (zoneData.rank) {
+    color = getZoneColor(zoneData.rank);
+  }
+  createZoneBox(zone, color);
+  ZONES[type.toLowerCase()].push(zone);
+  markers.push({
+    time: now,
+    position: "aboveBar",
+    color: getZoneColor(zoneData.rank),
+    shape: "circle",
+    text: (zoneData.rank ? zoneData.rank.strength : type) + " " + (zoneData.rank ? zoneData.rank.score : "")
+  });
+  candleSeries.setMarkers(markers);
+}
+
+function updateZonesRealtime(price) {
+  var now = Math.floor(Date.now() / 1000);
+  var allZones = ZONES.ob.concat(ZONES.fvg);
+  allZones.forEach(function(zone) {
+    updateZoneBox(zone, now);
+    if (checkMitigation(zone, price)) {
+      applyMitigatedStyle(zone);
+    }
+  });
 }
 
 function drawZone(zone, color) {
   if (!zone || !zone.length) return;
   var now = Math.floor(Date.now() / 1000);
   var low = zone[0], high = zone[1];
-  var top = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
-  var bottom = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
+  var top = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
+  var bottom = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
   top.setData([{ time: now, value: high }]);
   bottom.setData([{ time: now, value: low }]);
   activeZones.push({ top: top, bottom: bottom });
+}
+
+function drawLevel(price, color, style) {
+  var now = Math.floor(Date.now() / 1000);
+  var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: style || 0, priceLineVisible: false });
+  l.setData([{ time: now, value: price }]);
+  activeLines.push(l);
+  return l;
 }
 
 function drawLiquidity(prices, color) {
@@ -339,6 +428,21 @@ function drawDCA(sig) {
   sig.dca.forEach(function(l) {
     var line = chart.addLineSeries({ color: '#facc15', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
     line.setData([{ time: now, value: l.price }]);
+    activeLines.push(line);
+  });
+}
+
+function drawHeatmap(heat) {
+  if (!heat || !heat.length) return;
+  var now = Math.floor(Date.now() / 1000);
+  heat.forEach(function(h) {
+    var opacity = Math.min(0.8, h.strength / 10);
+    var line = chart.addLineSeries({
+      color: 'rgba(255,0,0,' + opacity + ')',
+      lineWidth: 3,
+      priceLineVisible: false
+    });
+    line.setData([{ time: now, value: h.price }]);
     activeLines.push(line);
   });
 }
@@ -535,6 +639,7 @@ function connect() {
             low: pt.candle.low,
             close: pt.candle.close
           });
+          updateZonesRealtime(pt.candle.close);
         }
       }
       if (msg.type === 'chart_pack') {
@@ -560,8 +665,12 @@ function connect() {
         var htf = data.htf || {};
         if (!sig) return;
 
-        if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
-        if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
+        if (sig.ob && sig.ob.zone) {
+          handleZone("OB", sig.ob);
+        }
+        if (sig.fvg && sig.fvg.zone) {
+          handleZone("FVG", sig.fvg);
+        }
         if (sig.entry && sig.tp && sig.sl) {
           drawLevels(sig.entry, sig.tp, sig.sl);
         }
@@ -575,6 +684,7 @@ function connect() {
         if (overlay.trap) drawTrap(overlay.trap);
         if (htf.ob && htf.ob.zone) drawHTFZone(htf.ob.zone, '#64748b');
         if (htf.fvg && htf.fvg.zone) drawHTFZone(htf.fvg.zone, '#475569');
+        if (data.heatmap) drawHeatmap(data.heatmap);
       }
       if (msg.type === 'smart_money') {
         var sm = msg.data || {};
