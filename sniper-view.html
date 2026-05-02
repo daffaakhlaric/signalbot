@@ -101,7 +101,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Space Mono', mon
   <span id="bias-badge">HTF: --</span>
   <span id="mode-badge">MODE: --</span>
   <button id="close-btn" onclick="window.close()">✕ CLOSE</button>
-  <button id="sniper-btn" onclick="sniperMode()">🎯 SNIPER MODE</button>
+  <button id="sniper-btn" onclick="toggleSniperView()">🎯 SNIPER MODE</button>
+  <button id="clear-btn" onclick="clearDrawings()">🧼 CLEAR</button>
 </div>
 
 <div id="chart-container"></div>
@@ -159,7 +160,8 @@ let markers = [];
 let activePair = 'BTCUSDT';
 let activeLines = [];
 let activeZones = [];
-let activeOBLine = null, activeFVGLine = null;
+let sniperModeOn = true;
+let candleData = [];
 
 function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
@@ -194,23 +196,10 @@ function clearDrawings() {
     chart.removeSeries(z.top);
     chart.removeSeries(z.bottom);
   });
-  if (activeOBLine) { chart.removeSeries(activeOBLine); activeOBLine = null; }
-  if (activeFVGLine) { chart.removeSeries(activeFVGLine); activeFVGLine = null; }
   activeLines = [];
   activeZones = [];
   markers = [];
   setMarkers([]);
-}
-
-function drawZone(zone, color) {
-  if (!zone || !zone.length) return;
-  var now = Math.floor(Date.now() / 1000);
-  var low = zone[0], high = zone[1];
-  var top = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
-  var bottom = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
-  top.setData([{ time: now, value: high }]);
-  bottom.setData([{ time: now, value: low }]);
-  activeZones.push({ top: top, bottom: bottom });
 }
 
 function drawLevels(entry, tp, sl) {
@@ -224,19 +213,75 @@ function drawLevels(entry, tp, sl) {
   activeLines.push(entryLine, tpLine, slLine);
 }
 
+function getPivots(data, left, right) {
+  left = left || 3; right = right || 3;
+  var pivots = [];
+  for (var i = left; i < data.length - right; i++) {
+    var slice = data.slice(i - left, i + right + 1);
+    var isHigh = slice.every(function(c) { return data[i].high >= c.high; });
+    var isLow = slice.every(function(c) { return data[i].low <= c.low; });
+    if (isHigh) pivots.push({ type: "HIGH", price: data[i].high, index: i });
+    if (isLow) pivots.push({ type: "LOW", price: data[i].low, index: i });
+  }
+  return pivots;
+}
+
+function buildZones(candles) {
+  if (!candles || candles.length < 10) return null;
+  var piv = getPivots(candles, 3, 3);
+  var highs = piv.filter(function(p) { return p.type === "HIGH"; }).map(function(p) { return p.price; });
+  var lows = piv.filter(function(p) { return p.type === "LOW"; }).map(function(p) { return p.price; });
+  if (!highs.length || !lows.length) return null;
+  var resistance = Math.max.apply(null, highs.slice(-5));
+  var support = Math.min.apply(null, lows.slice(-5));
+  return { support: support, resistance: resistance };
+}
+
+function drawLevel(price, color, style) {
+  var now = Math.floor(Date.now() / 1000);
+  var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: style || 0, priceLineVisible: false });
+  l.setData([{ time: now, value: price }]);
+  activeLines.push(l);
+  return l;
+}
+
+function drawZone(zone, color) {
+  if (!zone || !zone.length) return;
+  var now = Math.floor(Date.now() / 1000);
+  var low = zone[0], high = zone[1];
+  var top = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
+  var bottom = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
+  top.setData([{ time: now, value: high }]);
+  bottom.setData([{ time: now, value: low }]);
+  activeZones.push({ top: top, bottom: bottom });
+}
+
+function drawLiquidity(prices, color) {
+  var now = Math.floor(Date.now() / 1000);
+  prices.forEach(function(p) {
+    var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+    l.setData([{ time: now, value: p }]);
+    activeLines.push(l);
+  });
+}
+
+function drawOBFVG(ob, fvg) {
+  if (ob && ob.zone) drawZone(ob.zone, '#3B82F6');
+  if (fvg && fvg.zone) drawZone(fvg.zone, '#a855f7');
+}
+
 function drawSignalArrow(sig) {
   if (!sig || !sig.candle) return;
   if (sig.score && sig.score < 70) return;
   clearDrawings();
-  var m = [{
+  markers = [{
     time: sig.candle.time / 1000,
     position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
     color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
     shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
     text: sig.type + ' ' + (sig.confidence || '').toUpperCase()
   }];
-  markers = m;
-  setMarkers(m);
+  setMarkers(markers);
   if (sig.entry && sig.tp && sig.sl) {
     drawLevels(sig.entry, sig.tp, sig.sl);
   }
@@ -248,66 +293,82 @@ function drawSignalArrow(sig) {
   }
 }
 
-function sniperMode() {
-  chart.applyOptions({
-    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-    rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false }
+function drawSignalArrowOnly(sig) {
+  if (!sig) return;
+  markers.push({
+    time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+    position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
+    color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
+    shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
+    text: sig.type + ' ' + (sig.confidence || '').toUpperCase()
   });
+  candleSeries.setMarkers(markers);
+}
+
+function drawTradeLevels(sig) {
+  if (sig.entry) drawLevel(sig.entry, '#FACC15');
+  if (sig.tp) drawLevel(Array.isArray(sig.tp) ? sig.tp[0] : sig.tp, '#00FFA3');
+  if (sig.sl) drawLevel(sig.sl, '#FF4D4D');
+}
+
+function drawChartPack(data) {
+  clearDrawings();
+
+  var candles = data.candles || candleData;
+  var z = data.zones || {};
+  var liq = data.liquidity || {};
+
+  var support = z.support, resistance = z.resistance;
+  if ((!support || !resistance) && candles.length) {
+    var built = buildZones(candles);
+    if (built) { support = built.support; resistance = built.resistance; }
+  }
+
+  if (support && resistance) {
+    drawZone([support, resistance], '#334155');
+  }
+
+  if (liq.highs && liq.highs.length) drawLiquidity(liq.highs, '#06b6d4');
+  if (liq.lows && liq.lows.length) drawLiquidity(liq.lows, '#06b6d4');
+
+  drawOBFVG(data.ob, data.fvg);
+
+  if (data.bos && data.bos.price) {
+    drawLevel(data.bos.price, '#f97316');
+  }
+
+  var sig = data.signal;
+  if (sig && sig.score >= 70) {
+    drawSignalArrowOnly(sig);
+    drawTradeLevels(sig);
+  }
+}
+
+function toggleSniperView() {
+  sniperModeOn = !sniperModeOn;
+  chart.applyOptions({
+    grid: { vertLines: { visible: !sniperModeOn }, horzLines: { visible: !sniperModeOn } },
+    rightPriceScale: { borderVisible: !sniperModeOn },
+    timeScale: { borderVisible: !sniperModeOn }
+  });
+  document.getElementById('sniper-btn').textContent = sniperModeOn ? '🎯 SNIPER MODE' : '📊 NORMAL';
 }
 
 function updateFusionUI(f) {
-  const dirEl = document.getElementById('fusion-dir');
-  const scoreEl = document.getElementById('fusion-score');
-  const reasonsEl = document.getElementById('fusion-reasons');
-  const card = document.getElementById('chip-fusion');
-  if (!f) {
-    dirEl.textContent = '——'; dirEl.className = 'WAIT';
-    scoreEl.textContent = 'SCORE: --';
-    reasonsEl.textContent = 'reasons: --';
-    card.className = 'signal-chip';
-    return;
-  }
-  dirEl.textContent = f.type;
-  dirEl.className = f.type;
+  if (!f) return;
+  var dirEl = document.getElementById('fusion-dir');
+  var scoreEl = document.getElementById('fusion-score');
+  var reasonsEl = document.getElementById('fusion-reasons');
+  var card = document.getElementById('chip-fusion');
+  dirEl.textContent = f.type || '——';
+  dirEl.className = f.type || 'WAIT';
   scoreEl.textContent = 'SCORE: ' + (f.score || 0);
   reasonsEl.textContent = 'reasons: ' + (f.reasons || []).join(', ');
-  card.className = 'signal-chip ' + f.type;
-
-  const els = document.querySelectorAll('#fusion-lvls b');
+  card.className = 'signal-chip ' + (f.type || '');
+  var els = document.querySelectorAll('#fusion-lvls b');
   els[0].textContent = fmt(f.entry);
   els[1].textContent = fmt(f.tp);
   els[2].textContent = fmt(f.sl);
-  drawSignalArrow(f);
-}
-
-function updateSniperUI(s) {
-  if (!s) return;
-  const dirEl = document.getElementById('sniper-dir');
-  const reasonEl = document.getElementById('sniper-reason');
-  dirEl.textContent = s.decision_now || '——';
-  dirEl.className = 'chip-dir ' + (s.decision_now || 'WAIT');
-  reasonEl.textContent = s.reason || '';
-  document.getElementById('sniper-e').textContent = fmt(s.sniper_long?.entry_zone?.[0] || s.entry);
-  document.getElementById('sniper-tp').textContent = fmt(s.sniper_long?.tp?.[0]);
-  document.getElementById('sniper-sl').textContent = fmt(s.sniper_long?.sl);
-}
-
-function updateMultiUI(multi) {
-  if (!multi || !multi.signals) return;
-  var keys = Object.keys(multi.signals).slice(0, 2);
-  keys.forEach(function(k, i) {
-    var s = multi.signals[k];
-    if (!s) return;
-    var idx = i + 1;
-    document.getElementById('m' + idx + '-name').textContent = k.toUpperCase().replace('_', ' ');
-    var dirEl = document.getElementById('m' + idx + '-dir');
-    dirEl.textContent = s.direction || '——';
-    dirEl.className = 'chip-dir ' + (s.direction || 'WAIT');
-    document.getElementById('m' + idx + '-e').textContent = fmt(Array.isArray(s.entry) ? s.entry[0] : s.entry);
-    document.getElementById('m' + idx + '-tp').textContent = fmt(Array.isArray(s.tp) ? s.tp[0] : s.tp);
-    document.getElementById('m' + idx + '-sl').textContent = fmt(s.sl);
-  });
 }
 
 function updatePrice(price) {
@@ -334,6 +395,7 @@ async function loadChart() {
     var cdata = data.candles.map(function(c) {
       return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
     });
+    candleData = cdata;
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
   } catch(e) { console.log('chart load error:', e); }
@@ -374,6 +436,35 @@ function connect() {
         var pd = msg.data;
         if (pd && pd.close) updatePrice(pd.close);
         if (pd && pd.htf) updateBias(pd.htf.bias);
+      }
+      if (msg.type === 'price_tick') {
+        var pt = msg.data || {};
+        if (pt.price) updatePrice(pt.price);
+        if (pt.candle && candleSeries) {
+          candleSeries.update({
+            time: pt.candle.time / 1000,
+            open: pt.candle.open,
+            high: pt.candle.high,
+            low: pt.candle.low,
+            close: pt.candle.close
+          });
+        }
+      }
+      if (msg.type === 'chart_pack') {
+        var cp = msg.data || {};
+        drawChartPack(cp);
+        if (cp.candles && cp.candles.length) {
+          var cdata = cp.candles.map(function(c) {
+            return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
+          });
+          candleData = cdata;
+          candleSeries.setData(cdata);
+        }
+        if (cp.signal) updateFusionUI(cp.signal);
+        if (cp.market_context) {
+          updateBias(cp.market_context.htf_bias);
+          updateMode(cp.market_context.market_mode);
+        }
       }
     } catch(e) { console.log('parse error:', e); }
   };

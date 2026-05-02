@@ -22,6 +22,7 @@ const http = require("http");
 const path = require("path");
 const WebSocket = require("ws");
 const cors = require("cors");
+const { startStream, stopStream } = require("./realtime/wsClient");
 
 const app = express();
 const server = http.createServer(app);
@@ -2299,6 +2300,38 @@ async function processPair(symbol) {
       data: dualSignal
     });
 
+    // ── Broadcast chart_pack for sniper-view ────────────────────
+    var chartPack = {
+      signal: sniperFusion || (apexDecision.status === "ENTRY" ? {
+        type: apexDecision.direction,
+        entry: apexDecision.entry,
+        tp: Array.isArray(apexDecision.tp) ? apexDecision.tp[0] : apexDecision.tp,
+        sl: apexDecision.sl,
+        score: 80,
+        confidence: apexDecision.confidence,
+        candle: { time: payload1m.barTime, open: payload1m.open, high: payload1m.high, low: payload1m.low, close: payload1m.close },
+        ob: decision.extra && decision.extra.ob,
+        fvg: decision.extra && decision.extra.fvg
+      } : null),
+      zones: {
+        support: payload1m.support,
+        resistance: payload1m.resistance
+      },
+      liquidity: {
+        highs: [],
+        lows: []
+      },
+      ob: decision.extra && decision.extra.ob,
+      fvg: decision.extra && decision.extra.fvg,
+      bos: null,
+      candles: candles1m.slice(-200),
+      market_context: {
+        htf_bias: htfBias,
+        market_mode: apexDecision.market_mode
+      }
+    };
+    broadcast({ type: "chart_pack", pair: symbol, data: chartPack });
+
     simulateDryTrade(signal, payload1m);
     checkDryTrades(payload1m.close);
     if (signal.decision_now === "LONG" || signal.decision_now === "SHORT") {
@@ -2744,4 +2777,57 @@ server.listen(PORT, async () => {
       // silent fail
     }
   }, POLL_MS);
+
+  // ── Realtime WebStream (Binance 1m kline) ────────────────────
+  let ltfCandles = [];
+
+  startStream({
+    symbol: SYMBOLS[0].replace("-", "").toLowerCase(),
+    interval: "1m",
+    onKline: function(candle) {
+      var last = ltfCandles[ltfCandles.length - 1];
+      if (last && last.time === candle.time) {
+        ltfCandles[ltfCandles.length - 1] = candle;
+      } else {
+        ltfCandles.push(candle);
+        if (ltfCandles.length > 500) ltfCandles.shift();
+      }
+
+      broadcast({
+        type: "price_tick",
+        data: {
+          price: candle.close,
+          candle: { time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close }
+        }
+      });
+
+      if (candle.isClosed && ltfCandles.length >= 20) {
+        handleClosedCandleRealtime(candle, ltfCandles);
+      }
+    },
+    onConnect: function() { console.log("⚡ Realtime stream connected"); },
+    onDisconnect: function() { console.log("⚡ Realtime stream disconnected"); }
+  });
+
+  function handleClosedCandleRealtime(candle, allCandles) {
+    try {
+      var closes = allCandles.map(function(c) { return c.close; });
+      var ema20 = ema(closes, 20);
+      var ema50 = ema(closes, 50);
+      var rsiVal = rsi(closes, 14);
+      var structure = detectStructure(
+        allCandles.map(function(c) { return c.high; }),
+        allCandles.map(function(c) { return c.low; })
+      );
+      var support = Math.min.apply(null, allCandles.slice(-20).map(function(c) { return c.low; }));
+      var resistance = Math.max.apply(null, allCandles.slice(-20).map(function(c) { return c.high; }));
+
+      broadcast({
+        type: "realtime_decision",
+        data: { price: candle.close, structure: structure, ema20: ema20, ema50: ema50, rsi: rsiVal, support: support, resistance: resistance, htf_bias: latestSignal && latestSignal.htf_bias || "NEUTRAL" }
+      });
+    } catch(e) {
+      console.error("realtime decision error:", e.message);
+    }
+  }
 });
