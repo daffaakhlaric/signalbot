@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Sniper View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0B0F14;
+  --card-bg: #111827;
+  --border: rgba(255,255,255,0.06);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --gold: #FACC15;
+  --green: #00FFA3;
+  --red: #FF4D4D;
+  --cyan: #06b6d4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; overflow: hidden; }
+
+#toolbar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  background: #0a0f1a; border-bottom: 1px solid var(--border);
+  height: 48px; position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+}
+.pair-btn {
+  background: var(--card-bg); border: 1px solid var(--border);
+  color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 11px;
+}
+.pair-btn.active { border-color: var(--gold); color: var(--gold); }
+#pair-label { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: #fff; }
+#price-label { font-size: 16px; font-weight: 700; color: var(--green); }
+#bias-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px;
+  border-radius: 6px; background: rgba(0,255,163,0.1); color: var(--green);
+  border: 1px solid rgba(0,255,163,0.3);
+}
+#mode-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px;
+  border-radius: 6px; background: rgba(250,204,21,0.1); color: var(--gold);
+  border: 1px solid rgba(250,204,21,0.3);
+}
+#close-btn {
+  margin-left: auto; background: rgba(255,77,77,0.1); border: 1px solid rgba(255,77,77,0.3);
+  color: var(--red); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 11px;
+}
+#chart-container { position: fixed; top: 48px; left: 0; right: 0; bottom: 120px; }
+
+#signal-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 120px;
+  background: linear-gradient(to top, #0a0f1a, #0B0F14);
+  border-top: 1px solid var(--border); display: flex; gap: 16px; padding: 12px 20px;
+  overflow-x: auto;
+}
+.signal-chip {
+  flex: 0 0 auto; min-width: 140px; background: var(--card-bg);
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+}
+.signal-chip.LONG { border-color: rgba(0,255,163,0.4); box-shadow: 0 0 15px rgba(0,255,163,0.15); }
+.signal-chip.SHORT { border-color: rgba(255,77,77,0.4); box-shadow: 0 0 15px rgba(255,77,77,0.15); }
+.chip-name { font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.chip-dir { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; }
+.chip-dir.LONG { color: var(--green); }
+.chip-dir.SHORT { color: var(--red); }
+.chip-reason { font-size: 9px; color: var(--muted); margin-top: 4px; }
+.chip-lvls { display: flex; gap: 8px; margin-top: 6px; font-size: 9px; }
+.chip-lvl span { color: var(--muted); }
+.chip-lvl b { font-weight: 700; }
+.chip-lvl b.e { color: var(--gold); }
+.chip-lvl b.tp { color: var(--green); }
+.chip-lvl b.sl { color: var(--red); }
+
+#fusion-card {
+  flex: 0 0 auto; min-width: 200px; background: linear-gradient(135deg, #1a0f2e, #0f172a);
+  border: 1px solid rgba(250,204,21,0.4); box-shadow: 0 0 25px rgba(250,204,21,0.2);
+  border-radius: 12px; padding: 12px 16px;
+}
+#fusion-name { font-size: 10px; letter-spacing: 2px; color: var(--gold); margin-bottom: 6px; }
+#fusion-dir { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 3px; }
+#fusion-dir.LONG { color: var(--green); text-shadow: 0 0 20px rgba(0,255,163,0.5); }
+#fusion-dir.SHORT { color: var(--red); text-shadow: 0 0 20px rgba(255,77,77,0.5); }
+#fusion-score { font-size: 10px; color: var(--gold); margin-top: 4px; }
+#fusion-reasons { font-size: 9px; color: var(--muted); margin-top: 4px; }
+#fusion-lvls { display: flex; gap: 10px; margin-top: 8px; }
+#fusion-lvls div { text-align: center; }
+#fusion-lvls span { font-size: 8px; color: var(--muted); letter-spacing: 1px; display: block; }
+#fusion-lvls b { font-size: 11px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button class="pair-btn active" data-pair="BTCUSDT">BTC</button>
+  <button class="pair-btn" data-pair="ETHUSDT">ETH</button>
+  <button class="pair-btn" data-pair="SOLUSDT">SOL</button>
+  <span id="pair-label">BTC-USDT</span>
+  <span id="price-label">——</span>
+  <span id="bias-badge">HTF: --</span>
+  <span id="mode-badge">MODE: --</span>
+  <button id="close-btn" onclick="window.close()">✕ CLOSE</button>
+  <button id="sniper-btn" onclick="sniperMode()">🎯 SNIPER MODE</button>
+</div>
+
+<div id="chart-container"></div>
+
+<div id="signal-bar">
+  <div class="signal-chip" id="chip-fusion">
+    <div id="fusion-name">⚡ FUSION SIGNAL</div>
+    <div id="fusion-dir" class="WAIT">——</div>
+    <div id="fusion-score">SCORE: --</div>
+    <div id="fusion-reasons">reasons: --</div>
+    <div class="chip-lvls" id="fusion-lvls">
+      <div class="chip-lvl"><span>E</span><b class="e">--</b></div>
+      <div class="chip-lvl"><span>TP</span><b class="tp">--</b></div>
+      <div class="chip-lvl"><span>SL</span><b class="sl">--</b></div>
+    </div>
+  </div>
+
+  <div class="signal-chip" id="chip-sniper">
+    <div class="chip-name">⚡ SNIPER</div>
+    <div class="chip-dir WAIT" id="sniper-dir">——</div>
+    <div class="chip-reason" id="sniper-reason">waiting...</div>
+    <div class="chip-lvls">
+      <div class="chip-lvl"><span>E</span><b class="e" id="sniper-e">--</b></div>
+      <div class="chip-lvl"><span>TP</span><b class="tp" id="sniper-tp">--</b></div>
+      <div class="chip-lvl"><span>SL</span><b class="sl" id="sniper-sl">--</b></div>
+    </div>
+  </div>
+
+  <div class="signal-chip" id="chip-multi-1">
+    <div class="chip-name" id="m1-name">SIGNAL</div>
+    <div class="chip-dir WAIT" id="m1-dir">——</div>
+    <div class="chip-lvls">
+      <div class="chip-lvl"><span>E</span><b class="e" id="m1-e">--</b></div>
+      <div class="chip-lvl"><span>TP</span><b class="tp" id="m1-tp">--</b></div>
+      <div class="chip-lvl"><span>SL</span><b class="sl" id="m1-sl">--</b></div>
+    </div>
+  </div>
+
+  <div class="signal-chip" id="chip-multi-2">
+    <div class="chip-name" id="m2-name">SIGNAL</div>
+    <div class="chip-dir WAIT" id="m2-dir">——</div>
+    <div class="chip-lvls">
+      <div class="chip-lvl"><span>E</span><b class="e" id="m2-e">--</b></div>
+      <div class="chip-lvl"><span>TP</span><b class="tp" id="m2-tp">--</b></div>
+      <div class="chip-lvl"><span>SL</span><b class="sl" id="m2-sl">--</b></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const API_URL = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;
+let chart = null, candleSeries = null;
+let markers = [];
+let activePair = 'BTCUSDT';
+let activeLines = [];
+let activeZones = [];
+let activeOBLine = null, activeFVGLine = null;
+
+function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function initChart() {
+  const container = document.getElementById('chart-container');
+  chart = LightweightCharts.createChart(container, {
+    layout: { background: { color: '#0B0F14' }, textColor: '#9ca3af' },
+    grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+    width: container.clientWidth, height: container.clientHeight,
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: { borderColor: 'rgba(255,255,255,0.05)', timeVisible: true },
+    rightPriceScale: { borderVisible: false },
+  });
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00FFA3', downColor: '#FF4D4D',
+    borderUpColor: '#00FFA3', borderDownColor: '#FF4D4D',
+    wickUpColor: '#00FFA3', wickDownColor: '#FF4D4D',
+  });
+  window.addEventListener('resize', () => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  });
+}
+
+function setMarkers(mks) {
+  if (!candleSeries) return;
+  candleSeries.setMarkers(mks || []);
+}
+
+function clearDrawings() {
+  activeLines.forEach(function(l) { chart.removeSeries(l); });
+  activeZones.forEach(function(z) {
+    chart.removeSeries(z.top);
+    chart.removeSeries(z.bottom);
+  });
+  if (activeOBLine) { chart.removeSeries(activeOBLine); activeOBLine = null; }
+  if (activeFVGLine) { chart.removeSeries(activeFVGLine); activeFVGLine = null; }
+  activeLines = [];
+  activeZones = [];
+  markers = [];
+  setMarkers([]);
+}
+
+function drawZone(zone, color) {
+  if (!zone || !zone.length) return;
+  var now = Math.floor(Date.now() / 1000);
+  var low = zone[0], high = zone[1];
+  var top = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
+  var bottom = chart.addLineSeries({ color: color, lineWidth: 1, priceLineVisible: false });
+  top.setData([{ time: now, value: high }]);
+  bottom.setData([{ time: now, value: low }]);
+  activeZones.push({ top: top, bottom: bottom });
+}
+
+function drawLevels(entry, tp, sl) {
+  var now = Math.floor(Date.now() / 1000);
+  var entryLine = chart.addLineSeries({ color: '#FACC15', lineWidth: 1, priceLineVisible: false });
+  var tpLine = chart.addLineSeries({ color: '#00FFA3', lineWidth: 1, priceLineVisible: false });
+  var slLine = chart.addLineSeries({ color: '#FF4D4D', lineWidth: 1, priceLineVisible: false });
+  entryLine.setData([{ time: now, value: entry }]);
+  tpLine.setData([{ time: now, value: tp }]);
+  slLine.setData([{ time: now, value: sl }]);
+  activeLines.push(entryLine, tpLine, slLine);
+}
+
+function drawSignalArrow(sig) {
+  if (!sig || !sig.candle) return;
+  if (sig.score && sig.score < 70) return;
+  clearDrawings();
+  var m = [{
+    time: sig.candle.time / 1000,
+    position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
+    color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
+    shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
+    text: sig.type + ' ' + (sig.confidence || '').toUpperCase()
+  }];
+  markers = m;
+  setMarkers(m);
+  if (sig.entry && sig.tp && sig.sl) {
+    drawLevels(sig.entry, sig.tp, sig.sl);
+  }
+  if (sig.ob && sig.ob.zone) {
+    drawZone(sig.ob.zone, '#3B82F6');
+  }
+  if (sig.fvg && sig.fvg.zone) {
+    drawZone(sig.fvg.zone, '#a855f7');
+  }
+}
+
+function sniperMode() {
+  chart.applyOptions({
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false }
+  });
+}
+
+function updateFusionUI(f) {
+  const dirEl = document.getElementById('fusion-dir');
+  const scoreEl = document.getElementById('fusion-score');
+  const reasonsEl = document.getElementById('fusion-reasons');
+  const card = document.getElementById('chip-fusion');
+  if (!f) {
+    dirEl.textContent = '——'; dirEl.className = 'WAIT';
+    scoreEl.textContent = 'SCORE: --';
+    reasonsEl.textContent = 'reasons: --';
+    card.className = 'signal-chip';
+    return;
+  }
+  dirEl.textContent = f.type;
+  dirEl.className = f.type;
+  scoreEl.textContent = 'SCORE: ' + (f.score || 0);
+  reasonsEl.textContent = 'reasons: ' + (f.reasons || []).join(', ');
+  card.className = 'signal-chip ' + f.type;
+
+  const els = document.querySelectorAll('#fusion-lvls b');
+  els[0].textContent = fmt(f.entry);
+  els[1].textContent = fmt(f.tp);
+  els[2].textContent = fmt(f.sl);
+  drawSignalArrow(f);
+}
+
+function updateSniperUI(s) {
+  if (!s) return;
+  const dirEl = document.getElementById('sniper-dir');
+  const reasonEl = document.getElementById('sniper-reason');
+  dirEl.textContent = s.decision_now || '——';
+  dirEl.className = 'chip-dir ' + (s.decision_now || 'WAIT');
+  reasonEl.textContent = s.reason || '';
+  document.getElementById('sniper-e').textContent = fmt(s.sniper_long?.entry_zone?.[0] || s.entry);
+  document.getElementById('sniper-tp').textContent = fmt(s.sniper_long?.tp?.[0]);
+  document.getElementById('sniper-sl').textContent = fmt(s.sniper_long?.sl);
+}
+
+function updateMultiUI(multi) {
+  if (!multi || !multi.signals) return;
+  var keys = Object.keys(multi.signals).slice(0, 2);
+  keys.forEach(function(k, i) {
+    var s = multi.signals[k];
+    if (!s) return;
+    var idx = i + 1;
+    document.getElementById('m' + idx + '-name').textContent = k.toUpperCase().replace('_', ' ');
+    var dirEl = document.getElementById('m' + idx + '-dir');
+    dirEl.textContent = s.direction || '——';
+    dirEl.className = 'chip-dir ' + (s.direction || 'WAIT');
+    document.getElementById('m' + idx + '-e').textContent = fmt(Array.isArray(s.entry) ? s.entry[0] : s.entry);
+    document.getElementById('m' + idx + '-tp').textContent = fmt(Array.isArray(s.tp) ? s.tp[0] : s.tp);
+    document.getElementById('m' + idx + '-sl').textContent = fmt(s.sl);
+  });
+}
+
+function updatePrice(price) {
+  document.getElementById('price-label').textContent = '$' + Number(price).toLocaleString();
+}
+
+function updateBias(bias) {
+  var el = document.getElementById('bias-badge');
+  el.textContent = 'HTF: ' + (bias || '--');
+  el.style.color = bias === 'LONG' ? 'var(--green)' : bias === 'SHORT' ? 'var(--red)' : 'var(--muted)';
+}
+
+function updateMode(mode) {
+  var el = document.getElementById('mode-badge');
+  el.textContent = 'MODE: ' + (mode || '--');
+}
+
+async function loadChart() {
+  try {
+    var r = await fetch(API_URL + '/candles?tf=15m');
+    if (!r.ok) return;
+    var data = await r.json();
+    if (!data.candles || !data.candles.length) return;
+    var cdata = data.candles.map(function(c) {
+      return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
+    });
+    candleSeries.setData(cdata);
+    chart.timeScale().fitContent();
+  } catch(e) { console.log('chart load error:', e); }
+}
+
+function connect() {
+  var ws = new WebSocket(
+    location.protocol === 'file:' ? 'ws://localhost:3001'
+    : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
+  );
+  ws.onopen = function() { console.log('ws connected'); };
+  ws.onmessage = function(e) {
+    try {
+      var msg = JSON.parse(e.data);
+      if (msg.type === 'snapshot') {
+        // handle snapshot
+      }
+      if (msg.type === 'signal') {
+        var d = msg.data || {};
+        if (d.fusion) {
+          updateFusionUI(d.fusion);
+        }
+        if (d.sniper) updateSniperUI(d.sniper);
+        if (d.multi) {
+          updateMultiUI(d.multi);
+          if (d.multi.market_context) {
+            updateBias(d.multi.market_context.htf_bias);
+          }
+        }
+        if (d.decision) {
+          updateMode(d.decision.market_mode);
+        }
+        if (msg.pair) {
+          document.getElementById('pair-label').textContent = msg.pair.replace('-', '/');
+        }
+      }
+      if (msg.type === 'market_data') {
+        var pd = msg.data;
+        if (pd && pd.close) updatePrice(pd.close);
+        if (pd && pd.htf) updateBias(pd.htf.bias);
+      }
+    } catch(e) { console.log('parse error:', e); }
+  };
+  ws.onclose = function() { console.log('ws closed, reconnecting...'); setTimeout(connect, 3000); };
+  ws.onerror = function(e) { console.log('ws error'); };
+}
+
+initChart();
+loadChart();
+connect();
+</script>
+</body>
+</html>

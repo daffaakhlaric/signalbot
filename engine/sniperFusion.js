@@ -1,0 +1,104 @@
+// ── Engulfing Detector ─────────────────────────────────────────
+function detectEngulfing(prev, curr) {
+  if (!prev || !curr) return null;
+
+  var bullish =
+    curr.close > curr.open &&
+    prev.close < prev.open &&
+    curr.close > prev.open &&
+    curr.open < prev.close;
+
+  var bearish =
+    curr.close < curr.open &&
+    prev.close > prev.open &&
+    curr.open > prev.close &&
+    curr.close < prev.open;
+
+  if (bullish) return { type: "LONG", strength: "ENGULFING" };
+  if (bearish) return { type: "SHORT", strength: "ENGULFING" };
+
+  return null;
+}
+
+function nearZone(price, zone, tolPct) {
+  tolPct = tolPct || 0.002;
+  if (!zone) return false;
+  var arr = Array.isArray(zone) ? zone : [zone, zone];
+  var low = arr[0], high = arr[1];
+  var mid = (low + high) / 2;
+  return Math.abs(price - mid) / mid <= tolPct;
+}
+
+function buildSniperSignal(context, candles) {
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  if (!last || !prev) return null;
+
+  var engulf = detectEngulfing(prev, last);
+  var ob = context.ob;
+  var fvg = context.fvg;
+  var smc = context.smc;
+  var structure = context.structure;
+  var htf = context.htf_bias;
+  var price = last.close;
+
+  var dir = null;
+  var score = 0;
+  var reasons = [];
+
+  if (engulf) {
+    dir = engulf.type;
+    score += 25;
+    reasons.push("engulfing");
+  }
+
+  if ((structure === "LL" || structure === "LH") && dir === "SHORT") {
+    score += 15;
+    reasons.push("bear structure");
+  }
+  if ((structure === "HH" || structure === "HL") && dir === "LONG") {
+    score += 15;
+    reasons.push("bull structure");
+  }
+
+  if (htf === dir) {
+    score += 20;
+    reasons.push("HTF align");
+  }
+
+  if (ob && ob.direction === dir && nearZone(price, ob.zone)) {
+    score += 15;
+    reasons.push("OB confluence");
+  }
+  if (fvg && fvg.direction === dir && nearZone(price, fvg.zone)) {
+    score += 10;
+    reasons.push("FVG confluence");
+  }
+
+  if (smc && smc.direction === dir) {
+    score += 15;
+    reasons.push("SMC confirm");
+  }
+
+  if (score < 50) return null;
+
+  var entry = price;
+  var tp = dir === "LONG" ? price + 250 : price - 250;
+  var sl = dir === "LONG" ? price - 120 : price + 120;
+
+  return {
+    type: dir,
+    entry: entry,
+    tp: tp,
+    sl: sl,
+    score: score,
+    confidence: score >= 75 ? "HIGH" : "MED",
+    reasons: reasons,
+    candle: last,
+    ob: ob,
+    fvg: fvg,
+    smc: smc
+  };
+}
+
+module.exports = { detectEngulfing, buildSniperSignal };

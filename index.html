@@ -2205,6 +2205,38 @@ function connect() {
         if (multi) renderMulti(multi);
         if (data.best_signal) updateBestSignal(data.best_signal);
 
+        // ── SNIPER FUSION MARKERS (engulfing + OB + FVG zones) ──
+        if (data.fusion) {
+          var f = data.fusion;
+          if (f.candle && candleSeries) {
+            var fmarkers = [];
+            fmarkers.push({
+              time: f.candle.time / 1000,
+              position: f.type === "LONG" ? "belowBar" : "aboveBar",
+              color: f.type === "LONG" ? "#00FFA3" : "#FF4D4D",
+              shape: f.type === "LONG" ? "arrowUp" : "arrowDown",
+              text: f.type + " " + f.confidence + " FUSION"
+            });
+            candleSeries.setMarkers(fmarkers);
+          }
+          if (f.entry && candleSeries) {
+            var flines = [];
+            flines.push({ price: f.entry, color: "#FACC15", lineWidth: 2, title: "ENTRY" });
+            flines.push({ price: f.tp, color: "#00FFA3", lineWidth: 1, title: "TP" });
+            flines.push({ price: f.sl, color: "#FF4D4D", lineWidth: 1, title: "SL" });
+            flines.forEach(function(l) {
+              try { candleSeries.createPriceLine(l); } catch(e) {}
+            });
+          }
+          if (f.ob && f.ob.zone && chart) {
+            var obzone = f.ob.zone;
+            var obcolor = "rgba(59,130,246,0.4)";
+          }
+          if (f.fvg && f.fvg.zone && chart) {
+            var fvgzone = f.fvg.zone;
+          }
+        }
+
         // Update trade card (auto/manual execution)
         updateTradeCard(data);
 

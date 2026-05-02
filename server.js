@@ -2104,6 +2104,25 @@ async function processPair(symbol) {
       htfBias: htfBias,
     });
 
+    // ── SNIPER FUSION (engulfing + OB + FVG + SMC aggregator) ───
+    var sniperFusion = null;
+    try {
+      var fusion = require("./engine/sniperFusion");
+      var fusionContext = {
+        ob: decision.extra && decision.extra.ob,
+        fvg: decision.extra && decision.extra.fvg,
+        smc: sniperRec && { direction: sniperRec.preferred },
+        structure: payload1m.structure,
+        htf_bias: htfBias
+      };
+      sniperFusion = fusion.buildSniperSignal(fusionContext, candles1m);
+      if (sniperFusion) {
+        console.log("💥 SNIPER FUSION:", sniperFusion.type, "| score:", sniperFusion.score, "| reasons:", sniperFusion.reasons);
+      }
+    } catch(e) {
+      console.log("sniperFusion error:", e.message);
+    }
+
     console.log("DECISION:", JSON.stringify({
       status: decision?.status,
       direction: decision?.direction,
@@ -2242,6 +2261,7 @@ async function processPair(symbol) {
       sniper: state.sniperSignal,
       confirmed: state.confirmedSignal,
       multi: multiSignals,
+      fusion: sniperFusion,
       pattern: patternResult.status === "ENTRY" ? patternResult : null,
       decision: apexDecision,
       best_signal: apexDecision.status === "ENTRY" ? {

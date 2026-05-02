@@ -345,6 +345,102 @@ function detectTrianglePro(candles) {
   return { type: "TRIANGLE", status: "CLUE", direction: "NEUTRAL", confidence: 0.15, reason: "triangle clue — waiting breakout" };
 }
 
+function detectEngulfing(candles) {
+  var last = candles[candles.length - 1];
+  var prev = candles[candles.length - 2];
+  if (!last || !prev) return null;
+
+  var lastBody = Math.abs(last.close - last.open);
+  var prevBody = Math.abs(prev.close - prev.open);
+  if (lastBody <= 0 || prevBody <= 0) return null;
+
+  var prevGreen = prev.close > prev.open;
+  var lastRed = last.close < last.open;
+  var lastGreen = last.close > last.open;
+  var prevRed = prev.close < prev.open;
+
+  if (prevGreen && lastRed && last.close < prev.open && last.open > prev.close) {
+    var engulfPct = lastBody / prevBody;
+    if (engulfPct >= 1.0) {
+      return {
+        name: "ENGULFING",
+        type: "SHORT",
+        entry: last.close,
+        tp: last.close - lastBody * 2,
+        sl: last.high,
+        status: "ACTIVE",
+        reason: "bearish engulfing — seller takeover",
+        score: 25,
+        confidence: 0.7
+      };
+    }
+  }
+
+  if (prevRed && lastGreen && last.close > prev.open && last.open < prev.close) {
+    var engulfPct = lastBody / prevBody;
+    if (engulfPct >= 1.0) {
+      return {
+        name: "ENGULFING",
+        type: "LONG",
+        entry: last.close,
+        tp: last.close + lastBody * 2,
+        sl: last.low,
+        status: "ACTIVE",
+        reason: "bullish engulfing — buyer takeover",
+        score: 25,
+        confidence: 0.7
+      };
+    }
+  }
+
+  return null;
+}
+
+function detectWickRejection(candles) {
+  var last = candles[candles.length - 1];
+  if (!last) return null;
+
+  var range = last.high - last.low;
+  if (range <= 0) return null;
+
+  var body = Math.abs(last.close - last.open);
+  var bodyPct = body / range;
+  var upperWick = last.high - Math.max(last.close, last.open);
+  var lowerWick = Math.min(last.close, last.open) - last.low;
+  var upperPct = upperWick / range;
+  var lowerPct = lowerWick / range;
+
+  if (upperPct > 0.6 && bodyPct < 0.35 && last.close < last.open) {
+    return {
+      name: "WICK_REJECT",
+      type: "SHORT",
+      entry: last.close,
+      tp: last.close - body,
+      sl: last.high,
+      status: "ACTIVE",
+      reason: "long upper wick rejection — seller takeover",
+      score: 20,
+      confidence: 0.6
+    };
+  }
+
+  if (lowerPct > 0.6 && bodyPct < 0.35 && last.close > last.open) {
+    return {
+      name: "WICK_REJECT",
+      type: "LONG",
+      entry: last.close,
+      tp: last.close + body,
+      sl: last.low,
+      status: "ACTIVE",
+      reason: "long lower wick rejection — buyer takeover",
+      score: 20,
+      confidence: 0.6
+    };
+  }
+
+  return null;
+}
+
 function isConfirmationCandle(candles, dir) {
   var last = candles[candles.length - 1];
   var prev = candles[candles.length - 2];
@@ -741,6 +837,15 @@ function buildDecision(opts) {
   var lifecycleSignals = lifecycle.updateLifecycle(payload.close);
   result.lifecycle_signals = lifecycleSignals.slice(-5);
   result.market_mode = context.market_mode || "SIDEWAYS";
+
+  var engulf = detectEngulfing(candles);
+  if (engulf) {
+    result.multi_signals.push(engulf);
+  }
+  var wickReject = detectWickRejection(candles);
+  if (wickReject) {
+    result.multi_signals.push(wickReject);
+  }
 
   return result;
 }
