@@ -1856,6 +1856,62 @@ async function fetchKlines(symbol, interval, limit = KLINE_LIMIT) {
   throw new Error(`all sources failed\n   ${errors.join("\n   ")}`);
 }
 
+// ── SMC Overlay Builder (BOS, sweep, trap) ────────────────────
+function buildOverlay(candles, context) {
+  var bos = null;
+  var sweep = null;
+  var trap = null;
+
+  try {
+    var smcMod = require("./engine/smc");
+    if (smcMod) {
+      var bosDetected = smcMod.detectBOS(candles);
+      if (bosDetected && bosDetected.entry) {
+        bos = { entry: bosDetected.entry, direction: bosDetected.direction };
+      }
+      var sweepDetected = smcMod.detectLiquiditySweep(candles);
+      if (sweepDetected && sweepDetected.entry) {
+        sweep = { entry: sweepDetected.entry, direction: sweepDetected.direction };
+      }
+    }
+  } catch(e) {}
+
+  try {
+    var fakeMod = require("./engine/fakeBreakout");
+    if (fakeMod) {
+      var fake = fakeMod.detectFakeBreakout(candles);
+      if (fake && bos && fake.direction !== bos.direction) {
+        trap = {
+          type: "TRAP",
+          side: fake.direction === "LONG" ? "BULL_TRAP" : "BEAR_TRAP",
+          price: candles[candles.length - 1].close
+        };
+      }
+    }
+  } catch(e) {}
+
+  return { bos: bos, sweep: sweep, trap: trap };
+}
+
+function buildHTFContext(candles) {
+  var htfOb = null, htfFvg = null;
+  try {
+    var obMod = require("./engine/ob");
+    if (obMod && obMod.detectOrderBlock) {
+      var detected = obMod.detectOrderBlock(candles);
+      if (detected) htfOb = detected;
+    }
+  } catch(e) {}
+  try {
+    var fvgMod = require("./engine/fvg");
+    if (fvgMod && fvgMod.detectFVG) {
+      var detectedFvg = fvgMod.detectFVG(candles);
+      if (detectedFvg) htfFvg = detectedFvg;
+    }
+  } catch(e) {}
+  return { ob: htfOb, fvg: htfFvg };
+}
+
 // ── Indicators (EMA, RSI, structure, S/R) ─────────────────────
 function ema(values, period) {
   if (values.length < period) return null;
@@ -2333,7 +2389,14 @@ async function processPair(symbol) {
     broadcast({ type: "chart_pack", pair: symbol, data: chartPack });
 
     if (sniperFusion) {
-      broadcast({ type: "smart_money_overlay", pair: symbol, data: sniperFusion });
+      var overlay = buildOverlay(candles1m, {});
+      var htfZones = buildHTFContext(candles1m);
+      var combinedOverlay = {
+        signal: sniperFusion,
+        overlay: overlay,
+        htf: htfZones
+      };
+      broadcast({ type: "smart_money_overlay", pair: symbol, data: combinedOverlay });
     }
 
     simulateDryTrade(signal, payload1m);

@@ -270,6 +270,92 @@ function drawOBFVG(ob, fvg) {
   if (fvg && fvg.zone) drawZone(fvg.zone, '#a855f7');
 }
 
+function drawBOS(bos) {
+  if (!bos || !bos.entry) return;
+  var now = Math.floor(Date.now() / 1000);
+  var line = chart.addLineSeries({ color: '#f97316', lineWidth: 2, priceLineVisible: false });
+  line.setData([
+    { time: now - 120, value: bos.entry },
+    { time: now, value: bos.entry }
+  ]);
+  activeLines.push(line);
+  markers.push({
+    time: now,
+    position: 'aboveBar',
+    color: '#f97316',
+    shape: 'square',
+    text: 'BOS'
+  });
+  candleSeries.setMarkers(markers);
+}
+
+function drawSweep(sweep) {
+  if (!sweep || !sweep.entry) return;
+  var now = Math.floor(Date.now() / 1000);
+  var line = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+  line.setData([{ time: now, value: sweep.entry }]);
+  activeLines.push(line);
+  markers.push({
+    time: now,
+    position: 'aboveBar',
+    color: '#06b6d4',
+    shape: 'circle',
+    text: 'SWEEP 💧'
+  });
+  candleSeries.setMarkers(markers);
+}
+
+function drawTrap(trap) {
+  if (!trap || !trap.price) return;
+  var now = Math.floor(Date.now() / 1000);
+  var text = trap.side === 'BULL_TRAP' ? 'BULL TRAP ⚠️' : 'BEAR TRAP ⚠️';
+  var color = '#ef4444';
+  var shape = trap.side === 'BULL_TRAP' ? 'arrowUp' : 'arrowDown';
+  markers.push({
+    time: now,
+    position: 'aboveBar',
+    color: color,
+    shape: shape,
+    text: text
+  });
+  candleSeries.setMarkers(markers);
+}
+
+function drawHTFZone(zone, color) {
+  if (!zone) return;
+  var arr = Array.isArray(zone) ? zone : [zone, zone];
+  var low = arr[0], high = arr[1];
+  var now = Math.floor(Date.now() / 1000);
+  var top = chart.addLineSeries({ color: color || '#94a3b8', lineWidth: 2, priceLineVisible: false });
+  var bot = chart.addLineSeries({ color: color || '#94a3b8', lineWidth: 2, priceLineVisible: false });
+  top.setData([{ time: now, value: high }]);
+  bot.setData([{ time: now, value: low }]);
+  activeLines.push(top, bot);
+}
+
+function drawDCA(sig) {
+  if (!sig || !sig.dca) return;
+  var now = Math.floor(Date.now() / 1000);
+  sig.dca.forEach(function(l) {
+    var line = chart.addLineSeries({ color: '#facc15', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+    line.setData([{ time: now, value: l.price }]);
+    activeLines.push(line);
+  });
+}
+
+function drawConfidence(sig) {
+  if (!sig || !sig.confidenceScore) return;
+  var color = sig.confidenceColor || '#f59e0b';
+  markers.push({
+    time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
+    position: 'aboveBar',
+    color: color,
+    shape: 'circle',
+    text: 'CONF ' + sig.confidenceScore
+  });
+  candleSeries.setMarkers(markers);
+}
+
 function drawSignalArrow(sig) {
   if (!sig || !sig.candle) return;
   if (sig.score && sig.score < 70) return;
@@ -468,17 +554,27 @@ function connect() {
         }
       }
       if (msg.type === 'smart_money_overlay') {
-        var sig = msg.data;
-        if (sig) {
-          if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
-          if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
-          if (sig.entry && sig.tp && sig.sl) {
-            drawLevels(sig.entry, sig.tp, sig.sl);
-          }
-          if (sig.candle) {
-            drawSignalArrowOnly(sig);
-          }
+        var data = msg.data || {};
+        var sig = data.signal || data;
+        var overlay = data.overlay || {};
+        var htf = data.htf || {};
+        if (!sig) return;
+
+        if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
+        if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
+        if (sig.entry && sig.tp && sig.sl) {
+          drawLevels(sig.entry, sig.tp, sig.sl);
         }
+        if (sig.candle) {
+          drawSignalArrowOnly(sig);
+        }
+        if (sig.confidenceScore) drawConfidence(sig);
+        if (sig.dca) drawDCA(sig);
+        if (overlay.bos) drawBOS(overlay.bos);
+        if (overlay.sweep) drawSweep(overlay.sweep);
+        if (overlay.trap) drawTrap(overlay.trap);
+        if (htf.ob && htf.ob.zone) drawHTFZone(htf.ob.zone, '#64748b');
+        if (htf.fvg && htf.fvg.zone) drawHTFZone(htf.fvg.zone, '#475569');
       }
       if (msg.type === 'smart_money') {
         var sm = msg.data || {};
