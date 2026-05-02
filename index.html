@@ -2283,6 +2283,47 @@ var ms = data.multi_signals || (data.decision && data.decision.multi_signals) ||
 
         return;
       }
+
+      // ── SMART MONEY OVERLAY (BOS, sweep, trap) ──
+      if (msg.type === 'smart_money_overlay') {
+        var smo = msg.data || {};
+        var sig = smo.signal;
+        var overlay = smo.overlay || {};
+
+        if (sig && sig.candle && candleSeries) {
+          markers.push({
+            time: sig.candle.time / 1000,
+            position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
+            color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
+            shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
+            text: (sig.type || '') + ' (' + (sig.confidence || 'MED') + ')'
+          });
+          candleSeries.setMarkers(markers);
+        }
+
+        if (overlay.bos && overlay.bos.entry) {
+          var now = Math.floor(Date.now() / 1000);
+          var bosLine = chart.addLineSeries({ color: '#f97316', lineWidth: 2, priceLineVisible: false });
+          bosLine.setData([{ time: now - 120, value: overlay.bos.entry }, { time: now, value: overlay.bos.entry }]);
+        }
+        if (overlay.sweep && overlay.sweep.entry) {
+          var now2 = Math.floor(Date.now() / 1000);
+          var sweepLine = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
+          sweepLine.setData([{ time: now2, value: overlay.sweep.entry }]);
+        }
+        if (overlay.trap && overlay.trap.price) {
+          markers.push({
+            time: Math.floor(Date.now() / 1000),
+            position: 'aboveBar',
+            color: '#ef4444',
+            shape: overlay.trap.side === 'BULL_TRAP' ? 'arrowUp' : 'arrowDown',
+            text: overlay.trap.side === 'BULL_TRAP' ? 'BULL TRAP ⚠️' : 'BEAR TRAP ⚠️'
+          });
+          candleSeries.setMarkers(markers);
+        }
+
+        return;
+      }
       if (msg.type === 'price_update') {
         if (msg.price) {
           el('live-price').textContent = '$' + Number(msg.price).toLocaleString();

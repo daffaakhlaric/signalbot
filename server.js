@@ -2903,6 +2903,22 @@ server.listen(PORT, async () => {
         broadcast({ type: "smart_money", pair: symbol, data: smData });
       }
 
+      var overlay = buildOverlay(allCandles, {});
+      if (overlay.bos || overlay.sweep) {
+        broadcast({
+          type: "smart_money_overlay",
+          pair: symbol,
+          data: {
+            signal: engineResult && engineResult.signal ? engineResult.signal : {
+              type: "CHOPPY",
+              entry: candle.close,
+              candle: { time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close }
+            },
+            overlay: overlay
+          }
+        });
+      }
+
       broadcast({
         type: "realtime_decision",
         data: { price: candle.close, structure: structure, ema20: ema20, ema50: ema50, rsi: rsiVal, support: support, resistance: resistance, htf_bias: latestSignal && latestSignal.htf_bias || "NEUTRAL" }

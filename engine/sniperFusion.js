@@ -29,7 +29,7 @@ function detectFakeBreakout(candles) {
   if (last.high > prev.high && last.close < prev.high) {
     return { type: "FAKE_BREAKOUT", direction: "SHORT", reason: "break high rejection" };
   }
-  if (last.low < prev.low && last.close > prevLow) {
+  if (last.low < prev.low && last.close > prev.low) {
     return { type: "FAKE_BREAKOUT", direction: "LONG", reason: "break low rejection" };
   }
   return null;
