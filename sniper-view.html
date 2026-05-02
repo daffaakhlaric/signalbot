@@ -285,7 +285,8 @@ function applyMitigatedStyle(zone) {
 }
 
 function handleZone(type, zoneData) {
-  if (!zoneData || !zoneData.zone) return;
+  if (!zoneData || !zoneData.zone) { console.log('handleZone: no zoneData or zone, skipping'); return; }
+  console.log('handleZone called:', type, JSON.stringify(zoneData));
   var now = Math.floor(Date.now() / 1000);
   var color = type === "OB" ? "rgba(59,130,246,0.8)" : "rgba(168,85,247,0.8)";
   var zone = {
@@ -663,7 +664,8 @@ function connect() {
         var sig = data.signal || data;
         var overlay = data.overlay || {};
         var htf = data.htf || {};
-        if (!sig) return;
+        console.log('smart_money_overlay received:', JSON.stringify({ sigKeys: sig ? Object.keys(sig) : null, overlayKeys: overlay ? Object.keys(overlay) : null, hasOb: !!(sig && sig.ob), hasFvg: !!(sig && sig.fvg) }));
+        if (!sig) { console.log('smart_money_overlay: no sig, skipping'); return; }
 
         if (sig.ob && sig.ob.zone) {
           handleZone("OB", sig.ob);

@@ -2396,6 +2396,7 @@ async function processPair(symbol) {
         overlay: overlay,
         htf: htfZones
       };
+      console.log("Broadcasting smart_money_overlay:", { hasOb: !!sniperFusion.ob, hasFvg: !!sniperFusion.fvg, obZone: sniperFusion.ob ? sniperFusion.ob.zone : null, fvgZone: sniperFusion.fvg ? sniperFusion.fvg.zone : null, bos: !!overlay.bos, sweep: !!overlay.sweep });
       broadcast({ type: "smart_money_overlay", pair: symbol, data: combinedOverlay });
     }
 

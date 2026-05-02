@@ -136,7 +136,10 @@ function buildSniperSignal(context, candles) {
     reasons.push("SMC confirm");
   }
 
-  if (score < 40) return null;
+  if (score < 40) {
+    console.log("SniperFusion: score", score, "< 40, returning null. dir:", dir, "reasons:", reasons);
+    return null;
+  }
 
   var confScore = scoreConfidence({
     engulfing: !!engulf,

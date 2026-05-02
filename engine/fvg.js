@@ -17,7 +17,7 @@ function detectFVG(candles) {
   var range = c3.high - c3.low;
   var body = Math.abs(c3.close - c3.open);
   var bodyPct = range > 0 ? body / range : 0;
-  var isImpulse = bodyPct > 0.5;
+  var isImpulse = bodyPct > 0.3;
 
   if (!isImpulse) return null;
 

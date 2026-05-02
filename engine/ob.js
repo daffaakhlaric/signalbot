@@ -16,7 +16,7 @@ function detectOrderBlock(candles) {
   var range = closedCandle.high - closedCandle.low;
   var body = Math.abs(closedCandle.close - closedCandle.open);
   var bodyPct = range > 0 ? body / range : 0;
-  var isImpulse = bodyPct > 0.5;
+  var isImpulse = bodyPct > 0.3;
 
   if (!isImpulse) return null;
 
