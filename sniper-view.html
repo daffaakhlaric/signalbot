@@ -1051,9 +1051,14 @@ function updatePrice(price, symbol) {
 
 function switchPair(symbol) {
   activePair = symbol;
-  document.querySelectorAll('.pair-btn').forEach(function(btn) {
+  console.log('switchPair called:', symbol);
+  var btns = document.querySelectorAll('.pair-btn');
+  console.log('Found buttons:', btns.length);
+  btns.forEach(function(btn) {
+    var isMatch = btn.dataset.pair === symbol;
+    console.log('Button', btn.dataset.pair, '-> active:', isMatch);
     btn.classList.remove('active');
-    if (btn.dataset.pair === symbol) btn.classList.add('active');
+    if (isMatch) btn.classList.add('active');
   });
   document.getElementById('pair-label').textContent = symbol.replace('USDT', '-USDT');
   loadChart(symbol);
@@ -1089,7 +1094,7 @@ async function loadChart(symbol) {
         drawLabSignal(labSig);
       }
     }
-  } catch(e) { console.log('chart load error:', e); }
+  } catch(e) { console.log('chart load error for', symbol, ':', e.message, e); }
 }
 
 function connect() {
