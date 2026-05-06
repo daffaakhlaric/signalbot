@@ -2963,9 +2963,9 @@ server.listen(PORT, async () => {
   let ltfCandles = [];
 
   startStream({
-    symbol: SYMBOLS[0].replace("-", "").toLowerCase(),
     interval: "1m",
     onKline: function(candle) {
+      var tickSymbol = candle.symbol || "BTCUSDT";
       var last = ltfCandles[ltfCandles.length - 1];
       if (last && last.time === candle.time) {
         ltfCandles[ltfCandles.length - 1] = candle;
@@ -2976,10 +2976,10 @@ server.listen(PORT, async () => {
 
       broadcast({
         type: "price_tick",
-        pair: currentSymbol,
+        pair: tickSymbol,
         data: {
           price: candle.close,
-          symbol: currentSymbol,
+          symbol: tickSymbol,
           candle: { time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close }
         }
       });

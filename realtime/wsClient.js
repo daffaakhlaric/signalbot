@@ -1,30 +1,40 @@
 const WebSocket = require("ws");
 
 let ws = null;
-let currentSymbol = "btcusdt";
+let currentSymbols = [];
 let currentInterval = "1m";
 let reconnectTimer = null;
+let klineCallback = null;
+let connectCallback = null;
+let disconnectCallback = null;
 
-function startStream({ symbol = "btcusdt", interval = "1m", onKline, onConnect, onDisconnect }) {
+const ALL_SYMBOLS = ["btcusdt", "ethusdt", "solusdt", "labusdt"];
+
+function startStream(opts) {
+  opts = opts || {};
+  const symbols = opts.symbols || ALL_SYMBOLS;
+  klineCallback = opts.onKline || null;
+  connectCallback = opts.onConnect || null;
+  disconnectCallback = opts.onDisconnect || null;
+
   if (ws) {
     ws.removeAllListeners();
     ws.close();
     ws = null;
   }
 
-  currentSymbol = symbol.toLowerCase();
-  currentInterval = interval;
+  currentSymbols = symbols;
 
-  const stream = `${currentSymbol}@kline_${currentInterval}`;
-  const url = `wss://stream.binance.com:9443/ws/${stream}`;
+  const streams = symbols.map(s => `${s.toLowerCase()}@kline_${currentInterval}`).join("/");
+  const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
 
-  console.log("🔌 Connecting to Binance stream:", stream);
+  console.log("🔌 Connecting to Binance streams:", streams);
 
   ws = new WebSocket(url);
 
   ws.on("open", () => {
-    console.log("🟢 WS connected:", stream);
-    onConnect && onConnect();
+    console.log("🟢 WS connected to", symbols.length, "streams");
+    if (connectCallback) connectCallback();
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
@@ -34,8 +44,11 @@ function startStream({ symbol = "btcusdt", interval = "1m", onKline, onConnect, 
   ws.on("message", (msg) => {
     try {
       const json = JSON.parse(msg);
-      const k = json.k;
+      const data = json.data || json;
+      const k = data.k;
       if (!k) return;
+
+      const symbol = data.stream ? data.stream.split("@")[0].toUpperCase() : (k.s || currentSymbols[0] || "BTCUSDT");
 
       const candle = {
         time: k.t,
@@ -45,11 +58,11 @@ function startStream({ symbol = "btcusdt", interval = "1m", onKline, onConnect, 
         close: Number(k.c),
         volume: Number(k.v),
         isClosed: k.x,
-        symbol: currentSymbol.toUpperCase(),
+        symbol: symbol,
         interval: currentInterval
       };
 
-      onKline && onKline(candle);
+      if (klineCallback) klineCallback(candle);
     } catch (e) {
       console.error("WS parse error:", e.message);
     }
@@ -57,9 +70,9 @@ function startStream({ symbol = "btcusdt", interval = "1m", onKline, onConnect, 
 
   ws.on("close", () => {
     console.log("🔴 WS closed — reconnecting in 3s...");
-    onDisconnect && onDisconnect();
+    if (disconnectCallback) disconnectCallback();
     reconnectTimer = setTimeout(() => {
-      startStream({ symbol: currentSymbol, interval: currentInterval, onKline, onConnect, onDisconnect });
+      startStream({ symbols: currentSymbols, onKline: klineCallback, onConnect: connectCallback, onDisconnect: disconnectCallback });
     }, 3000);
   });
 
@@ -84,4 +97,4 @@ function isConnected() {
   return ws && ws.readyState === WebSocket.OPEN;
 }
 
-module.exports = { startStream, stopStream, isConnected };
+module.exports = { startStream, stopStream, isConnected, ALL_SYMBOLS };
