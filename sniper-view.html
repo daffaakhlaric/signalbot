@@ -294,6 +294,7 @@ const API_URL = location.protocol === 'file:' ? 'http://localhost:3001' : locati
 let chart = null, candleSeries = null;
 let markers = [];
 let activePair = 'BTCUSDT';
+let latestPrices = {};
 let activeLines = [];
 let activeZones = [];
 let sniperModeOn = true;
@@ -1041,21 +1042,28 @@ function updateLabUI(lab) {
   }
 }
 
-function updatePrice(price) {
-  document.getElementById('price-label').textContent = '$' + Number(price).toLocaleString();
+function updatePrice(price, symbol) {
+  latestPrices[symbol || activePair] = price;
+  if (symbol === activePair || !symbol) {
+    document.getElementById('price-label').textContent = '$' + Number(price).toLocaleString();
+  }
 }
 
-function updateMode(mode) {
-  document.getElementById('mode-badge').textContent = 'MODE: ' + (mode || '--');
+function switchPair(symbol) {
+  activePair = symbol;
+  document.querySelectorAll('.pair-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+    if (btn.dataset.pair === symbol) btn.classList.add('active');
+  });
+  document.getElementById('pair-label').textContent = symbol.replace('USDT', '-USDT');
+  loadChart(symbol);
+  if (latestPrices[symbol]) {
+    document.getElementById('price-label').textContent = '$' + Number(latestPrices[symbol]).toLocaleString();
+  }
 }
 
 function updateBias(bias) {
   // deprecated, use updateMode
-}
-
-function updateMode(mode) {
-  var el = document.getElementById('mode-badge');
-  el.textContent = 'MODE: ' + (mode || '--');
 }
 
 async function loadChart(symbol) {
@@ -1104,13 +1112,17 @@ function connect() {
       }
       if (msg.type === 'market_data') {
         var pd = msg.data;
-        if (pd && pd.close) updatePrice(pd.close);
-        if (pd && pd.htf) updateBias(pd.htf.bias);
+        var mPair = msg.pair || 'BTCUSDT';
+        if (mPair === activePair) {
+          if (pd && pd.close) updatePrice(pd.close, mPair);
+          if (pd && pd.htf) updateMode(pd.htf.bias);
+        }
       }
       if (msg.type === 'price_tick') {
         var pt = msg.data || {};
-        if (pt.price) updatePrice(pt.price);
-        if (pt.candle && candleSeries) {
+        var tickSymbol = pt.symbol || msg.pair || 'BTCUSDT';
+        if (pt.price) updatePrice(pt.price, tickSymbol);
+        if (pt.candle && candleSeries && activePair === tickSymbol) {
           candleSeries.update({
             time: pt.candle.time / 1000,
             open: pt.candle.open,
@@ -1224,7 +1236,7 @@ function connect() {
         updateLabUI(lab);
         if (lab.direction && lab.direction !== 'WAIT' && lab.candle) {
           if (activePair !== 'LABUSDT') {
-            loadChart('LABUSDT');
+            switchPair('LABUSDT');
           }
           var labTime = lab.candle.time / 1000;
           markers.push({
@@ -1250,6 +1262,12 @@ function connect() {
 initChart();
 loadChart();
 connect();
+
+document.querySelectorAll('.pair-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    switchPair(this.dataset.pair);
+  });
+});
 </script>
 </body>
 </html>

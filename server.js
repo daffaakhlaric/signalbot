@@ -2976,8 +2976,10 @@ server.listen(PORT, async () => {
 
       broadcast({
         type: "price_tick",
+        pair: currentSymbol,
         data: {
           price: candle.close,
+          symbol: currentSymbol,
           candle: { time: candle.time, open: candle.open, high: candle.high, low: candle.low, close: candle.close }
         }
       });
