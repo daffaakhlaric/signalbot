@@ -49,7 +49,7 @@ const DATA_SOURCE = "bingx"; // 🔥 LOCK TO BINGX
 const FALLBACK_ORDER = ["bingx"];
 
 // Multi-pair support (comma-separated, e.g., "BTC-USDT,AXS-USDT,SOL-USDT")
-const SYMBOLS = ["BTC-USDT"];
+const SYMBOLS = ["BTC-USDT", "LAB-USDT"];
 const INTERVAL = "15m"; // HTF interval
 const LTF_INTERVAL = "1m"; // LTF for fast sniper entry
 const POLL_MS = 30000; // 30s — safe rate limit (avoid 429)
@@ -94,6 +94,10 @@ SYMBOLS.forEach(symbol => {
     lastEntryTime: 0,
   };
 });
+
+// ── LAB Sniper Engine ──────────────────────────────────────
+var labSniper;
+try { labSniper = require("./engine/labSniper"); } catch(e) { labSniper = null; }
 
 // Legacy state (keep for backward compatibility)
 let signalHistory = [];
@@ -2414,6 +2418,105 @@ async function processPair(symbol) {
   }
 }
 
+// ── LABUSDT SNIPER ENGINE ──────────────────────────────────
+async function processLabPair() {
+  try {
+    var labSymbol = "LAB-USDT";
+    console.log("🔥 LAB SNIPER: Processing...");
+
+    var labState = pairState[labSymbol];
+    if (!labState) {
+      labState = {};
+      pairState[labSymbol] = labState;
+    }
+
+    var labCandles5m = await fetchKlines(labSymbol, "5m", 100);
+    var labCandles15m = await fetchKlines(labSymbol, "15m", 100);
+
+    if (!labCandles5m || labCandles5m.length < 32 || !labCandles15m || labCandles15m.length < 32) {
+      console.log("LAB SNIPER: insufficient data");
+      return;
+    }
+
+    var last20_5m = labCandles5m.slice(-20);
+    var support = Math.min.apply(null, last20_5m.map(function(c) { return c.low; }));
+    var resistance = Math.max.apply(null, last20_5m.map(function(c) { return c.high; }));
+
+    var labSignal = labSniper.getLabSignal({
+      candles5m: labCandles5m,
+      candles15m: labCandles15m,
+      support: support,
+      resistance: resistance
+    });
+
+    if (labSignal) {
+      console.log("LAB SNIPER SIGNAL:", JSON.stringify({
+        direction: labSignal.direction,
+        entry: labSignal.entry,
+        tp: labSignal.tp,
+        sl: labSignal.sl,
+        rr: labSignal.rr,
+        score: labSignal.direction === "LONG" ? labSignal.score_long : labSignal.score_short,
+        reasons: labSignal.reasons,
+        trend15m: labSignal.trend15m,
+        atr: labSignal.atr
+      }, null, 2));
+
+      var labCard = labSniper.buildLabCard(labSignal);
+      labCard.candle = {
+        time: labCandles5m[labCandles5m.length - 1].time,
+        open: labCandles5m[labCandles5m.length - 1].open,
+        high: labCandles5m[labCandles5m.length - 1].high,
+        low: labCandles5m[labCandles5m.length - 1].low,
+        close: labCandles5m[labCandles5m.length - 1].close
+      };
+
+      broadcast({ type: "lab_signal", pair: labSymbol, data: labCard });
+
+      if (labSignal.direction !== "WAIT") {
+        var overlay = buildOverlay(labCandles5m, {});
+        broadcast({
+          type: "smart_money_overlay",
+          pair: labSymbol,
+          data: {
+            signal: labSignal,
+            ob: null,
+            fvg: null,
+            overlay: overlay,
+            htf: { ob: null, fvg: null }
+          }
+        });
+
+        broadcast({
+          type: "chart_pack",
+          pair: labSymbol,
+          data: {
+            signal: labSignal,
+            zones: { support: support, resistance: resistance },
+            liquidity: { highs: [], lows: [] },
+            ob: null,
+            fvg: null,
+            bos: null,
+            candles: labCandles5m.slice(-200),
+            market_context: {
+              htf_bias: labSignal.trend15m,
+              market_mode: labSignal.direction === "WAIT" ? "CHOPPY" : "TRENDING"
+            }
+          }
+        });
+
+        if (labSignal.direction === "LONG" || labSignal.direction === "SHORT") {
+          labState.lastEntryTime = Date.now();
+        }
+      }
+    } else {
+      console.log("LAB SNIPER: no signal generated");
+    }
+  } catch (err) {
+    console.log("LAB SNIPER ERROR:", err.message);
+  }
+}
+
 // ── Auto PLAN → ACTIVE realtime update ──────────────────────
 function updateSignalStatusRealtime(signal, currentPrice) {
   if (!signal?.multi?.best_signal?.entry) return signal;
@@ -2448,6 +2551,11 @@ async function tick() {
     for (const symbol of SYMBOLS) {
       await processPair(symbol);
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2s delay between symbols
+    }
+
+    // ── LABUSDT SNIPER ─────────────────────────────────────
+    if (labSniper) {
+      await processLabPair();
     }
 
     // Try to fetch positions (for first pair or all)
@@ -2717,7 +2825,8 @@ app.get("/diag", async (_req, res) => {
 app.get("/candles", async (req, res) => {
   try {
     const tf = req.query.tf || "15m";
-    const symbol = SYMBOLS[0];
+    const symbolParam = req.query.symbol || SYMBOLS[0];
+    const symbol = symbolParam.includes("-") ? symbolParam : symbolParam + "-USDT";
     const candles = await fetchKlines(symbol, tf, 200);
     if (!candles || !candles.length) return res.json({ candles: [] });
 
