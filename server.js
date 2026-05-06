@@ -2844,7 +2844,8 @@ app.get("/candles", async (req, res) => {
 
     res.json({ candles: result, symbol, timeframe: tf });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.log("/candles error:", e.message);
+    res.json({ candles: [], symbol: symbolParam, error: e.message });
   }
 });
 

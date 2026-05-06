@@ -295,6 +295,7 @@ let chart = null, candleSeries = null;
 let markers = [];
 let activePair = 'BTCUSDT';
 let latestPrices = {};
+let activeRequestId = 0;
 let activeLines = [];
 let activeZones = [];
 let sniperModeOn = true;
@@ -1050,17 +1051,15 @@ function updatePrice(price, symbol) {
 }
 
 function switchPair(symbol) {
-  activePair = symbol;
   console.log('switchPair called:', symbol);
+  activePair = symbol;
   var btns = document.querySelectorAll('.pair-btn');
-  console.log('Found buttons:', btns.length);
   btns.forEach(function(btn) {
-    var isMatch = btn.dataset.pair === symbol;
-    console.log('Button', btn.dataset.pair, '-> active:', isMatch);
     btn.classList.remove('active');
-    if (isMatch) btn.classList.add('active');
+    if (btn.dataset.pair === symbol) btn.classList.add('active');
   });
   document.getElementById('pair-label').textContent = symbol.replace('USDT', '-USDT');
+  clearDrawings();
   loadChart(symbol);
   if (latestPrices[symbol]) {
     document.getElementById('price-label').textContent = '$' + Number(latestPrices[symbol]).toLocaleString();
@@ -1073,10 +1072,23 @@ function updateBias(bias) {
 
 async function loadChart(symbol) {
   symbol = symbol || 'BTCUSDT';
+  var thisRequest = ++activeRequestId;
   try {
+    console.log('loadChart fetching', symbol, 'requestId:', thisRequest);
     var r = await fetch(API_URL + '/candles?tf=15m&symbol=' + symbol);
-    if (!r.ok) return;
+    if (thisRequest !== activeRequestId) {
+      console.log('loadChart stale response for', symbol, 'requestId:', thisRequest, 'current:', activeRequestId);
+      return;
+    }
+    console.log('loadChart response status:', r.status);
+    if (!r.ok) {
+      var txt = await r.text();
+      console.log('loadChart failed for', symbol, 'status:', r.status, 'body:', txt.slice(0, 200));
+      return;
+    }
     var data = await r.json();
+    if (thisRequest !== activeRequestId) return;
+    console.log('loadChart data candles:', data.candles ? data.candles.length : 0, 'error:', data.error);
     if (!data.candles || !data.candles.length) return;
     var cdata = data.candles.map(function(c) {
       return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
@@ -1084,8 +1096,6 @@ async function loadChart(symbol) {
     candleData = cdata;
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
-    activePair = symbol;
-    updateEMAs(cdata);
     updateFibSRLevles(cdata);
     if (symbol === 'LABUSDT') {
       var labSig = detectLabSignal(cdata);
@@ -1094,7 +1104,10 @@ async function loadChart(symbol) {
         drawLabSignal(labSig);
       }
     }
-  } catch(e) { console.log('chart load error for', symbol, ':', e.message, e); }
+  } catch(e) {
+    if (thisRequest !== activeRequestId) return;
+    console.log('chart load error for', symbol, ':', e.message);
+  }
 }
 
 function connect() {
@@ -1140,6 +1153,8 @@ function connect() {
       }
       if (msg.type === 'chart_pack') {
         var cp = msg.data || {};
+        var cpPair = (msg.pair || '').replace('-', '').toUpperCase();
+        if (cpPair && cpPair !== activePair.replace('-', '').toUpperCase()) return;
         drawChartPack(cp);
         if (cp.candles && cp.candles.length) {
           var cdata = cp.candles.map(function(c) {
@@ -1147,17 +1162,17 @@ function connect() {
           });
           candleData = cdata;
           candleSeries.setData(cdata);
-          updateEMAs(cdata);
           updateFibSRLevles(cdata);
         }
         if (cp.signal) updateFusionUI(cp.signal);
         if (cp.market_context) {
-          updateBias(cp.market_context.htf_bias);
           updateMode(cp.market_context.market_mode);
         }
       }
       if (msg.type === 'smart_money_overlay') {
         var data = msg.data || {};
+        var msgPair = (msg.pair || '').replace('-', '').toUpperCase();
+        if (msgPair && msgPair !== activePair.replace('-', '').toUpperCase()) return;
         var sig = data.signal || data;
         var overlay = data.overlay || {};
         var htf = data.htf || {};
@@ -1237,7 +1252,8 @@ function connect() {
       }
       if (msg.type === 'lab_signal') {
         var lab = msg.data || {};
-        console.log('LAB SIGNAL received:', lab);
+        var labPair = (msg.pair || '').replace('-', '').toUpperCase();
+        if (labPair && labPair !== 'LABUSDT') return;
         updateLabUI(lab);
         if (lab.direction && lab.direction !== 'WAIT' && lab.candle) {
           if (activePair !== 'LABUSDT') {
