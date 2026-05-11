@@ -159,18 +159,92 @@ body { background: var(--bg); color: var(--text); font-family: 'Space Mono', mon
 }
 #warning-banner.sweep { display: block; background: rgba(255,77,77,0.15); border-bottom: 1px solid rgba(255,77,77,0.3); color: var(--red); }
 #warning-banner.fake { display: block; background: rgba(250,204,21,0.15); border-bottom: 1px solid rgba(250,204,21,0.3); color: var(--gold); }
+
+#ai-panel {
+  position: fixed; top: 60px; right: 10px; width: 200px;
+  background: rgba(10,15,30,0.92); border: 1px solid rgba(0,255,170,0.25);
+  border-radius: 14px; padding: 14px; z-index: 50;
+  backdrop-filter: blur(16px); box-shadow: 0 0 30px rgba(0,255,170,0.08);
+  display: none;
+}
+#ai-panel.visible { display: block; }
+#ai-panel-title { color: #00ffaa; font-size: 10px; letter-spacing: 2px; margin-bottom: 12px; font-weight: 700; }
+.ai-metric { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 10px; }
+.ai-metric span { color: #64748b; }
+.ai-metric strong { color: #fff; }
+.ai-metric strong.green { color: #00ff99; }
+.ai-metric strong.red { color: #ff4d6d; }
+.ai-metric strong.gold { color: #facc15; }
+
+#prob-panel {
+  display: flex; gap: 8px; margin-top: 10px;
+  background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;
+}
+.prob-box {
+  flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px;
+}
+.prob-box.up { background: rgba(0,255,163,0.12); border: 1px solid rgba(0,255,163,0.3); }
+.prob-box.down { background: rgba(255,77,77,0.12); border: 1px solid rgba(255,77,77,0.3); }
+.prob-label { font-size: 9px; color: #64748b; margin-bottom: 3px; }
+.prob-val { font-size: 14px; font-weight: 700; }
+.prob-val.up { color: #00ff99; }
+.prob-val.down { color: #ff4d6d; }
+
+#signal-badge {
+  position: fixed; top: 60px; left: 10px; padding: 10px 16px;
+  border-radius: 12px; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  z-index: 50; backdrop-filter: blur(12px); display: none;
+}
+#signal-badge.visible { display: block; }
+#signal-badge.long { background: rgba(0,255,163,0.15); border: 1px solid rgba(0,255,163,0.4); color: #00ff99; box-shadow: 0 0 20px rgba(0,255,163,0.15); }
+#signal-badge.short { background: rgba(255,77,77,0.15); border: 1px solid rgba(255,77,77,0.4); color: #ff4d6d; box-shadow: 0 0 20px rgba(255,77,77,0.15); }
+#signal-badge.wait { background: rgba(250,204,21,0.1); border: 1px solid rgba(250,204,21,0.3); color: #facc15; }
+
+#prediction-canvas {
+  position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+  pointer-events: none; z-index: 5;
+}
+
+.prediction-zone {
+  position: fixed; pointer-events: none; z-index: 4;
+  border-radius: 8px; opacity: 0.15;
+}
+.prediction-zone.long { background: linear-gradient(to top, rgba(0,255,163,0.4), transparent); }
+.prediction-zone.short { background: linear-gradient(to bottom, rgba(255,77,77,0.4), transparent); }
+.prediction-zone-label {
+  position: absolute; font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  padding: 3px 8px; border-radius: 4px;
+}
+.prediction-zone-label.tp { background: rgba(0,255,163,0.3); color: #00ff99; }
+.prediction-zone-label.sl { background: rgba(255,77,77,0.3); color: #ff4d6d; }
 </style>
 </head>
 <body>
 
 <div id="warning-banner"></div>
+<div id="signal-badge"></div>
+<div id="ai-panel">
+  <div id="ai-panel-title">🧠 AI CONFIDENCE</div>
+  <div class="ai-metric"><span>AI SCORE</span><strong id="ai-score" class="gold">--</strong></div>
+  <div class="ai-metric"><span>WIN RATE</span><strong id="ai-winrate">--%</strong></div>
+  <div class="ai-metric"><span>RR</span><strong id="ai-rr" class="green">--</strong></div>
+  <div class="ai-metric"><span>VOLATILITY</span><strong id="ai-vol">--</strong></div>
+  <div class="ai-metric"><span>TREND</span><strong id="ai-trend">--</strong></div>
+  <div id="prob-panel">
+    <div class="prob-box up"><div class="prob-label">🟩 LONG %</div><div class="prob-val up" id="prob-up">--%</div></div>
+    <div class="prob-box down"><div class="prob-label">🟥 SHORT %</div><div class="prob-val down" id="prob-down">--%</div></div>
+  </div>
+</div>
+<div id="prediction-canvas"></div>
+<div id="prediction-zone-long" class="prediction-zone long"></div>
+<div id="prediction-zone-short" class="prediction-zone short"></div>
 
 <div id="toolbar">
-  <button class="pair-btn active" data-pair="BTCUSDT">BTC</button>
+  <button class="pair-btn" data-pair="BTCUSDT">BTC</button>
   <button class="pair-btn" data-pair="ETHUSDT">ETH</button>
   <button class="pair-btn" data-pair="SOLUSDT">SOL</button>
-  <button class="pair-btn lab" data-pair="LABUSDT">LAB</button>
-  <span id="pair-label">BTC-USDT</span>
+  <button class="pair-btn lab active" data-pair="LABUSDT">LAB</button>
+  <span id="pair-label">LAB-USDT</span>
   <span id="price-label">——</span>
   <span id="mode-badge">MODE: --</span>
   <button id="close-btn" onclick="window.close()">✕ CLOSE</button>
@@ -293,7 +367,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Space Mono', mon
 const API_URL = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;
 let chart = null, candleSeries = null;
 let markers = [];
-let activePair = 'BTCUSDT';
+let activePair = 'LABUSDT';
 let latestPrices = {};
 let activeRequestId = 0;
 let activeLines = [];
@@ -973,74 +1047,156 @@ function updateLabUI(lab) {
   if (lab.liqSweepShort || lab.liqSweepLong) power = '⚠️ SWEEP';
   if (lab.fakeBreakout) power = '⚠️ FAKE';
   document.getElementById('lab-power').textContent = power;
-  document.getElementById('lab-power').className = 'lab-val ' + (power === 'STRONG' ? 'green' : power.includes('⚠️') ? 'red' : '');
+document.getElementById('lab-power').className = 'lab-val ' + (power === 'STRONG' ? 'green' : power.includes('⚠️') ? 'red' : '');
 
-  document.getElementById('lab-e').textContent = fmt(lab.entry);
-  document.getElementById('lab-sl').textContent = fmt(lab.sl);
-  document.getElementById('lab-sup-val').textContent = fmt(lab.support);
-  document.getElementById('lab-res-val').textContent = fmt(lab.resistance);
-
-  var entryZone = '--';
-  var invalidVal = '--';
-  if (dir === 'LONG' && lab.entry && lab.support) {
-    entryZone = fmt(lab.support) + ' - ' + fmt(lab.entry);
-    invalidVal = fmt(lab.support * 0.998);
+  if (lab.entry && lab.tp && lab.sl) {
+    renderPredictionZone(lab);
+    drawProjectionPath(lab);
+    updateSignalBadge(lab);
+    updateAIPanel(lab);
   }
-  if (dir === 'SHORT' && lab.entry && lab.resistance) {
-    entryZone = fmt(lab.entry) + ' - ' + fmt(lab.resistance);
-    invalidVal = fmt(lab.resistance * 1.002);
+}
+
+function updateAIPanel(sig) {
+  var panel = document.getElementById('ai-panel');
+  if (!sig || sig.direction === 'WAIT') {
+    panel.classList.remove('visible');
+    return;
   }
-  document.getElementById('lab-entry-zone-val').textContent = entryZone;
-  document.getElementById('lab-invalid-val').textContent = invalidVal;
+  panel.classList.add('visible');
 
-  var tp1 = lab.tp || null;
-  var tp2 = null, tp3 = null;
-  if (lab.resistance && lab.atr) {
-    tp2 = lab.resistance + lab.atr;
-    tp3 = lab.resistance + lab.atr * 2;
+  var score = sig.score || 0;
+  var winrate = sig.confidenceScore || sig.winrate || Math.round(score * 0.8);
+  var rr = sig.rr || 0;
+  var trend = sig.trend || '--';
+  var atr = sig.atr || 0;
+  var vol = atr > 0 ? (atr / (sig.entry || 1) * 100).toFixed(2) + '%' : '--';
+
+  document.getElementById('ai-score').textContent = score;
+  document.getElementById('ai-winrate').textContent = winrate + '%';
+  document.getElementById('ai-rr').textContent = rr ? '1:' + rr.toFixed(1) : '--';
+  document.getElementById('ai-vol').textContent = vol;
+  document.getElementById('ai-trend').textContent = trend;
+
+  var probUp = 50, probDown = 50;
+  if (sig.direction === 'LONG') {
+    probUp = Math.min(95, 50 + score * 0.4);
+    probDown = 100 - probUp;
+  } else if (sig.direction === 'SHORT') {
+    probDown = Math.min(95, 50 + score * 0.4);
+    probUp = 100 - probDown;
   }
-  if (dir === 'SHORT' && lab.resistance && lab.atr) {
-    tp1 = lab.resistance;
-    tp2 = lab.resistance - lab.atr;
-    tp3 = lab.resistance - lab.atr * 2;
+  document.getElementById('prob-up').textContent = Math.round(probUp) + '%';
+  document.getElementById('prob-down').textContent = Math.round(probDown) + '%';
+}
+
+function renderPredictionZone(sig) {
+  var zoneLong = document.getElementById('prediction-zone-long');
+  var zoneShort = document.getElementById('prediction-zone-short');
+
+  if (!sig || !sig.entry || !sig.tp || !sig.sl || sig.direction === 'WAIT') {
+    zoneLong.style.display = 'none';
+    zoneShort.style.display = 'none';
+    return;
   }
-  document.getElementById('lab-tp1').textContent = fmt(tp1);
-  document.getElementById('lab-tp1-box').textContent = fmt(tp1);
-  document.getElementById('lab-tp2-box').textContent = fmt(tp2);
-  document.getElementById('lab-tp3-box').textContent = fmt(tp3);
-  document.getElementById('lab-rrr').textContent = lab.rr ? '1:' + lab.rr.toFixed(1) : '--';
 
-  var analysis = [];
-  if (lab.bullTrend) analysis.push('EMA bullish alignment');
-  if (lab.bearTrend) analysis.push('EMA bearish alignment');
-  if (lab.bullRejection) analysis.push('Lower wick rejection');
-  if (lab.bearRejection) analysis.push('Upper wick rejection');
-  if (lab.strongBull) analysis.push('Strong bullish candle');
-  if (lab.strongBear) analysis.push('Strong bearish candle');
-  if (lab.liqSweepShort) analysis.push('⚠️ STOP HUNT DETECTED');
-  if (lab.liqSweepLong) analysis.push('⚠️ LIQUIDITY SWEEP');
-  if (lab.fakeBreakout) analysis.push('⚠️ FAKE BREAKOUT');
+  var chartRect = document.getElementById('chart-container').getBoundingClientRect();
+  var priceToY = function(price) {
+    var minPrice = chartRect.bottom - 50;
+    var maxPrice = chartRect.top + 50;
+    var range = maxPrice - minPrice;
+    var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
+    var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
+    var ratio = (price - candleMin) / (candleMax - candleMin || 1);
+    return maxPrice - ratio * range;
+  };
 
-  var modeText = '📊 SCANNING MARKET...';
-  if (lab.trend === 'BULLISH') modeText = '🟢 TRENDING BULLISH';
-  else if (lab.trend === 'BEARISH') modeText = '🔴 TRENDING BEARISH';
-  else modeText = '🟡 CHOPPY / NO TRADE';
+  var entryY = priceToY(sig.entry);
+  var tpY = priceToY(sig.tp);
+  var slY = priceToY(sig.sl);
+  var left = chartRect.left;
+  var width = chartRect.width;
 
-  if (analysis.length > 0) {
-    modeText += '\n' + analysis.join('\n');
-  }
-  document.getElementById('lab-analysis-text').textContent = modeText;
-
-  var banner = document.getElementById('warning-banner');
-  if (lab.liqSweepShort || lab.liqSweepLong) {
-    banner.textContent = '⚠️ LIQUIDITY SWEEP DETECTED — WAIT FOR CONFIRMATION';
-    banner.className = 'sweep';
-  } else if (lab.fakeBreakout) {
-    banner.textContent = '⚠️ FAKE BREAKOUT DETECTED — AVOID ENTRY';
-    banner.className = 'fake';
+  if (sig.direction === 'LONG') {
+    zoneLong.style.display = 'block';
+    zoneLong.style.left = (chartRect.left + 20) + 'px';
+    zoneLong.style.top = (Math.min(entryY, tpY) - chartRect.top + chartRect.top) + 'px';
+    zoneLong.style.width = (width - 40) + 'px';
+    zoneLong.style.height = (Math.abs(tpY - entryY) + 20) + 'px';
+    zoneShort.style.display = 'block';
+    zoneShort.style.left = (chartRect.left + 20) + 'px';
+    zoneShort.style.top = (Math.min(entryY, slY) - chartRect.top + chartRect.top) + 'px';
+    zoneShort.style.width = (width - 40) + 'px';
+    zoneShort.style.height = (Math.abs(entryY - slY) + 10) + 'px';
   } else {
-    banner.className = '';
+    zoneShort.style.display = 'block';
+    zoneShort.style.left = (chartRect.left + 20) + 'px';
+    zoneShort.style.top = (Math.min(entryY, tpY) - chartRect.top + chartRect.top) + 'px';
+    zoneShort.style.width = (width - 40) + 'px';
+    zoneShort.style.height = (Math.abs(tpY - entryY) + 20) + 'px';
+    zoneLong.style.display = 'block';
+    zoneLong.style.left = (chartRect.left + 20) + 'px';
+    zoneLong.style.top = (Math.min(entryY, slY) - chartRect.top + chartRect.top) + 'px';
+    zoneLong.style.width = (width - 40) + 'px';
+    zoneLong.style.height = (Math.abs(entryY - slY) + 10) + 'px';
   }
+}
+
+function drawProjectionPath(sig) {
+  var canvas = document.getElementById('prediction-canvas');
+  var ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
+
+  var chartRect = document.getElementById('chart-container').getBoundingClientRect();
+  var priceToY = function(price) {
+    var minPrice = chartRect.bottom - 50;
+    var maxPrice = chartRect.top + 50;
+    var range = maxPrice - minPrice;
+    var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
+    var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
+    var ratio = (price - candleMin) / (candleMax - candleMin || 1);
+    return maxPrice - ratio * range;
+  };
+
+  var startX = chartRect.left + chartRect.width * 0.5;
+  var startY = priceToY(sig.entry);
+  var endY = priceToY(sig.tp);
+  var steps = 15;
+
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+
+  var color = sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d';
+  for (var i = 1; i <= steps; i++) {
+    var t = i / steps;
+    var x = startX + (sig.direction === 'LONG' ? 1 : -1) * (i * 25);
+    var y = startY + (endY - startY) * t + Math.sin(t * Math.PI) * 15 * (Math.random() - 0.5);
+    ctx.lineTo(x, y);
+  }
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = color;
+  ctx.globalAlpha = 0.6;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function updateSignalBadge(sig) {
+  var badge = document.getElementById('signal-badge');
+  if (!sig || sig.direction === 'WAIT') {
+    badge.classList.remove('visible');
+    return;
+  }
+  badge.classList.add('visible');
+  badge.className = 'visible ' + sig.direction.toLowerCase();
+  var icon = sig.direction === 'LONG' ? '🚀' : '💥';
+  badge.textContent = icon + ' SNIPER ' + sig.direction;
 }
 
 function updatePrice(price, symbol) {
@@ -1071,7 +1227,7 @@ function updateBias(bias) {
 }
 
 async function loadChart(symbol) {
-  symbol = symbol || 'BTCUSDT';
+  symbol = symbol || 'LABUSDT';
   var thisRequest = ++activeRequestId;
   try {
     console.log('loadChart fetching', symbol, 'requestId:', thisRequest);
