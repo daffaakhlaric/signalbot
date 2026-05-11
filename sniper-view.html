@@ -3,386 +3,716 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Apex Sniper View</title>
+<title>APEX AI SNIPER PRO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0B0F14;
-  --card-bg: #111827;
-  --border: rgba(255,255,255,0.06);
-  --text: #e2e8f0;
-  --muted: #64748b;
-  --gold: #FACC15;
-  --green: #00FFA3;
-  --red: #FF4D4D;
-  --cyan: #06b6d4;
-  --blue: #3B82F6;
-  --purple: #a855f7;
+  --bg-primary: #050816;
+  --bg-secondary: #0a0f1e;
+  --bg-card: rgba(10, 15, 30, 0.85);
+  --border: rgba(0, 255, 170, 0.15);
+  --text-primary: #ffffff;
+  --text-secondary: #8892a6;
+  --text-muted: #4a5568;
+  --neon-green: #00ffaa;
+  --neon-green-dim: rgba(0, 255, 170, 0.4);
+  --neon-red: #ff4d6d;
+  --neon-red-dim: rgba(255, 77, 77, 0.4);
+  --neon-cyan: #00d4ff;
+  --neon-cyan-dim: rgba(0, 212, 255, 0.3);
+  --neon-gold: #facc15;
+  --glass-bg: rgba(5, 8, 22, 0.9);
+  --glass-border: rgba(0, 255, 170, 0.12);
 }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; overflow: hidden; }
 
-#toolbar {
-  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
-  background: #0a0f1a; border-bottom: 1px solid var(--border);
-  height: 52px; position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+body {
+  background: var(--bg-primary);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(0, 255, 170, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0, 212, 255, 0.02) 0%, transparent 50%),
+    linear-gradient(180deg, #050816 0%, #0a0f1e 50%, #050816 100%);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 12px;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
+
+/* TOP BAR */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  height: 56px;
+  background: rgba(5, 8, 22, 0.95);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--neon-green);
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(0, 255, 170, 0.5);
+}
+
+.pair-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pair-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.pair-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--neon-green);
+  text-shadow: 0 0 15px rgba(0, 255, 170, 0.4);
+}
+
+.pair-price.up { color: var(--neon-green); }
+.pair-price.down { color: var(--neon-red); }
+
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(0, 255, 170, 0.08);
+  border: 1px solid rgba(0, 255, 170, 0.25);
+  border-radius: 20px;
+}
+
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neon-green);
+  box-shadow: 0 0 10px var(--neon-green);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.mode-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neon-green);
+  letter-spacing: 1px;
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.topbar-btn:hover {
+  background: rgba(0, 255, 170, 0.1);
+  border-color: rgba(0, 255, 170, 0.3);
+  color: var(--neon-green);
+}
+
+.topbar-btn.active {
+  background: rgba(0, 255, 170, 0.15);
+  border-color: rgba(0, 255, 170, 0.4);
+  color: var(--neon-green);
+}
+
+/* PAIR BUTTONS */
+.pair-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 .pair-btn {
-  background: var(--card-bg); border: 1px solid var(--border);
-  color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
-}
-.pair-btn.active { border-color: var(--gold); color: var(--gold); }
-.pair-btn.lab { border-color: var(--gold); color: var(--gold); }
-#pair-label { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: #fff; min-width: 90px; }
-#price-label { font-size: 16px; font-weight: 700; color: var(--green); min-width: 100px; }
-#mode-badge {
-  font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px;
-  border-radius: 6px; background: rgba(250,204,21,0.1); color: var(--gold);
-  border: 1px solid rgba(250,204,21,0.3);
-}
-#close-btn {
-  background: rgba(255,77,77,0.1); border: 1px solid rgba(255,77,77,0.3);
-  color: var(--red); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
-}
-#sniper-btn {
-  background: rgba(250,204,21,0.1); border: 1px solid rgba(250,204,21,0.3);
-  color: var(--gold); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
-}
-#clear-btn {
-  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3);
-  color: var(--blue); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-#chart-container { position: fixed; top: 52px; left: 0; right: 0; bottom: 200px; }
-
-#bottom-panel {
-  position: fixed; bottom: 0; left: 0; right: 0; height: 200px;
-  background: linear-gradient(to top, #060a10, #0B0F14);
-  border-top: 1px solid var(--border); display: flex; gap: 0; padding: 0;
+.pair-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
 }
 
-#lab-panel {
-  flex: 0 0 320px; background: linear-gradient(135deg, #0d1117, #111827);
-  border-right: 1px solid var(--border); padding: 10px 14px; display: flex;
-  flex-direction: column; gap: 6px; overflow: hidden;
-}
-#lab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-#lab-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; color: var(--gold); }
-#lab-status { font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 1px; }
-#lab-status.WAIT { background: rgba(250,204,21,0.15); color: var(--gold); border: 1px solid rgba(250,204,21,0.3); }
-#lab-status.ENTRY { background: rgba(0,255,163,0.15); color: var(--green); border: 1px solid rgba(0,255,163,0.3); }
-#lab-status.REJECT { background: rgba(255,77,77,0.15); color: var(--red); border: 1px solid rgba(255,77,77,0.3); }
-
-.lab-row { display: flex; gap: 8px; align-items: center; font-size: 10px; }
-.lab-label { color: var(--muted); min-width: 70px; letter-spacing: 0.5px; }
-.lab-val { font-weight: 700; }
-.lab-val.green { color: var(--green); }
-.lab-val.red { color: var(--red); }
-.lab-val.gold { color: var(--gold); }
-.lab-val.blue { color: var(--blue); }
-.lab-val.purple { color: var(--purple); }
-
-#lab-analysis {
-  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 10px; font-size: 9px; color: var(--muted);
-  line-height: 1.6; margin-top: 4px;
-}
-#lab-analysis span { color: var(--text); }
-
-#lab-score-bar {
-  height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 4px; overflow: hidden;
-}
-#lab-score-fill { height: 100%; background: var(--gold); border-radius: 2px; transition: width 0.3s; }
-
-#lab-entry-zone {
-  display: flex; gap: 6px; margin-top: 2px;
-}
-.zone-box {
-  flex: 1; padding: 4px 6px; border-radius: 6px; font-size: 9px; text-align: center;
-}
-.zone-box.entry { background: rgba(0,255,163,0.1); border: 1px solid rgba(0,255,163,0.3); color: var(--green); }
-.zone-box.invalid { background: rgba(255,77,77,0.1); border: 1px solid rgba(255,77,77,0.3); color: var(--red); }
-.zone-box.sup { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: var(--blue); }
-.zone-box.res { background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); color: var(--purple); }
-.zone-box .zlabel { font-size: 8px; color: var(--muted); margin-bottom: 2px; }
-.zone-box .zval { font-weight: 700; }
-
-#lab-tp-box {
-  display: flex; gap: 6px; margin-top: 2px;
-}
-.tp-box {
-  flex: 1; padding: 4px 6px; border-radius: 6px; font-size: 9px; text-align: center;
-  background: rgba(0,255,163,0.08); border: 1px solid rgba(0,255,163,0.2); color: var(--green);
+.pair-btn.active {
+  background: rgba(0, 255, 170, 0.12);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  box-shadow: 0 0 15px rgba(0, 255, 170, 0.2);
 }
 
-#signal-bar {
-  flex: 1; display: flex; gap: 12px; padding: 10px 16px; overflow-x: auto; align-items: flex-start;
+/* CHART CONTAINER */
+#chart-wrapper {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
-.signal-chip {
-  flex: 0 0 auto; min-width: 130px; background: var(--card-bg);
-  border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
-}
-.signal-chip.LONG { border-color: rgba(0,255,163,0.4); box-shadow: 0 0 12px rgba(0,255,163,0.12); }
-.signal-chip.SHORT { border-color: rgba(255,77,77,0.4); box-shadow: 0 0 12px rgba(255,77,77,0.12); }
-.chip-name { font-size: 8px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
-.chip-dir { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; }
-.chip-dir.LONG { color: var(--green); }
-.chip-dir.SHORT { color: var(--red); }
-.chip-reason { font-size: 8px; color: var(--muted); margin-top: 3px; }
-.chip-lvls { display: flex; gap: 6px; margin-top: 5px; font-size: 8px; }
-.chip-lvl span { color: var(--muted); }
-.chip-lvl b { font-weight: 700; }
-.chip-lvl b.e { color: var(--gold); }
-.chip-lvl b.tp { color: var(--green); }
-.chip-lvl b.sl { color: var(--red); }
 
-#fusion-card {
-  flex: 0 0 auto; min-width: 180px; background: linear-gradient(135deg, #1a0f2e, #0f172a);
-  border: 1px solid rgba(250,204,21,0.4); box-shadow: 0 0 20px rgba(250,204,21,0.15);
-  border-radius: 10px; padding: 10px 14px;
+#chart-container {
+  width: 100%;
+  height: 100%;
 }
-#fusion-name { font-size: 9px; letter-spacing: 2px; color: var(--gold); margin-bottom: 4px; }
-#fusion-dir { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; }
-#fusion-dir.LONG { color: var(--green); text-shadow: 0 0 15px rgba(0,255,163,0.4); }
-#fusion-dir.SHORT { color: var(--red); text-shadow: 0 0 15px rgba(255,77,77,0.4); }
-#fusion-score { font-size: 9px; color: var(--gold); margin-top: 3px; }
-#fusion-reasons { font-size: 8px; color: var(--muted); margin-top: 3px; }
-#fusion-lvls { display: flex; gap: 8px; margin-top: 6px; }
-#fusion-lvls div { text-align: center; }
-#fusion-lvls span { font-size: 7px; color: var(--muted); letter-spacing: 1px; display: block; }
-#fusion-lvls b { font-size: 10px; font-weight: 700; }
 
-#warning-banner {
-  display: none; position: fixed; top: 52px; left: 0; right: 0; z-index: 99;
-  text-align: center; padding: 6px; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+/* CROSSHAIR CANVAS */
+#crosshair-canvas {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
 }
-#warning-banner.sweep { display: block; background: rgba(255,77,77,0.15); border-bottom: 1px solid rgba(255,77,77,0.3); color: var(--red); }
-#warning-banner.fake { display: block; background: rgba(250,204,21,0.15); border-bottom: 1px solid rgba(250,204,21,0.3); color: var(--gold); }
 
-#ai-panel {
-  position: fixed; top: 60px; right: 10px; width: 200px;
-  background: rgba(10,15,30,0.92); border: 1px solid rgba(0,255,170,0.25);
-  border-radius: 14px; padding: 14px; z-index: 50;
-  backdrop-filter: blur(16px); box-shadow: 0 0 30px rgba(0,255,170,0.08);
+/* PREDICTION CANVAS */
+#projection-canvas {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* PREDICTION ZONES */
+.prediction-overlay {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+#prediction-zone-long {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 255, 170, 0.15) 0%, rgba(0, 255, 170, 0.05) 50%, transparent 100%);
+  border-top: 2px solid rgba(0, 255, 170, 0.4);
+  box-shadow: 0 0 40px rgba(0, 255, 170, 0.15);
   display: none;
 }
+
+#prediction-zone-short {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to bottom, rgba(255, 77, 77, 0.15) 0%, rgba(255, 77, 77, 0.05) 50%, transparent 100%);
+  border-bottom: 2px solid rgba(255, 77, 77, 0.4);
+  box-shadow: 0 0 40px rgba(255, 77, 77, 0.15);
+  display: none;
+}
+
+.zone-label {
+  position: absolute;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.zone-label.tp {
+  background: rgba(0, 255, 170, 0.25);
+  color: var(--neon-green);
+  border: 1px solid rgba(0, 255, 170, 0.4);
+}
+
+.zone-label.sl {
+  background: rgba(255, 77, 77, 0.25);
+  color: var(--neon-red);
+  border: 1px solid rgba(255, 77, 77, 0.4);
+}
+
+/* AI PANEL */
+#ai-panel {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  width: 240px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 18px;
+  z-index: 50;
+  backdrop-filter: blur(24px);
+  box-shadow:
+    0 0 40px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(0, 255, 170, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: none;
+}
+
 #ai-panel.visible { display: block; }
-#ai-panel-title { color: #00ffaa; font-size: 10px; letter-spacing: 2px; margin-bottom: 12px; font-weight: 700; }
-.ai-metric { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 10px; }
-.ai-metric span { color: #64748b; }
-.ai-metric strong { color: #fff; }
-.ai-metric strong.green { color: #00ff99; }
-.ai-metric strong.red { color: #ff4d6d; }
-.ai-metric strong.gold { color: #facc15; }
 
-#prob-panel {
-  display: flex; gap: 8px; margin-top: 10px;
-  background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;
+.ai-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-.prob-box {
-  flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px;
-}
-.prob-box.up { background: rgba(0,255,163,0.12); border: 1px solid rgba(0,255,163,0.3); }
-.prob-box.down { background: rgba(255,77,77,0.12); border: 1px solid rgba(255,77,77,0.3); }
-.prob-label { font-size: 9px; color: #64748b; margin-bottom: 3px; }
-.prob-val { font-size: 14px; font-weight: 700; }
-.prob-val.up { color: #00ff99; }
-.prob-val.down { color: #ff4d6d; }
 
+.ai-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(0, 255, 170, 0.2), rgba(0, 212, 255, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.ai-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--neon-green);
+  letter-spacing: 1px;
+}
+
+.ai-subtitle {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.ai-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.ai-metric:last-child { border-bottom: none; }
+
+.ai-metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.ai-metric-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-metric-value.green { color: var(--neon-green); text-shadow: 0 0 10px rgba(0, 255, 170, 0.4); }
+.ai-metric-value.red { color: var(--neon-red); text-shadow: 0 0 10px rgba(255, 77, 77, 0.4); }
+.ai-metric-value.gold { color: var(--neon-gold); text-shadow: 0 0 10px rgba(250, 204, 21, 0.4); }
+.ai-metric-value.cyan { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 212, 255, 0.4); }
+
+/* SIGNAL BADGE */
 #signal-badge {
-  position: fixed; top: 60px; left: 10px; padding: 10px 16px;
-  border-radius: 12px; font-size: 12px; font-weight: 700; letter-spacing: 1px;
-  z-index: 50; backdrop-filter: blur(12px); display: none;
+  position: fixed;
+  top: 70px;
+  left: 16px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  z-index: 50;
+  backdrop-filter: blur(16px);
+  display: none;
 }
-#signal-badge.visible { display: block; }
-#signal-badge.long { background: rgba(0,255,163,0.15); border: 1px solid rgba(0,255,163,0.4); color: #00ff99; box-shadow: 0 0 20px rgba(0,255,163,0.15); }
-#signal-badge.short { background: rgba(255,77,77,0.15); border: 1px solid rgba(255,77,77,0.4); color: #ff4d6d; box-shadow: 0 0 20px rgba(255,77,77,0.15); }
-#signal-badge.wait { background: rgba(250,204,21,0.1); border: 1px solid rgba(250,204,21,0.3); color: #facc15; }
 
-#prediction-canvas {
-  position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
-  pointer-events: none; z-index: 5;
+#signal-badge.visible { display: flex; align-items: center; gap: 10px; }
+
+#signal-badge.long {
+  background: rgba(0, 255, 170, 0.15);
+  border: 1px solid rgba(0, 255, 170, 0.4);
+  color: var(--neon-green);
+  box-shadow: 0 0 30px rgba(0, 255, 170, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.prediction-zone {
-  position: fixed; pointer-events: none; z-index: 4;
-  border-radius: 8px; opacity: 0.15;
+#signal-badge.short {
+  background: rgba(255, 77, 77, 0.15);
+  border: 1px solid rgba(255, 77, 77, 0.4);
+  color: var(--neon-red);
+  box-shadow: 0 0 30px rgba(255, 77, 77, 0.25), 0 4px 20px rgba(0, 0, 0, 0.3);
 }
-.prediction-zone.long { background: linear-gradient(to top, rgba(0,255,163,0.4), transparent); }
-.prediction-zone.short { background: linear-gradient(to bottom, rgba(255,77,77,0.4), transparent); }
-.prediction-zone-label {
-  position: absolute; font-size: 9px; font-weight: 700; letter-spacing: 1px;
-  padding: 3px 8px; border-radius: 4px;
+
+.signal-badge-icon {
+  font-size: 18px;
 }
-.prediction-zone-label.tp { background: rgba(0,255,163,0.3); color: #00ff99; }
-.prediction-zone-label.sl { background: rgba(255,77,77,0.3); color: #ff4d6d; }
+
+/* TRADE LEVELS PANEL */
+#levels-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  padding: 14px 24px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(24px);
+  z-index: 50;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+.level-item {
+  text-align: center;
+  min-width: 80px;
+}
+
+.level-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.level-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.level-value.entry { color: var(--neon-gold); }
+.level-value.tp { color: var(--neon-green); }
+.level-value.sl { color: var(--neon-red); }
+
+.level-bar {
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.level-bar .fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.level-bar.entry .fill { background: var(--neon-gold); }
+.level-bar.tp .fill { background: var(--neon-green); }
+.level-bar.sl .fill { background: var(--neon-red); }
+
+/* PROBABILITY BARS */
+.prob-container {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.prob-header {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.prob-bars {
+  display: flex;
+  gap: 8px;
+}
+
+.prob-bar {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.prob-bar.up {
+  background: rgba(0, 255, 170, 0.1);
+  border: 1px solid rgba(0, 255, 170, 0.2);
+}
+
+.prob-bar.down {
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.2);
+}
+
+.prob-bar-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.prob-bar-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.prob-bar.up .prob-bar-value { color: var(--neon-green); text-shadow: 0 0 15px rgba(0, 255, 170, 0.5); }
+.prob-bar.down .prob-bar-value { color: var(--neon-red); text-shadow: 0 0 15px rgba(255, 77, 77, 0.5); }
+
+/* WARNING BANNER */
+#warning-banner {
+  display: none;
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  z-index: 99;
+}
+
+#warning-banner.sweep {
+  display: block;
+  background: rgba(255, 77, 77, 0.12);
+  border-bottom: 1px solid rgba(255, 77, 77, 0.3);
+  color: var(--neon-red);
+}
+
+#warning-banner.fake {
+  display: block;
+  background: rgba(250, 204, 21, 0.1);
+  border-bottom: 1px solid rgba(250, 204, 21, 0.3);
+  color: var(--neon-gold);
+}
+
+/* SCANNER LINE EFFECT */
+#scanner-line {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+  opacity: 0.3;
+  z-index: 3;
+  pointer-events: none;
+  animation: scan 8s linear infinite;
+}
+
+@keyframes scan {
+  0% { top: 56px; }
+  100% { top: 100vh; }
+}
+
+/* SCAN LINES OVERLAY */
+#scan-overlay {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 170, 0.01) 2px,
+    rgba(0, 255, 170, 0.01) 4px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* HOLOGRAPHIC GLOW */
+#holo-glow {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 300px;
+  background: radial-gradient(ellipse, rgba(0, 255, 170, 0.03) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
 </style>
 </head>
 <body>
 
+<div id="scanner-line"></div>
+<div id="scan-overlay"></div>
+<div id="holo-glow"></div>
+
 <div id="warning-banner"></div>
-<div id="signal-badge"></div>
+
+<div id="topbar">
+  <div class="logo">APEX AI</div>
+
+  <div class="pair-buttons">
+    <button class="pair-btn" data-pair="BTCUSDT">BTC</button>
+    <button class="pair-btn" data-pair="ETHUSDT">ETH</button>
+    <button class="pair-btn" data-pair="SOLUSDT">SOL</button>
+    <button class="pair-btn active" data-pair="LABUSDT">LAB</button>
+  </div>
+
+  <div class="pair-info">
+    <span class="pair-name" id="pair-label">LAB/USDT</span>
+    <span class="pair-price" id="price-label">--</span>
+  </div>
+
+  <div class="mode-indicator">
+    <div class="mode-dot"></div>
+    <span class="mode-text">SNIPER AI ACTIVE</span>
+  </div>
+
+  <div class="topbar-right">
+    <button class="topbar-btn" onclick="clearDrawings()">🧼 CLEAR</button>
+    <button class="topbar-btn" onclick="toggleGrid()">📐 GRID</button>
+  </div>
+</div>
+
+<div id="chart-wrapper">
+  <div id="chart-container"></div>
+</div>
+
+<canvas id="crosshair-canvas"></canvas>
+<canvas id="projection-canvas"></canvas>
+
+<div class="prediction-overlay">
+  <div id="prediction-zone-long">
+    <span class="zone-label tp">📈 TP ZONE</span>
+  </div>
+  <div id="prediction-zone-short">
+    <span class="zone-label sl">🛑 SL ZONE</span>
+  </div>
+</div>
+
+<div id="signal-badge">
+  <span class="signal-badge-icon">🎯</span>
+  <span class="signal-badge-text"></span>
+</div>
+
 <div id="ai-panel">
-  <div id="ai-panel-title">🧠 AI CONFIDENCE</div>
-  <div class="ai-metric"><span>AI SCORE</span><strong id="ai-score" class="gold">--</strong></div>
-  <div class="ai-metric"><span>WIN RATE</span><strong id="ai-winrate">--%</strong></div>
-  <div class="ai-metric"><span>RR</span><strong id="ai-rr" class="green">--</strong></div>
-  <div class="ai-metric"><span>VOLATILITY</span><strong id="ai-vol">--</strong></div>
-  <div class="ai-metric"><span>TREND</span><strong id="ai-trend">--</strong></div>
-  <div id="prob-panel">
-    <div class="prob-box up"><div class="prob-label">🟩 LONG %</div><div class="prob-val up" id="prob-up">--%</div></div>
-    <div class="prob-box down"><div class="prob-label">🟥 SHORT %</div><div class="prob-val down" id="prob-down">--%</div></div>
-  </div>
-</div>
-<canvas id="prediction-canvas"></canvas>
-<div id="prediction-zone-long" class="prediction-zone long"></div>
-<div id="prediction-zone-short" class="prediction-zone short"></div>
-
-<div id="toolbar">
-  <button class="pair-btn" data-pair="BTCUSDT">BTC</button>
-  <button class="pair-btn" data-pair="ETHUSDT">ETH</button>
-  <button class="pair-btn" data-pair="SOLUSDT">SOL</button>
-  <button class="pair-btn lab active" data-pair="LABUSDT">LAB</button>
-  <span id="pair-label">LAB-USDT</span>
-  <span id="price-label">——</span>
-  <span id="mode-badge">MODE: --</span>
-  <button id="close-btn" onclick="window.close()">✕ CLOSE</button>
-  <button id="sniper-btn" onclick="toggleSniperView()">🎯 SNIPER</button>
-  <button id="clear-btn" onclick="clearDrawings()">🧼 CLEAR</button>
-</div>
-
-<div id="chart-container"></div>
-
-<div id="bottom-panel">
-  <div id="lab-panel">
-    <div id="lab-header">
-      <span id="lab-title">🔥 LAB SNIPER PRO</span>
-      <span id="lab-status" class="WAIT">WAIT</span>
-    </div>
-
-    <div class="lab-row">
-      <span class="lab-label">DIRECTION</span>
-      <span class="lab-val gold" id="lab-dir">——</span>
-      <span class="lab-label">SCORE</span>
-      <span class="lab-val gold" id="lab-score">--/100</span>
-    </div>
-
-    <div id="lab-score-bar"><div id="lab-score-fill" style="width:0%"></div></div>
-
-    <div class="lab-row" style="margin-top:2px;">
-      <span class="lab-label">TREND</span>
-      <span class="lab-val" id="lab-trend">--</span>
-      <span class="lab-label">STRENGTH</span>
-      <span class="lab-val" id="lab-power">--</span>
-    </div>
-
-    <div id="lab-entry-zone">
-      <div class="zone-box entry">
-        <div class="zlabel">ENTRY ZONE</div>
-        <div class="zval" id="lab-entry-zone-val">--</div>
-      </div>
-      <div class="zone-box invalid">
-        <div class="zlabel">INVALID</div>
-        <div class="zval" id="lab-invalid-val">--</div>
-      </div>
-      <div class="zone-box sup">
-        <div class="zlabel">SUPPORT</div>
-        <div class="zval" id="lab-sup-val">--</div>
-      </div>
-      <div class="zone-box res">
-        <div class="zlabel">RESISTANCE</div>
-        <div class="zval" id="lab-res-val">--</div>
-      </div>
-    </div>
-
-    <div class="lab-row" style="margin-top:4px;">
-      <span class="lab-label">ENTRY</span>
-      <span class="lab-val gold" id="lab-e">--</span>
-      <span class="lab-label">TP1</span>
-      <span class="lab-val green" id="lab-tp1">--</span>
-      <span class="lab-label">SL</span>
-      <span class="lab-val red" id="lab-sl">--</span>
-    </div>
-
-    <div id="lab-tp-box">
-      <div class="tp-box"><div class="zlabel">TP1</div><div class="zval" id="lab-tp1-box">--</div></div>
-      <div class="tp-box"><div class="zlabel">TP2</div><div class="zval" id="lab-tp2-box">--</div></div>
-      <div class="tp-box"><div class="zlabel">TP3</div><div class="zval" id="lab-tp3-box">--</div></div>
-      <div class="tp-box"><div class="zlabel">RRR</div><div class="zval" id="lab-rrr">--</div></div>
-    </div>
-
-    <div id="lab-analysis">
-      <span id="lab-analysis-text">📊 SCANNING MARKET...</span>
+  <div class="ai-header">
+    <div class="ai-icon">🧠</div>
+    <div>
+      <div class="ai-title">AI SNIPER PRO</div>
+      <div class="ai-subtitle">MACHINE LEARNING SIGNAL</div>
     </div>
   </div>
 
-  <div id="signal-bar">
-    <div class="signal-chip" id="chip-fusion">
-      <div class="chip-name" id="fusion-name">⚡ FUSION</div>
-      <div class="chip-dir WAIT" id="fusion-dir">——</div>
-      <div class="chip-reason" id="fusion-reasons">--</div>
-      <div class="chip-lvls" id="fusion-lvls">
-        <div class="chip-lvl"><span>E</span><b class="e">--</b></div>
-        <div class="chip-lvl"><span>TP</span><b class="tp">--</b></div>
-        <div class="chip-lvl"><span>SL</span><b class="sl">--</b></div>
-      </div>
-    </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">DIRECTION</span>
+    <span class="ai-metric-value gold" id="ai-dir">--</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">AI CONFIDENCE</span>
+    <span class="ai-metric-value cyan" id="ai-score">--%</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">SUCCESS RATE</span>
+    <span class="ai-metric-value green" id="ai-winrate">--%</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">RR RATIO</span>
+    <span class="ai-metric-value green" id="ai-rr">--</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">PREDICTED MOVE</span>
+    <span class="ai-metric-value cyan" id="ai-move">--%</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">MARKET MODE</span>
+    <span class="ai-metric-value gold" id="ai-mode">--</span>
+  </div>
 
-    <div class="signal-chip" id="chip-sniper">
-      <div class="chip-name">⚡ SNIPER</div>
-      <div class="chip-dir WAIT" id="sniper-dir">——</div>
-      <div class="chip-reason" id="sniper-reason">waiting...</div>
-      <div class="chip-lvls">
-        <div class="chip-lvl"><span>E</span><b class="e" id="sniper-e">--</b></div>
-        <div class="chip-lvl"><span>TP</span><b class="tp" id="sniper-tp">--</b></div>
-        <div class="chip-lvl"><span>SL</span><b class="sl" id="sniper-sl">--</b></div>
+  <div class="prob-container">
+    <div class="prob-header">PROBABILITY MATRIX</div>
+    <div class="prob-bars">
+      <div class="prob-bar up">
+        <div class="prob-bar-label">🟩 LONG</div>
+        <div class="prob-bar-value" id="prob-up">--%</div>
+      </div>
+      <div class="prob-bar down">
+        <div class="prob-bar-label">🟥 SHORT</div>
+        <div class="prob-bar-value" id="prob-down">--%</div>
       </div>
     </div>
+  </div>
+</div>
 
-    <div class="signal-chip" id="chip-multi-1">
-      <div class="chip-name" id="m1-name">SIGNAL</div>
-      <div class="chip-dir WAIT" id="m1-dir">——</div>
-      <div class="chip-lvls">
-        <div class="chip-lvl"><span>E</span><b class="e" id="m1-e">--</b></div>
-        <div class="chip-lvl"><span>TP</span><b class="tp" id="m1-tp">--</b></div>
-        <div class="chip-lvl"><span>SL</span><b class="sl" id="m1-sl">--</b></div>
-      </div>
-    </div>
-
-    <div class="signal-chip" id="chip-multi-2">
-      <div class="chip-name" id="m2-name">SIGNAL</div>
-      <div class="chip-dir WAIT" id="m2-dir">——</div>
-      <div class="chip-lvls">
-        <div class="chip-lvl"><span>E</span><b class="e" id="m2-e">--</b></div>
-        <div class="chip-lvl"><span>TP</span><b class="tp" id="m2-tp">--</b></div>
-        <div class="chip-lvl"><span>SL</span><b class="sl" id="m2-sl">--</b></div>
-      </div>
-    </div>
+<div id="levels-panel">
+  <div class="level-item">
+    <div class="level-label">ENTRY</div>
+    <div class="level-value entry" id="level-entry">--</div>
+    <div class="level-bar entry"><div class="fill" style="width:0%"></div></div>
+  </div>
+  <div class="level-item">
+    <div class="level-label">TARGET</div>
+    <div class="level-value tp" id="level-tp">--</div>
+    <div class="level-bar tp"><div class="fill" style="width:0%"></div></div>
+  </div>
+  <div class="level-item">
+    <div class="level-label">STOP LOSS</div>
+    <div class="level-value sl" id="level-sl">--</div>
+    <div class="level-bar sl"><div class="fill" style="width:0%"></div></div>
   </div>
 </div>
 
 <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const API_URL = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;
+
 let chart = null, candleSeries = null;
 let markers = [];
 let activePair = 'LABUSDT';
 let latestPrices = {};
 let activeRequestId = 0;
-let activeLines = [];
-let activeZones = [];
-let sniperModeOn = true;
 let candleData = [];
-const ZONES = { ob: [], fvg: [] };
+let gridVisible = true;
 
-let emaSeries = { ema5: null, ema10: null, ema30: null, ema50: null };
-let fibSeries = {};
-let srSeries = { support: null, resistance: null };
-let labTrendBg = null;
-let labState = { trend: 'NEUTRAL', ema5: 0, ema10: 0, ema30: 0, atr: 0, support: 0, resistance: 0 };
-
-function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4}); }
 
 function calcEMA(values, period) {
   if (values.length < period) return null;
@@ -408,110 +738,93 @@ function getATR(data, len) {
 function initChart() {
   const container = document.getElementById('chart-container');
   chart = LightweightCharts.createChart(container, {
-    layout: { background: { color: '#0B0F14' }, textColor: '#9ca3af' },
-    grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
-    width: container.clientWidth, height: container.clientHeight,
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    timeScale: { borderColor: 'rgba(255,255,255,0.05)', timeVisible: true },
-    rightPriceScale: { borderVisible: false },
+    layout: {
+      background: { color: 'transparent' },
+      textColor: '#4a5568',
+      fontFamily: 'JetBrains Mono',
+    },
+    grid: {
+      vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
+      horzLines: { color: 'rgba(255, 255, 255, 0.03)' }
+    },
+    width: container.clientWidth,
+    height: container.clientHeight,
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color: 'rgba(0, 212, 255, 0.4)', width: 1, style: 2 },
+      horzLine: { color: 'rgba(0, 212, 255, 0.4)', width: 1, style: 2 }
+    },
+    timeScale: {
+      borderColor: 'rgba(255, 255, 255, 0.05)',
+      timeVisible: true,
+      secondsVisible: false
+    },
+    rightPriceScale: {
+      borderVisible: false,
+      scaleMargins: { top: 0.1, bottom: 0.1 }
+    },
   });
+
   candleSeries = chart.addCandlestickSeries({
-    upColor: '#00FFA3', downColor: '#FF4D4D',
-    borderUpColor: '#00FFA3', borderDownColor: '#FF4D4D',
-    wickUpColor: '#00FFA3', wickDownColor: '#FF4D4D',
+    upColor: '#00ffaa',
+    downColor: '#ff4d6d',
+    borderUpColor: '#00ffaa',
+    borderDownColor: '#ff4d6d',
+    wickUpColor: 'rgba(0, 255, 170, 0.8)',
+    wickDownColor: 'rgba(255, 77, 77, 0.8)',
   });
-
-  emaSeries.ema5 = chart.addLineSeries({ color: '#00FF00', lineWidth: 1, priceLineVisible: false });
-  emaSeries.ema10 = chart.addLineSeries({ color: '#00FFFF', lineWidth: 1, priceLineVisible: false });
-  emaSeries.ema30 = chart.addLineSeries({ color: '#FFA500', lineWidth: 1, priceLineVisible: false });
-  emaSeries.ema50 = chart.addLineSeries({ color: '#FF4444', lineWidth: 1, priceLineVisible: false });
-
-  fibSeries.fib236 = chart.addLineSeries({ color: 'rgba(250,204,21,0.5)', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-  fibSeries.fib382 = chart.addLineSeries({ color: 'rgba(250,204,21,0.4)', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-  fibSeries.fib50 = chart.addLineSeries({ color: 'rgba(255,165,0,0.4)', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-  fibSeries.fib618 = chart.addLineSeries({ color: 'rgba(255,165,0,0.2)', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-  fibSeries.fib786 = chart.addLineSeries({ color: 'rgba(255,77,77,0.2)', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-
-  srSeries.support = chart.addLineSeries({ color: 'rgba(0,255,163,0.3)', lineWidth: 1, priceLineVisible: false });
-  srSeries.resistance = chart.addLineSeries({ color: 'rgba(255,77,77,0.3)', lineWidth: 1, priceLineVisible: false });
 
   window.addEventListener('resize', () => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
   });
+
+  initCrosshair();
 }
 
-function updateEMAs(candles) {
-  if (!candles || candles.length < 50) return;
-  var closes = candles.map(function(c) { return c.close; });
-  var ema5 = calcEMA(closes, 5);
-  var ema10 = calcEMA(closes, 10);
-  var ema30 = calcEMA(closes, 30);
-  var ema50 = calcEMA(closes, 50);
-  var atr = getATR(candles, 14);
+function initCrosshair() {
+  const crosshairCanvas = document.getElementById('crosshair-canvas');
+  const ctx = crosshairCanvas.getContext('2d');
 
-  labState.ema5 = ema5;
-  labState.ema10 = ema10;
-  labState.ema30 = ema30;
-  labState.ema50 = ema50;
-  labState.atr = atr;
+  function drawCrosshair(mouseX, mouseY) {
+    ctx.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
+    if (!chart) return;
 
-  var lastTime = candles[candles.length - 1].time / 1000;
-  var emaData5 = [], emaData10 = [], emaData30 = [], emaData50 = [];
-  for (var i = Math.max(0, candles.length - 200); i < candles.length; i++) {
-    var slice5 = closes.slice(0, i + 1);
-    var slice10 = closes.slice(0, i + 1);
-    var slice30 = closes.slice(0, i + 1);
-    var slice50 = closes.slice(0, i + 1);
-    var t = candles[i].time / 1000;
-    var e5 = calcEMA(slice5, 5);
-    var e10 = calcEMA(slice10, 10);
-    var e30 = calcEMA(slice30, 30);
-    var e50 = calcEMA(slice50, 50);
-    if (e5 != null) emaData5.push({ time: t, value: e5 });
-    if (e10 != null) emaData10.push({ time: t, value: e10 });
-    if (e30 != null) emaData30.push({ time: t, value: e30 });
-    if (e50 != null) emaData50.push({ time: t, value: e50 });
+    const chartRect = document.getElementById('chart-container').getBoundingClientRect();
+    crosshairCanvas.width = window.innerWidth;
+    crosshairCanvas.height = window.innerHeight;
+
+    const price = candleSeries.coordinateToPrice(mouseY - chartRect.top);
+    const time = chart.timeScale().coordinateToTime(mouseX - chartRect.left);
+
+    if (price != null && time != null) {
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+      ctx.lineWidth = 1;
+
+      ctx.beginPath();
+      ctx.moveTo(0, mouseY);
+      ctx.lineTo(window.innerWidth, mouseY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(mouseX, 0);
+      ctx.lineTo(mouseX, window.innerHeight);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+    }
   }
-  emaSeries.ema5.setData(emaData5);
-  emaSeries.ema10.setData(emaData10);
-  emaSeries.ema30.setData(emaData30);
-  emaSeries.ema50.setData(emaData50);
 
-  document.getElementById('ema5-val').textContent = ema5 ? ema5.toFixed(2) : '--';
-  document.getElementById('ema10-val').textContent = ema10 ? ema10.toFixed(2) : '--';
-  document.getElementById('ema30-val').textContent = ema30 ? ema30.toFixed(2) : '--';
-  document.getElementById('atr-val').textContent = atr ? atr.toFixed(2) : '--';
+  document.getElementById('chart-wrapper').addEventListener('mousemove', function(e) {
+    drawCrosshair(e.clientX, e.clientY);
+  });
 }
 
-function updateFibSRLevles(candles) {
-  if (!candles || candles.length < 20) return;
-  var last20 = candles.slice(-20);
-  var support = Math.min.apply(null, last20.map(function(c) { return c.low; }));
-  var resistance = Math.max.apply(null, last20.map(function(c) { return c.high; }));
-  var range = resistance - support;
-
-  labState.support = support;
-  labState.resistance = resistance;
-
-  var now = Math.floor(Date.now() / 1000);
-  var fibData = {
-    fib236: support + range * 0.236,
-    fib382: support + range * 0.382,
-    fib50: support + range * 0.5,
-    fib618: support + range * 0.618,
-    fib786: support + range * 0.786
-  };
-
-  fibSeries.fib236.setData([{ time: now, value: fibData.fib236 }]);
-  fibSeries.fib382.setData([{ time: now, value: fibData.fib382 }]);
-  fibSeries.fib50.setData([{ time: now, value: fibData.fib50 }]);
-  fibSeries.fib618.setData([{ time: now, value: fibData.fib618 }]);
-  fibSeries.fib786.setData([{ time: now, value: fibData.fib786 }]);
-
-  srSeries.support.setData([{ time: now, value: support }]);
-  srSeries.resistance.setData([{ time: now, value: resistance }]);
-
-  return { support: support, resistance: resistance, fib: fibData };
+function toggleGrid() {
+  gridVisible = !gridVisible;
+  chart.applyOptions({
+    grid: { vertLines: { visible: gridVisible }, horzLines: { visible: gridVisible } }
+  });
 }
 
 function detectLabSignal(candles) {
@@ -536,10 +849,10 @@ function detectLabSignal(candles) {
   var upperWick = c.high - Math.max(c.open, c.close);
   var lowerWick = Math.min(c.open, c.close) - c.low;
 
-  var bullRejection = lowerWick / range > 0.35;
-  var bearRejection = upperWick / range > 0.35;
-  var strongBull = c.close > c.open && body / range > 0.6;
-  var strongBear = c.close < c.open && body / range > 0.6;
+  var bullRejection = lowerWick / range > 0.3;
+  var bearRejection = upperWick / range > 0.3;
+  var strongBull = c.close > c.open && body / range > 0.5;
+  var strongBear = c.close < c.open && body / range > 0.5;
 
   var last20 = candles.slice(-20);
   var support = Math.min.apply(null, last20.map(function(x) { return x.low; }));
@@ -560,11 +873,11 @@ function detectLabSignal(candles) {
 
   var upperWickPct = range > 0 ? upperWick / range : 0;
   var lowerWickPct = range > 0 ? lowerWick / range : 0;
-  if (c.high > resistance && c.close < resistance && upperWickPct > 0.4) {
+  if (c.high > resistance && c.close < resistance && upperWickPct > 0.35) {
     score.short += 3;
     reasons.push('liq_sweep_short');
   }
-  if (c.low < support && c.close > support && lowerWickPct > 0.4) {
+  if (c.low < support && c.close > support && lowerWickPct > 0.35) {
     score.long += 3;
     reasons.push('liq_sweep_long');
   }
@@ -573,29 +886,28 @@ function detectLabSignal(candles) {
   if (score.long >= 2 && score.long > score.short) direction = 'LONG';
   if (score.short >= 2 && score.short > score.long) direction = 'SHORT';
 
-  console.log('detectLabSignal: direction=', direction, 'score.long=', score.long, 'score.short=', score.short, 'bullTrend=', bullTrend, 'bearTrend=', bearTrend);
-
   var entry = c.close;
   var sl = null, tp = null;
   if (direction === 'LONG') {
     sl = entry - atr * 0.8;
-    tp = entry + atr * 1.5;
+    tp = entry + atr * 2;
   }
   if (direction === 'SHORT') {
     sl = entry + atr * 0.8;
-    tp = entry - atr * 1.5;
+    tp = entry - atr * 2;
   }
 
   var rr = null;
   if (sl && tp && entry) {
     rr = Math.abs(tp - entry) / Math.abs(entry - sl);
   }
-  if (direction !== 'WAIT' && rr !== null && rr < 1.3) {
+  if (direction !== 'WAIT' && rr !== null && rr < 1.0) {
     direction = 'WAIT';
     reasons.push('rr_low');
   }
 
-  labState.trend = bullTrend ? 'BULLISH' : bearTrend ? 'BEARISH' : 'SIDEWAYS';
+  var trend = bullTrend ? 'BULLISH' : bearTrend ? 'BEARISH' : 'SIDEWAYS';
+  var moveSize = tp && entry ? Math.abs(tp - entry) / entry * 100 : 0;
 
   return {
     type: direction,
@@ -606,524 +918,22 @@ function detectLabSignal(candles) {
     rr: rr,
     score: direction === 'LONG' ? score.long : score.short,
     reasons: reasons,
-    trend: labState.trend,
+    trend: trend,
     atr: atr,
     support: support,
     resistance: resistance,
+    moveSize: moveSize,
     bullTrend: bullTrend,
     bearTrend: bearTrend,
     bullRejection: bullRejection,
     bearRejection: bearRejection,
-    liqSweepShort: c.high > resistance && c.close < resistance && upperWickPct > 0.4,
-    liqSweepLong: c.low < support && c.close > support && lowerWickPct > 0.4,
-    fakeBreakout: (upperWickPct > 0.45 && c.close < c.open) || (lowerWickPct > 0.45 && c.close > c.open),
+    liqSweepShort: c.high > resistance && c.close < resistance && upperWickPct > 0.35,
+    liqSweepLong: c.low < support && c.close > support && lowerWickPct > 0.35,
+    fakeBreakout: (upperWickPct > 0.4 && c.close < c.open) || (lowerWickPct > 0.4 && c.close > c.open),
     strongBull: strongBull,
     strongBear: strongBear,
     candle: { time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }
   };
-}
-
-function drawLabSignal(sig) {
-  if (!sig || sig.direction === 'WAIT') return;
-  clearDrawings();
-  if (sig.entry && sig.tp && sig.sl) {
-    drawLevels(sig.entry, sig.tp, sig.sl);
-  }
-  var t = sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000);
-  markers.push({
-    time: t,
-    position: sig.direction === 'LONG' ? 'belowBar' : 'aboveBar',
-    color: sig.direction === 'LONG' ? '#00FFA3' : '#FF4D4D',
-    shape: sig.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
-    text: 'LAB ' + sig.direction + ' SNIPER'
-  });
-
-  if (sig.liqSweepShort) {
-    markers.push({ time: t, position: 'aboveBar', color: '#FF4D4D', shape: 'circle', text: 'SWEEP' });
-  }
-  if (sig.liqSweepLong) {
-    markers.push({ time: t, position: 'belowBar', color: '#00FFA3', shape: 'circle', text: 'SWEEP' });
-  }
-
-  candleSeries.setMarkers(markers);
-  updateLabUI(sig);
-}
-
-function setMarkers(mks) {
-  if (!candleSeries) return;
-  candleSeries.setMarkers(mks || []);
-}
-
-function clearDrawings() {
-  activeLines.forEach(function(l) { try { chart.removeSeries(l); } catch(e) {} });
-  activeZones.forEach(function(z) {
-    try { chart.removeSeries(z.top); } catch(e) {}
-    try { chart.removeSeries(z.bottom); } catch(e) {}
-  });
-  activeLines = [];
-  activeZones = [];
-  markers = [];
-  setMarkers([]);
-}
-
-function drawLevels(entry, tp, sl) {
-  var now = Math.floor(Date.now() / 1000);
-  var entryLine = chart.addLineSeries({ color: '#FACC15', lineWidth: 1, priceLineVisible: false });
-  var tpLine = chart.addLineSeries({ color: '#00FFA3', lineWidth: 1, priceLineVisible: false });
-  var slLine = chart.addLineSeries({ color: '#FF4D4D', lineWidth: 1, priceLineVisible: false });
-  entryLine.setData([{ time: now, value: entry }]);
-  tpLine.setData([{ time: now, value: tp }]);
-  slLine.setData([{ time: now, value: sl }]);
-  activeLines.push(entryLine, tpLine, slLine);
-}
-
-function getPivots(data, left, right) {
-  left = left || 3; right = right || 3;
-  var pivots = [];
-  for (var i = left; i < data.length - right; i++) {
-    var slice = data.slice(i - left, i + right + 1);
-    var isHigh = slice.every(function(c) { return data[i].high >= c.high; });
-    var isLow = slice.every(function(c) { return data[i].low <= c.low; });
-    if (isHigh) pivots.push({ type: "HIGH", price: data[i].high, index: i });
-    if (isLow) pivots.push({ type: "LOW", price: data[i].low, index: i });
-  }
-  return pivots;
-}
-
-function buildZones(candles) {
-  if (!candles || candles.length < 10) return null;
-  var piv = getPivots(candles, 3, 3);
-  var highs = piv.filter(function(p) { return p.type === "HIGH"; }).map(function(p) { return p.price; });
-  var lows = piv.filter(function(p) { return p.type === "LOW"; }).map(function(p) { return p.price; });
-  if (!highs.length || !lows.length) return null;
-  var resistance = Math.max.apply(null, highs.slice(-5));
-  var support = Math.min.apply(null, lows.slice(-5));
-  return { support: support, resistance: resistance };
-}
-
-function getZoneColor(rank) {
-  if (!rank) return "#64748b";
-  if (rank.strength === "STRONG") return "#22c55e";
-  if (rank.strength === "MEDIUM") return "#f59e0b";
-  return "#64748b";
-}
-
-function createZoneBox(zone, color) {
-  var now = Math.floor(Date.now() / 1000);
-  var top = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
-  var bot = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
-  top.setData([{ time: now, value: zone.high }]);
-  bot.setData([{ time: now, value: zone.low }]);
-  zone.seriesTop = top;
-  zone.seriesBot = bot;
-  zone.createdAt = now;
-  return zone;
-}
-
-function updateZoneBox(zone, currentTime) {
-  if (!zone.seriesTop || !zone.seriesBot) return;
-  zone.seriesTop.setData([
-    { time: zone.createdAt, value: zone.high },
-    { time: currentTime, value: zone.high }
-  ]);
-  zone.seriesBot.setData([
-    { time: zone.createdAt, value: zone.low },
-    { time: currentTime, value: zone.low }
-  ]);
-}
-
-function checkMitigation(zone, price) {
-  if (zone.mitigated) return true;
-  if (price >= zone.low && price <= zone.high) {
-    zone.mitigated = true;
-    return true;
-  }
-  return false;
-}
-
-function applyMitigatedStyle(zone) {
-  if (!zone.seriesTop || !zone.seriesBot) return;
-  zone.seriesTop.applyOptions({ color: "rgba(255,255,255,0.2)", lineWidth: 1 });
-  zone.seriesBot.applyOptions({ color: "rgba(255,255,255,0.2)", lineWidth: 1 });
-}
-
-function handleZone(type, zoneData) {
-  if (!zoneData || !zoneData.zone) return;
-  var now = Math.floor(Date.now() / 1000);
-  var color = type === "OB" ? "rgba(59,130,246,0.8)" : "rgba(168,85,247,0.8)";
-  var zone = {
-    id: type + "-" + now,
-    type: type,
-    low: zoneData.zone[0],
-    high: zoneData.zone[1],
-    direction: zoneData.direction,
-    createdAt: now,
-    mitigated: false,
-    seriesTop: null,
-    seriesBot: null,
-    rank: zoneData.rank
-  };
-  if (zoneData.rank) {
-    color = getZoneColor(zoneData.rank);
-  }
-  createZoneBox(zone, color);
-  ZONES[type.toLowerCase()].push(zone);
-  markers.push({
-    time: now,
-    position: "aboveBar",
-    color: getZoneColor(zoneData.rank),
-    shape: "circle",
-    text: (zoneData.rank ? zoneData.rank.strength : type) + " " + (zoneData.rank ? zoneData.rank.score : "")
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function updateZonesRealtime(price) {
-  var now = Math.floor(Date.now() / 1000);
-  var allZones = ZONES.ob.concat(ZONES.fvg);
-  allZones.forEach(function(zone) {
-    updateZoneBox(zone, now);
-    if (checkMitigation(zone, price)) {
-      applyMitigatedStyle(zone);
-    }
-  });
-}
-
-function drawZone(zone, color) {
-  if (!zone || !zone.length) return;
-  var now = Math.floor(Date.now() / 1000);
-  var low = zone[0], high = zone[1];
-  var top = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
-  var bottom = chart.addLineSeries({ color: color, lineWidth: 2, priceLineVisible: false });
-  top.setData([{ time: now, value: high }]);
-  bottom.setData([{ time: now, value: low }]);
-  activeZones.push({ top: top, bottom: bottom });
-}
-
-function drawLevel(price, color, style) {
-  var now = Math.floor(Date.now() / 1000);
-  var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: style || 0, priceLineVisible: false });
-  l.setData([{ time: now, value: price }]);
-  activeLines.push(l);
-  return l;
-}
-
-function drawLiquidity(prices, color) {
-  var now = Math.floor(Date.now() / 1000);
-  prices.forEach(function(p) {
-    var l = chart.addLineSeries({ color: color, lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-    l.setData([{ time: now, value: p }]);
-    activeLines.push(l);
-  });
-}
-
-function drawOBFVG(ob, fvg) {
-  if (ob && ob.zone) drawZone(ob.zone, '#3B82F6');
-  if (fvg && fvg.zone) drawZone(fvg.zone, '#a855f7');
-}
-
-function drawBOS(bos) {
-  if (!bos || !bos.entry) return;
-  var now = Math.floor(Date.now() / 1000);
-  var line = chart.addLineSeries({ color: '#f97316', lineWidth: 2, priceLineVisible: false });
-  line.setData([
-    { time: now - 120, value: bos.entry },
-    { time: now, value: bos.entry }
-  ]);
-  activeLines.push(line);
-  markers.push({
-    time: now,
-    position: 'aboveBar',
-    color: '#f97316',
-    shape: 'square',
-    text: 'BOS'
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function drawSweep(sweep) {
-  if (!sweep || !sweep.entry) return;
-  var now = Math.floor(Date.now() / 1000);
-  var line = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-  line.setData([{ time: now, value: sweep.entry }]);
-  activeLines.push(line);
-  markers.push({
-    time: now,
-    position: 'aboveBar',
-    color: '#06b6d4',
-    shape: 'circle',
-    text: 'SWEEP 💧'
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function drawTrap(trap) {
-  if (!trap || !trap.price) return;
-  var now = Math.floor(Date.now() / 1000);
-  var text = trap.side === 'BULL_TRAP' ? 'BULL TRAP ⚠️' : 'BEAR TRAP ⚠️';
-  var color = '#ef4444';
-  var shape = trap.side === 'BULL_TRAP' ? 'arrowUp' : 'arrowDown';
-  markers.push({
-    time: now,
-    position: 'aboveBar',
-    color: color,
-    shape: shape,
-    text: text
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function drawHTFZone(zone, color) {
-  if (!zone) return;
-  var arr = Array.isArray(zone) ? zone : [zone, zone];
-  var low = arr[0], high = arr[1];
-  var now = Math.floor(Date.now() / 1000);
-  var top = chart.addLineSeries({ color: color || '#94a3b8', lineWidth: 2, priceLineVisible: false });
-  var bot = chart.addLineSeries({ color: color || '#94a3b8', lineWidth: 2, priceLineVisible: false });
-  top.setData([{ time: now, value: high }]);
-  bot.setData([{ time: now, value: low }]);
-  activeLines.push(top, bot);
-}
-
-function drawDCA(sig) {
-  if (!sig || !sig.dca) return;
-  var now = Math.floor(Date.now() / 1000);
-  sig.dca.forEach(function(l) {
-    var line = chart.addLineSeries({ color: '#facc15', lineWidth: 1, lineStyle: 2, priceLineVisible: false });
-    line.setData([{ time: now, value: l.price }]);
-    activeLines.push(line);
-  });
-}
-
-function drawHeatmap(heat) {
-  if (!heat || !heat.length) return;
-  var now = Math.floor(Date.now() / 1000);
-  heat.forEach(function(h) {
-    var opacity = Math.min(0.8, h.strength / 10);
-    var line = chart.addLineSeries({
-      color: 'rgba(255,0,0,' + opacity + ')',
-      lineWidth: 3,
-      priceLineVisible: false
-    });
-    line.setData([{ time: now, value: h.price }]);
-    activeLines.push(line);
-  });
-}
-
-function drawConfidence(sig) {
-  if (!sig || !sig.confidenceScore) return;
-  var color = sig.confidenceColor || '#f59e0b';
-  markers.push({
-    time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
-    position: 'aboveBar',
-    color: color,
-    shape: 'circle',
-    text: 'CONF ' + sig.confidenceScore
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function drawSignalArrow(sig) {
-  if (!sig || !sig.candle) return;
-  if (sig.score && sig.score < 70) return;
-  clearDrawings();
-  markers = [{
-    time: sig.candle.time / 1000,
-    position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
-    color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
-    shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
-    text: sig.type + ' ' + (sig.confidence || '').toUpperCase()
-  }];
-  setMarkers(markers);
-  if (sig.entry && sig.tp && sig.sl) {
-    drawLevels(sig.entry, sig.tp, sig.sl);
-  }
-  if (sig.ob && sig.ob.zone) {
-    drawZone(sig.ob.zone, '#3B82F6');
-  }
-  if (sig.fvg && sig.fvg.zone) {
-    drawZone(sig.fvg.zone, '#a855f7');
-  }
-}
-
-function drawSignalArrowOnly(sig) {
-  if (!sig) return;
-  var time = sig.candle ? sig.candle.time / 1000 : (sig.time ? sig.time / 1000 : Math.floor(Date.now() / 1000));
-  markers.push({
-    time: time,
-    position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
-    color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
-    shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
-    text: (sig.type || '') + ' SNIPER'
-  });
-  candleSeries.setMarkers(markers);
-}
-
-function drawTradeLevels(sig) {
-  if (sig.entry) drawLevel(sig.entry, '#FACC15');
-  if (sig.tp) drawLevel(Array.isArray(sig.tp) ? sig.tp[0] : sig.tp, '#00FFA3');
-  if (sig.sl) drawLevel(sig.sl, '#FF4D4D');
-}
-
-function drawChartPack(data) {
-  clearDrawings();
-
-  var candles = data.candles || candleData;
-  var z = data.zones || {};
-  var liq = data.liquidity || {};
-
-  var support = z.support, resistance = z.resistance;
-  if ((!support || !resistance) && candles.length) {
-    var built = buildZones(candles);
-    if (built) { support = built.support; resistance = built.resistance; }
-  }
-
-  if (support && resistance) {
-    drawZone([support, resistance], '#334155');
-  }
-
-  if (liq.highs && liq.highs.length) drawLiquidity(liq.highs, '#06b6d4');
-  if (liq.lows && liq.lows.length) drawLiquidity(liq.lows, '#06b6d4');
-
-  drawOBFVG(data.ob, data.fvg);
-
-  if (data.bos && data.bos.price) {
-    drawLevel(data.bos.price, '#f97316');
-  }
-
-  var sig = data.signal;
-  if (sig && sig.score >= 70) {
-    drawSignalArrowOnly(sig);
-    drawTradeLevels(sig);
-  }
-}
-
-function toggleSniperView() {
-  sniperModeOn = !sniperModeOn;
-  chart.applyOptions({
-    grid: { vertLines: { visible: !sniperModeOn }, horzLines: { visible: !sniperModeOn } },
-    rightPriceScale: { borderVisible: !sniperModeOn },
-    timeScale: { borderVisible: !sniperModeOn }
-  });
-  document.getElementById('sniper-btn').textContent = sniperModeOn ? '🎯 SNIPER MODE' : '📊 NORMAL';
-}
-
-function updateFusionUI(f) {
-  if (!f) return;
-  var dirEl = document.getElementById('fusion-dir');
-  var scoreEl = document.getElementById('fusion-score');
-  var reasonsEl = document.getElementById('fusion-reasons');
-  var card = document.getElementById('chip-fusion');
-  dirEl.textContent = f.type || '——';
-  dirEl.className = f.type || 'WAIT';
-  scoreEl.textContent = 'SCORE: ' + (f.score || 0);
-  reasonsEl.textContent = 'reasons: ' + (f.reasons || []).join(', ');
-  card.className = 'signal-chip ' + (f.type || '');
-  var els = document.querySelectorAll('#fusion-lvls b');
-  els[0].textContent = fmt(f.entry);
-  els[1].textContent = fmt(f.tp);
-  els[2].textContent = fmt(f.sl);
-}
-
-function updateLabUI(lab) {
-  if (!lab) return;
-  var dir = lab.direction || 'WAIT';
-  var status = 'WAIT';
-  if (dir === 'LONG') status = 'ENTRY';
-  if (dir === 'SHORT') status = 'ENTRY';
-  if (lab.reasons && lab.reasons.join('').includes('rr_low')) status = 'REJECT';
-
-  document.getElementById('lab-status').textContent = status;
-  document.getElementById('lab-status').className = status;
-  document.getElementById('lab-dir').textContent = dir;
-
-  var score = lab.score || 0;
-  document.getElementById('lab-score').textContent = (score >= 0 ? score : '--') + '/100';
-  document.getElementById('lab-score-fill').style.width = (score > 0 ? score + '%' : '0%');
-  document.getElementById('lab-score-fill').style.background = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--gold)' : 'var(--red)';
-
-  document.getElementById('lab-trend').textContent = lab.trend || '--';
-  document.getElementById('lab-trend').className = 'lab-val ' + (lab.trend === 'BULLISH' ? 'green' : lab.trend === 'BEARISH' ? 'red' : '');
-
-  var power = lab.score >= 70 ? 'STRONG' : lab.score >= 40 ? 'MEDIUM' : 'WEAK';
-  if (lab.liqSweepShort || lab.liqSweepLong) power = '⚠️ SWEEP';
-  if (lab.fakeBreakout) power = '⚠️ FAKE';
-  document.getElementById('lab-power').textContent = power;
-document.getElementById('lab-power').className = 'lab-val ' + (power === 'STRONG' ? 'green' : power.includes('⚠️') ? 'red' : '');
-
-  document.getElementById('lab-e').textContent = fmt(lab.entry);
-  document.getElementById('lab-sl').textContent = fmt(lab.sl);
-  document.getElementById('lab-sup-val').textContent = fmt(lab.support);
-  document.getElementById('lab-res-val').textContent = fmt(lab.resistance);
-
-  var entryZone = '--';
-  var invalidVal = '--';
-  if (dir === 'LONG' && lab.entry && lab.support) {
-    entryZone = fmt(lab.support) + ' - ' + fmt(lab.entry);
-    invalidVal = fmt(lab.support * 0.998);
-  }
-  if (dir === 'SHORT' && lab.entry && lab.resistance) {
-    entryZone = fmt(lab.entry) + ' - ' + fmt(lab.resistance);
-    invalidVal = fmt(lab.resistance * 1.002);
-  }
-  document.getElementById('lab-entry-zone-val').textContent = entryZone;
-  document.getElementById('lab-invalid-val').textContent = invalidVal;
-
-  var tp1 = lab.tp || null;
-  var tp2 = null, tp3 = null;
-  if (lab.resistance && lab.atr) {
-    tp2 = lab.resistance + lab.atr;
-    tp3 = lab.resistance + lab.atr * 2;
-  }
-  if (dir === 'SHORT' && lab.resistance && lab.atr) {
-    tp1 = lab.resistance;
-    tp2 = lab.resistance - lab.atr;
-    tp3 = lab.resistance - lab.atr * 2;
-  }
-  document.getElementById('lab-tp1').textContent = fmt(tp1);
-  document.getElementById('lab-tp1-box').textContent = fmt(tp1);
-  document.getElementById('lab-tp2-box').textContent = fmt(tp2);
-  document.getElementById('lab-tp3-box').textContent = fmt(tp3);
-  document.getElementById('lab-rrr').textContent = lab.rr ? '1:' + lab.rr.toFixed(1) : '--';
-
-  var analysis = [];
-  if (lab.bullTrend) analysis.push('EMA bullish alignment');
-  if (lab.bearTrend) analysis.push('EMA bearish alignment');
-  if (lab.bullRejection) analysis.push('Lower wick rejection');
-  if (lab.bearRejection) analysis.push('Upper wick rejection');
-  if (lab.strongBull) analysis.push('Strong bullish candle');
-  if (lab.strongBear) analysis.push('Strong bearish candle');
-  if (lab.liqSweepShort) analysis.push('⚠️ STOP HUNT DETECTED');
-  if (lab.liqSweepLong) analysis.push('⚠️ LIQUIDITY SWEEP');
-  if (lab.fakeBreakout) analysis.push('⚠️ FAKE BREAKOUT');
-
-  var modeText = '📊 SCANNING MARKET...';
-  if (lab.trend === 'BULLISH') modeText = '🟢 TRENDING BULLISH';
-  else if (lab.trend === 'BEARISH') modeText = '🔴 TRENDING BEARISH';
-  else modeText = '🟡 CHOPPY / NO TRADE';
-
-  if (analysis.length > 0) {
-    modeText += '\n' + analysis.join('\n');
-  }
-  document.getElementById('lab-analysis-text').textContent = modeText;
-
-  var banner = document.getElementById('warning-banner');
-  if (lab.liqSweepShort || lab.liqSweepLong) {
-    banner.textContent = '⚠️ LIQUIDITY SWEEP DETECTED — WAIT FOR CONFIRMATION';
-    banner.className = 'sweep';
-  } else if (lab.fakeBreakout) {
-    banner.textContent = '⚠️ FAKE BREAKOUT DETECTED — AVOID ENTRY';
-    banner.className = 'fake';
-  } else {
-    banner.className = '';
-  }
-
-  if (lab.entry && lab.tp && lab.sl) {
-    renderPredictionZone(lab);
-    drawProjectionPath(lab);
-    updateSignalBadge(lab);
-    updateAIPanel(lab);
-  }
 }
 
 function updateAIPanel(sig) {
@@ -1135,28 +945,51 @@ function updateAIPanel(sig) {
   panel.classList.add('visible');
 
   var score = sig.score || 0;
-  var winrate = sig.confidenceScore || sig.winrate || Math.round(score * 0.8);
+  var winrate = Math.round(score * 18);
   var rr = sig.rr || 0;
-  var trend = sig.trend || '--';
-  var atr = sig.atr || 0;
-  var vol = atr > 0 ? (atr / (sig.entry || 1) * 100).toFixed(2) + '%' : '--';
+  var moveSize = sig.moveSize || 0;
 
-  document.getElementById('ai-score').textContent = score;
+  document.getElementById('ai-dir').textContent = sig.direction;
+  document.getElementById('ai-score').textContent = Math.min(99, score * 12) + '%';
   document.getElementById('ai-winrate').textContent = winrate + '%';
   document.getElementById('ai-rr').textContent = rr ? '1:' + rr.toFixed(1) : '--';
-  document.getElementById('ai-vol').textContent = vol;
-  document.getElementById('ai-trend').textContent = trend;
+  document.getElementById('ai-move').textContent = moveSize.toFixed(2) + '%';
+  document.getElementById('ai-mode').textContent = sig.trend || '--';
 
   var probUp = 50, probDown = 50;
   if (sig.direction === 'LONG') {
-    probUp = Math.min(95, 50 + score * 0.4);
+    probUp = Math.min(95, 50 + score * 8);
     probDown = 100 - probUp;
   } else if (sig.direction === 'SHORT') {
-    probDown = Math.min(95, 50 + score * 0.4);
+    probDown = Math.min(95, 50 + score * 8);
     probUp = 100 - probDown;
   }
   document.getElementById('prob-up').textContent = Math.round(probUp) + '%';
   document.getElementById('prob-down').textContent = Math.round(probDown) + '%';
+}
+
+function updateSignalBadge(sig) {
+  var badge = document.getElementById('signal-badge');
+  if (!sig || sig.direction === 'WAIT') {
+    badge.classList.remove('visible');
+    return;
+  }
+  badge.classList.add('visible');
+  badge.className = 'visible ' + sig.direction.toLowerCase();
+  var icon = sig.direction === 'LONG' ? '🚀' : '💥';
+  badge.querySelector('.signal-badge-text').textContent = icon + ' ' + sig.direction + ' SNIPER';
+}
+
+function updateLevelsPanel(sig) {
+  if (!sig || sig.direction === 'WAIT') {
+    document.getElementById('level-entry').textContent = '--';
+    document.getElementById('level-tp').textContent = '--';
+    document.getElementById('level-sl').textContent = '--';
+    return;
+  }
+  document.getElementById('level-entry').textContent = fmt(sig.entry);
+  document.getElementById('level-tp').textContent = fmt(sig.tp);
+  document.getElementById('level-sl').textContent = fmt(sig.sl);
 }
 
 function renderPredictionZone(sig) {
@@ -1171,8 +1004,8 @@ function renderPredictionZone(sig) {
 
   var chartRect = document.getElementById('chart-container').getBoundingClientRect();
   var priceToY = function(price) {
-    var minPrice = chartRect.bottom - 50;
-    var maxPrice = chartRect.top + 50;
+    var minPrice = chartRect.bottom - 20;
+    var maxPrice = chartRect.top + 20;
     var range = maxPrice - minPrice;
     var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
     var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
@@ -1183,37 +1016,29 @@ function renderPredictionZone(sig) {
   var entryY = priceToY(sig.entry);
   var tpY = priceToY(sig.tp);
   var slY = priceToY(sig.sl);
-  var left = chartRect.left;
-  var width = chartRect.width;
 
   if (sig.direction === 'LONG') {
     zoneLong.style.display = 'block';
-    zoneLong.style.left = (chartRect.left + 20) + 'px';
-    zoneLong.style.top = (Math.min(entryY, tpY) - chartRect.top + chartRect.top) + 'px';
-    zoneLong.style.width = (width - 40) + 'px';
-    zoneLong.style.height = (Math.abs(tpY - entryY) + 20) + 'px';
+    zoneLong.style.top = (tpY - chartRect.top) + 'px';
+    zoneLong.style.height = (entryY - tpY + chartRect.top) + 'px';
+
     zoneShort.style.display = 'block';
-    zoneShort.style.left = (chartRect.left + 20) + 'px';
-    zoneShort.style.top = (Math.min(entryY, slY) - chartRect.top + chartRect.top) + 'px';
-    zoneShort.style.width = (width - 40) + 'px';
-    zoneShort.style.height = (Math.abs(entryY - slY) + 10) + 'px';
+    zoneShort.style.top = (slY - chartRect.top) + 'px';
+    zoneShort.style.height = (entryY - slY + chartRect.top) + 'px';
   } else {
     zoneShort.style.display = 'block';
-    zoneShort.style.left = (chartRect.left + 20) + 'px';
-    zoneShort.style.top = (Math.min(entryY, tpY) - chartRect.top + chartRect.top) + 'px';
-    zoneShort.style.width = (width - 40) + 'px';
-    zoneShort.style.height = (Math.abs(tpY - entryY) + 20) + 'px';
+    zoneShort.style.top = (entryY - chartRect.top) + 'px';
+    zoneShort.style.height = (tpY - entryY + chartRect.top) + 'px';
+
     zoneLong.style.display = 'block';
-    zoneLong.style.left = (chartRect.left + 20) + 'px';
-    zoneLong.style.top = (Math.min(entryY, slY) - chartRect.top + chartRect.top) + 'px';
-    zoneLong.style.width = (width - 40) + 'px';
-    zoneLong.style.height = (Math.abs(entryY - slY) + 10) + 'px';
+    zoneLong.style.top = (entryY - chartRect.top) + 'px';
+    zoneLong.style.height = (slY - entryY + chartRect.top) + 'px';
   }
 }
 
 function drawProjectionPath(sig) {
   try {
-    var canvas = document.getElementById('prediction-canvas');
+    var canvas = document.getElementById('projection-canvas');
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -1225,8 +1050,8 @@ function drawProjectionPath(sig) {
 
     var chartRect = document.getElementById('chart-container').getBoundingClientRect();
     var priceToY = function(price) {
-      var minPrice = chartRect.bottom - 50;
-      var maxPrice = chartRect.top + 50;
+      var minPrice = chartRect.bottom - 20;
+      var maxPrice = chartRect.top + 20;
       var range = maxPrice - minPrice;
       var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
       var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
@@ -1237,100 +1062,104 @@ function drawProjectionPath(sig) {
     var startX = chartRect.left + chartRect.width * 0.5;
     var startY = priceToY(sig.entry);
     var endY = priceToY(sig.tp);
-    var steps = 15;
-
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
+    var steps = 20;
 
     var color = sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d';
-    for (var i = 1; i <= steps; i++) {
+
+    for (var i = 0; i < steps; i++) {
       var t = i / steps;
-      var x = startX + (sig.direction === 'LONG' ? 1 : -1) * (i * 25);
-      var y = startY + (endY - startY) * t + Math.sin(t * Math.PI) * 15 * (Math.random() - 0.5);
-      ctx.lineTo(x, y);
+      var x = startX + (sig.direction === 'LONG' ? 1 : -1) * (i * 30);
+      var baseY = startY + (endY - startY) * t;
+      var wobble = Math.sin(t * Math.PI * 2) * 8;
+      var y = baseY + wobble;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.3 + t * 0.5;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = color;
+      ctx.fill();
+
+      if (i > 0) {
+        var prevT = (i - 1) / steps;
+        var prevX = startX + (sig.direction === 'LONG' ? 1 : -1) * ((i - 1) * 30);
+        var prevBaseY = startY + (endY - startY) * prevT;
+        var prevWobble = Math.sin(prevT * Math.PI * 2) * 8;
+        var prevY = prevBaseY + prevWobble;
+
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.4 + t * 0.4;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = color;
+        ctx.stroke();
+      }
     }
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = color;
-    ctx.globalAlpha = 0.6;
-    ctx.stroke();
     ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
   } catch(e) { console.log('drawProjectionPath error:', e.message); }
 }
 
-function updateSignalBadge(sig) {
-  var badge = document.getElementById('signal-badge');
-  if (!sig || sig.direction === 'WAIT') {
-    badge.classList.remove('visible');
-    return;
-  }
-  badge.classList.add('visible');
-  badge.className = 'visible ' + sig.direction.toLowerCase();
-  var icon = sig.direction === 'LONG' ? '🚀' : '💥';
-  badge.textContent = icon + ' SNIPER ' + sig.direction;
+function drawSignalArrow(sig) {
+  if (!sig || !sig.candle || sig.direction === 'WAIT') return;
+
+  markers = [{
+    time: sig.candle.time / 1000,
+    position: sig.direction === 'LONG' ? 'belowBar' : 'aboveBar',
+    color: sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d',
+    shape: sig.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
+    text: sig.direction + ' SNIPER'
+  }];
+  candleSeries.setMarkers(markers);
+}
+
+function clearDrawings() {
+  markers = [];
+  candleSeries.setMarkers([]);
 }
 
 function updatePrice(price, symbol) {
   latestPrices[symbol || activePair] = price;
+  var priceEl = document.getElementById('price-label');
   if (symbol === activePair || !symbol) {
-    document.getElementById('price-label').textContent = '$' + Number(price).toLocaleString();
+    priceEl.textContent = '$' + Number(price).toLocaleString(undefined, {minimumFractionDigits:4, maximumFractionDigits:4});
   }
 }
 
 function switchPair(symbol) {
-  console.log('switchPair called:', symbol);
   activePair = symbol;
   var btns = document.querySelectorAll('.pair-btn');
   btns.forEach(function(btn) {
     btn.classList.remove('active');
     if (btn.dataset.pair === symbol) btn.classList.add('active');
   });
-  document.getElementById('pair-label').textContent = symbol.replace('USDT', '-USDT');
+  document.getElementById('pair-label').textContent = symbol.replace('USDT', '/USDT');
   clearDrawings();
   loadChart(symbol);
-  if (latestPrices[symbol]) {
-    document.getElementById('price-label').textContent = '$' + Number(latestPrices[symbol]).toLocaleString();
-  }
-}
-
-function updateBias(bias) {
-  // deprecated, use updateMode
-}
-
-function updateMode(mode) {
-  if (!mode) return;
-  document.getElementById('mode-badge').textContent = 'MODE: ' + mode;
 }
 
 async function loadChart(symbol) {
   symbol = symbol || 'LABUSDT';
   var thisRequest = ++activeRequestId;
   try {
-    console.log('loadChart fetching', symbol, 'requestId:', thisRequest);
     var r = await fetch(API_URL + '/candles?tf=15m&symbol=' + symbol);
-    if (thisRequest !== activeRequestId) {
-      console.log('loadChart stale response for', symbol, 'requestId:', thisRequest, 'current:', activeRequestId);
-      return;
-    }
-    console.log('loadChart response status:', r.status);
-    if (!r.ok) {
-      var txt = await r.text();
-      console.log('loadChart failed for', symbol, 'status:', r.status, 'body:', txt.slice(0, 200));
-      return;
-    }
+    if (thisRequest !== activeRequestId) return;
+    if (!r.ok) return;
     var data = await r.json();
     if (thisRequest !== activeRequestId) return;
-    console.log('loadChart data candles:', data.candles ? data.candles.length : 0, 'error:', data.error);
     if (!data.candles || !data.candles.length) return;
+
     var cdata = data.candles.map(function(c) {
       return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
     });
     candleData = cdata;
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
-    updateFibSRLevles(cdata);
 
     var lastClose = cdata.length > 0 ? cdata[cdata.length - 1].close : null;
     if (lastClose) updatePrice(lastClose, symbol);
@@ -1338,13 +1167,16 @@ async function loadChart(symbol) {
     if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
       if (labSig) {
-        updateLabUI(labSig);
-        drawLabSignal(labSig);
+        updateAIPanel(labSig);
+        updateSignalBadge(labSig);
+        updateLevelsPanel(labSig);
+        renderPredictionZone(labSig);
+        drawProjectionPath(labSig);
+        drawSignalArrow(labSig);
       }
     }
   } catch(e) {
-    if (thisRequest !== activeRequestId) return;
-    console.log('chart load error for', symbol, ':', e.message);
+    console.log('chart load error:', e.message);
   }
 }
 
@@ -1357,166 +1189,23 @@ function connect() {
   ws.onmessage = function(e) {
     try {
       var msg = JSON.parse(e.data);
-      if (msg.type === 'snapshot') {
-        // handle snapshot
-      }
-      if (msg.type === 'signal') {
-        var d = msg.data || {};
-        if (d.fusion) {
-          updateFusionUI(d.fusion);
-        }
-      }
-      if (msg.type === 'market_data') {
-        var pd = msg.data;
-        var mPair = msg.pair || 'BTCUSDT';
-        console.log('market_data received:', mPair, 'activePair:', activePair, 'pd:', pd);
-        if (mPair === activePair) {
-          if (pd && pd.close) updatePrice(pd.close, mPair);
-          if (pd && pd.htf) updateMode(pd.htf.bias);
-        }
-      }
       if (msg.type === 'price_tick') {
         var pt = msg.data || {};
         var tickSymbol = pt.symbol || msg.pair || 'BTCUSDT';
         if (pt.price) updatePrice(pt.price, tickSymbol);
-        if (pt.candle && candleSeries && activePair === tickSymbol) {
-          candleSeries.update({
-            time: pt.candle.time / 1000,
-            open: pt.candle.open,
-            high: pt.candle.high,
-            low: pt.candle.low,
-            close: pt.candle.close
-          });
-          updateZonesRealtime(pt.candle.close);
-        }
-      }
-      if (msg.type === 'chart_pack') {
-        var cp = msg.data || {};
-        var cpPair = (msg.pair || '').replace('-', '').toUpperCase();
-        if (cpPair && cpPair !== activePair.replace('-', '').toUpperCase()) return;
-        drawChartPack(cp);
-        if (cp.candles && cp.candles.length) {
-          var cdata = cp.candles.map(function(c) {
-            return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
-          });
-          candleData = cdata;
-          candleSeries.setData(cdata);
-          updateFibSRLevles(cdata);
-        }
-        if (cp.signal) updateFusionUI(cp.signal);
-        if (cp.market_context) {
-          updateMode(cp.market_context.market_mode);
-        }
-      }
-      if (msg.type === 'smart_money_overlay') {
-        var data = msg.data || {};
-        var msgPair = (msg.pair || '').replace('-', '').toUpperCase();
-        if (msgPair && msgPair !== activePair.replace('-', '').toUpperCase()) return;
-        var sig = data.signal || data;
-        var overlay = data.overlay || {};
-        var htf = data.htf || {};
-        console.log('smart_money_overlay received:', { hasSignal: !!sig, hasOb: !!(sig && sig.ob), hasFvg: !!(sig && sig.fvg), obData: sig && sig.ob, fvgData: sig && sig.fvg, dataOb: !!data.ob, dataFvg: !!data.fvg, obZone: sig && sig.ob && sig.ob.zone, fvgZone: sig && sig.fvg && sig.fvg.zone });
-        if (!sig) return;
-
-        if (sig.ob && sig.ob.zone) {
-          handleZone("OB", sig.ob);
-        } else if (data.ob && data.ob.zone) {
-          handleZone("OB", data.ob);
-        }
-        if (sig.fvg && sig.fvg.zone) {
-          handleZone("FVG", sig.fvg);
-        } else if (data.fvg && data.fvg.zone) {
-          handleZone("FVG", data.fvg);
-        }
-        if (sig.entry && sig.tp && sig.sl) {
-          drawLevels(sig.entry, sig.tp, sig.sl);
-        }
-        if (sig.candle) {
-          drawSignalArrowOnly(sig);
-        }
-        if (sig.confidenceScore) drawConfidence(sig);
-        if (sig.dca) drawDCA(sig);
-        if (overlay.bos) drawBOS(overlay.bos);
-        if (overlay.sweep) drawSweep(overlay.sweep);
-        if (overlay.trap) drawTrap(overlay.trap);
-        if (htf.ob && htf.ob.zone) drawHTFZone(htf.ob.zone, '#64748b');
-        if (htf.fvg && htf.fvg.zone) drawHTFZone(htf.fvg.zone, '#475569');
-        if (data.heatmap) drawHeatmap(data.heatmap);
-      }
-      if (msg.type === 'smart_money') {
-        var sm = msg.data || {};
-        var sig = sm.signal;
-        if (!sig) return;
-
-        if (sig.type === 'CHOPPY') {
-          markers.push({
-            time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
-            position: 'aboveBar',
-            color: '#94a3b8',
-            shape: 'circle',
-            text: 'CHOPPY ⚠️'
-          });
-          if (sm.stats && sm.stats.volatility) {
-            markers.push({
-              time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
-              position: 'aboveBar',
-              color: '#38bdf8',
-              shape: 'circle',
-              text: 'VOL ' + sm.stats.volatility + '%'
-            });
-          }
-          candleSeries.setMarkers(markers);
-          return;
-        }
-
-        markers.push({
-          time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
-          position: sig.type === 'LONG' ? 'belowBar' : 'aboveBar',
-          color: sig.type === 'LONG' ? '#00FFA3' : '#FF4D4D',
-          shape: sig.type === 'LONG' ? 'arrowUp' : 'arrowDown',
-          text: (sig.type || '') + ' (' + (sig.confidence || 'MED') + ')'
-        });
-        if (sm.stats && sm.stats.volatility) {
-          markers.push({
-            time: sig.candle ? sig.candle.time / 1000 : Math.floor(Date.now() / 1000),
-            position: 'aboveBar',
-            color: '#38bdf8',
-            shape: 'circle',
-            text: 'VOL ' + sm.stats.volatility + '%'
-          });
-        }
-        if (sig.ob && sig.ob.zone) drawZone(sig.ob.zone, '#3B82F6');
-        if (sig.fvg && sig.fvg.zone) drawZone(sig.fvg.zone, '#a855f7');
-        candleSeries.setMarkers(markers);
       }
       if (msg.type === 'lab_signal') {
         var lab = msg.data || {};
-        var labPair = (msg.pair || '').replace('-', '').toUpperCase();
-        if (labPair && labPair !== 'LABUSDT') return;
-        updateLabUI(lab);
-        if (lab.direction && lab.direction !== 'WAIT' && lab.candle) {
-          if (activePair !== 'LABUSDT') {
-            switchPair('LABUSDT');
-          }
-          var labTime = lab.candle.time / 1000;
-          markers.push({
-            time: labTime,
-            position: lab.direction === 'LONG' ? 'belowBar' : 'aboveBar',
-            color: lab.direction === 'LONG' ? '#00FFA3' : '#FF4D4D',
-            shape: lab.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
-            text: 'LAB ' + lab.direction + ' SNIPER'
-          });
-          candleSeries.setMarkers(markers);
-          if (lab.entry && lab.tp && lab.sl) {
-            clearDrawings();
-            drawLevels(lab.entry, lab.tp, lab.sl);
-          }
-        }
+        updateAIPanel(lab);
+        updateSignalBadge(lab);
+        updateLevelsPanel(lab);
+        renderPredictionZone(lab);
+        drawProjectionPath(lab);
+        drawSignalArrow(lab);
       }
     } catch(e) { console.log('parse error:', e); }
   };
-  ws.onclose = function() { console.log('ws closed, reconnecting...'); setTimeout(connect, 3000); };
-  ws.onerror = function(e) { console.log('ws error'); };
+  ws.onclose = function() { setTimeout(connect, 3000); };
 }
 
 initChart();
