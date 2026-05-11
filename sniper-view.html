@@ -1754,8 +1754,6 @@ function tickRealtimePrice() {
           drawProjectionPath(labSig);
           drawSignalArrow(labSig);
         }
-      } else {
-        lastSignalKey = null;
       }
     }
   }
@@ -1801,10 +1799,10 @@ async function loadChart(symbol) {
     console.log('Last close price:', lastClose);
     if (lastClose) updatePrice(lastClose, symbol);
 
-    if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
+if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
       console.log('labSig:', labSig ? labSig.direction : 'null');
-      if (labSig) {
+      if (labSig && labSig.direction !== 'WAIT') {
         updateAIPanel(labSig);
         updateSignalBadge(labSig);
         updateLevelsPanel(labSig);
@@ -1812,6 +1810,7 @@ async function loadChart(symbol) {
         drawProjectionPath(labSig);
         drawSignalArrow(labSig);
       }
+    }
     }
     updateAnalyticsHUD(cdata);
     renderConsolidationBox(cdata);
