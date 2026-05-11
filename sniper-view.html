@@ -1019,6 +1019,7 @@ function getADX(data, len) {
   for (var i = 1; i < data.length; i++) {
     var high = data[i].high, low = data[i].low;
     var prevHigh = data[i - 1].high, prevLow = data[i - 1].low;
+    var prevClose = data[i - 1].close;
     var upMove = high - prevHigh, downMove = prevLow - low;
     trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
     plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
