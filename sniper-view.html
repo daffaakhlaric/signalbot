@@ -711,6 +711,7 @@ let latestPrices = {};
 let activeRequestId = 0;
 let candleData = [];
 let gridVisible = true;
+let chartInitialized = false;
 
 function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4}); }
 
@@ -736,6 +737,8 @@ function getATR(data, len) {
 }
 
 function initChart() {
+  if (chartInitialized) return;
+  chartInitialized = true;
   const container = document.getElementById('chart-container');
   chart = LightweightCharts.createChart(container, {
     layout: {
@@ -1146,26 +1149,32 @@ function switchPair(symbol) {
 async function loadChart(symbol) {
   symbol = symbol || 'LABUSDT';
   var thisRequest = ++activeRequestId;
+  console.log('loadChart fetching', symbol);
   try {
     var r = await fetch(API_URL + '/candles?tf=15m&symbol=' + symbol);
-    if (thisRequest !== activeRequestId) return;
-    if (!r.ok) return;
+    if (thisRequest !== activeRequestId) { console.log('stale request, ignoring'); return; }
+    console.log('loadChart response status:', r.status);
+    if (!r.ok) { console.log('fetch not ok'); return; }
     var data = await r.json();
     if (thisRequest !== activeRequestId) return;
-    if (!data.candles || !data.candles.length) return;
+    console.log('loadChart data candles:', data.candles ? data.candles.length : 0);
+    if (!data.candles || !data.candles.length) { console.log('no candles'); return; }
 
     var cdata = data.candles.map(function(c) {
       return { time: c.time / 1000, open: c.open, high: c.high, low: c.low, close: c.close };
     });
     candleData = cdata;
+    console.log('Setting', cdata.length, 'candles to chart');
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
 
     var lastClose = cdata.length > 0 ? cdata[cdata.length - 1].close : null;
+    console.log('Last close price:', lastClose);
     if (lastClose) updatePrice(lastClose, symbol);
 
     if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
+      console.log('labSig:', labSig ? labSig.direction : 'null');
       if (labSig) {
         updateAIPanel(labSig);
         updateSignalBadge(labSig);
@@ -1189,19 +1198,31 @@ function connect() {
   ws.onmessage = function(e) {
     try {
       var msg = JSON.parse(e.data);
+      console.log('WS message:', msg.type, msg.pair || '');
       if (msg.type === 'price_tick') {
         var pt = msg.data || {};
         var tickSymbol = pt.symbol || msg.pair || 'BTCUSDT';
-        if (pt.price) updatePrice(pt.price, tickSymbol);
+        if (pt.price) {
+          console.log('price tick:', pt.price, tickSymbol);
+          updatePrice(pt.price, tickSymbol);
+        }
       }
       if (msg.type === 'lab_signal') {
         var lab = msg.data || {};
+        console.log('lab_signal:', lab.direction);
         updateAIPanel(lab);
         updateSignalBadge(lab);
         updateLevelsPanel(lab);
         renderPredictionZone(lab);
         drawProjectionPath(lab);
         drawSignalArrow(lab);
+      }
+      if (msg.type === 'market_data') {
+        var pd = msg.data;
+        var mPair = msg.pair || 'BTCUSDT';
+        if (mPair === activePair && pd && pd.close) {
+          updatePrice(pd.close, mPair);
+        }
       }
     } catch(e) { console.log('parse error:', e); }
   };
