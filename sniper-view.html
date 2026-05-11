@@ -1331,6 +1331,10 @@ async function loadChart(symbol) {
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
     updateFibSRLevles(cdata);
+
+    var lastClose = cdata.length > 0 ? cdata[cdata.length - 1].close : null;
+    if (lastClose) updatePrice(lastClose, symbol);
+
     if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
       if (labSig) {
@@ -1365,6 +1369,7 @@ function connect() {
       if (msg.type === 'market_data') {
         var pd = msg.data;
         var mPair = msg.pair || 'BTCUSDT';
+        console.log('market_data received:', mPair, 'activePair:', activePair, 'pd:', pd);
         if (mPair === activePair) {
           if (pd && pd.close) updatePrice(pd.close, mPair);
           if (pd && pd.htf) updateMode(pd.htf.bias);
