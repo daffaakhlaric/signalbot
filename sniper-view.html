@@ -250,8 +250,8 @@ body {
 
 #prediction-zone-long {
   position: absolute;
-  left: 42%;
-  width: 18%;
+  left: 0;
+  right: 0;
   background: linear-gradient(to top, rgba(0, 255, 170, 0.35) 0%, rgba(0, 255, 170, 0.12) 50%, transparent 100%);
   border: 1px solid rgba(0, 255, 170, 0.45);
   border-top: 2px solid rgba(0, 255, 170, 0.5);
@@ -263,8 +263,8 @@ body {
 
 #prediction-zone-short {
   position: absolute;
-  left: 42%;
-  width: 18%;
+  left: 0;
+  right: 0;
   background: linear-gradient(to bottom, rgba(255, 50, 80, 0.25) 0%, rgba(255, 50, 80, 0.08) 50%, transparent 100%);
   border: 1px solid rgba(255, 50, 80, 0.35);
   border-bottom: 2px solid rgba(255, 50, 80, 0.5);
@@ -1085,11 +1085,21 @@ function renderPredictionZone(sig) {
     return;
   }
 
-  if (!candleSeries) return;
+  if (!candleSeries || !chart) return;
+
+  var chartContainer = document.getElementById('chart-container');
+  var chartRect = chartContainer.getBoundingClientRect();
 
   var entryY = candleSeries.priceToCoordinate(sig.entry);
   var tpY = candleSeries.priceToCoordinate(sig.tp);
   var slY = candleSeries.priceToCoordinate(sig.sl);
+
+  var candleTime = sig.candle ? sig.candle.time / 1000 : candleData.length > 0 ? candleData[candleData.length - 1].time : null;
+  var candleX = null;
+  if (candleTime) {
+    var timeScale = chart.timeScale();
+    candleX = timeScale.timeToCoordinate(candleTime);
+  }
 
   var zoneTop, zoneHeight, otherTop, otherHeight;
   if (sig.direction === 'LONG') {
@@ -1104,16 +1114,19 @@ function renderPredictionZone(sig) {
     otherHeight = entryY - slY;
   }
 
+  var zoneWidth = chartRect.width * 0.16;
+  var zoneLeft = candleX !== null ? candleX - zoneWidth / 2 : chartRect.width * 0.42;
+
   zoneLong.style.display = 'block';
-  zoneLong.style.left = '42%';
-  zoneLong.style.right = '40%';
-  zoneLong.style.top = (zoneTop - 56) + 'px';
+  zoneLong.style.left = zoneLeft + 'px';
+  zoneLong.style.width = zoneWidth + 'px';
+  zoneLong.style.top = zoneTop + 'px';
   zoneLong.style.height = (zoneHeight) + 'px';
 
   zoneShort.style.display = 'block';
-  zoneShort.style.left = '42%';
-  zoneShort.style.right = '40%';
-  zoneShort.style.top = (otherTop - 56) + 'px';
+  zoneShort.style.left = zoneLeft + 'px';
+  zoneShort.style.width = zoneWidth + 'px';
+  zoneShort.style.top = otherTop + 'px';
   zoneShort.style.height = (otherHeight) + 'px';
 }
 
@@ -1128,13 +1141,22 @@ function drawProjectionPath(sig) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
-    if (!candleSeries) return;
+    if (!candleSeries || !chart) return;
+
+    var chartRect = document.getElementById('chart-container').getBoundingClientRect();
+    var candleTime = sig.candle ? sig.candle.time / 1000 : candleData.length > 0 ? candleData[candleData.length - 1].time : null;
+
+    var startX;
+    if (candleTime) {
+      var timeScale = chart.timeScale();
+      startX = timeScale.timeToCoordinate(candleTime);
+      if (startX === null) startX = chartRect.left + chartRect.width * 0.5;
+    } else {
+      startX = chartRect.left + chartRect.width * 0.5;
+    }
 
     var entryY = candleSeries.priceToCoordinate(sig.entry);
     var tpY = candleSeries.priceToCoordinate(sig.tp);
-
-    var chartRect = document.getElementById('chart-container').getBoundingClientRect();
-    var startX = chartRect.left + chartRect.width * 0.5;
     var endY = tpY;
     var steps = 20;
 
@@ -1182,20 +1204,36 @@ function drawProjectionPath(sig) {
 
 function drawSignalArrow(sig) {
   if (!sig || !sig.candle || sig.direction === 'WAIT') return;
+  if (!candleSeries) return;
+
+  var candleTime = sig.candle.time / 1000;
+  var timeScale = chart.timeScale();
+  var x = timeScale.timeToCoordinate(candleTime);
+  if (x === null) return;
 
   markers = [{
-    time: sig.candle.time / 1000,
+    time: candleTime,
     position: sig.direction === 'LONG' ? 'belowBar' : 'aboveBar',
     color: sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d',
     shape: sig.direction === 'LONG' ? 'arrowUp' : 'arrowDown',
-    text: sig.direction + ' SNIPER'
+    text: sig.direction + ' ' + (sig.signalName || 'SNIPER')
   }];
   candleSeries.setMarkers(markers);
 }
 
 function clearDrawings() {
   markers = [];
-  candleSeries.setMarkers([]);
+  if (candleSeries) candleSeries.setMarkers([]);
+  var zoneLong = document.getElementById('prediction-zone-long');
+  var zoneShort = document.getElementById('prediction-zone-short');
+  if (zoneLong) zoneLong.style.display = 'none';
+  if (zoneShort) zoneShort.style.display = 'none';
+  var canvas = document.getElementById('projection-canvas');
+  if (canvas) {
+    var ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  lastSignalKey = null;
 }
 
 function updatePrice(price, symbol) {
