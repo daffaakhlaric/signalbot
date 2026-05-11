@@ -217,30 +217,26 @@ body {
 
 /* CROSSHAIR CANVAS */
 #crosshair-canvas {
-  position: fixed;
-  top: 56px;
+  position: absolute;
+  top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   pointer-events: none;
   z-index: 10;
 }
 
 /* PREDICTION CANVAS */
 #projection-canvas {
-  position: fixed;
-  top: 56px;
+  position: absolute;
+  top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   pointer-events: none;
   z-index: 5;
 }
 
 /* PREDICTION ZONES */
 .prediction-overlay {
-  position: fixed;
-  top: 56px;
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
@@ -250,8 +246,6 @@ body {
 
 #prediction-zone-long {
   position: absolute;
-  left: 0;
-  right: 0;
   background: linear-gradient(to top, rgba(0, 255, 170, 0.35) 0%, rgba(0, 255, 170, 0.12) 50%, transparent 100%);
   border: 1px solid rgba(0, 255, 170, 0.45);
   border-top: 2px solid rgba(0, 255, 170, 0.5);
@@ -263,8 +257,6 @@ body {
 
 #prediction-zone-short {
   position: absolute;
-  left: 0;
-  right: 0;
   background: linear-gradient(to bottom, rgba(255, 50, 80, 0.25) 0%, rgba(255, 50, 80, 0.08) 50%, transparent 100%);
   border: 1px solid rgba(255, 50, 80, 0.35);
   border-bottom: 2px solid rgba(255, 50, 80, 0.5);
@@ -719,8 +711,8 @@ body {
 
 /* CONSOLIDATION OVERLAY */
 #consolidation-overlay {
-  position: fixed;
-  top: 56px;
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1259,7 +1251,7 @@ function renderConsolidationBox(candles) {
   box.className = 'consolidation-box';
   box.style.left = startX + 'px';
   box.style.width = (endX - startX) + 'px';
-  box.style.top = (highY + chartRect.top) + 'px';
+  box.style.top = highY + 'px';
   box.style.height = (lowY - highY) + 'px';
 
   var label = document.createElement('span');
@@ -1313,8 +1305,18 @@ function initChart() {
 
   window.addEventListener('resize', () => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    if (lastSignalKey) {
+      var sigKeyParts = lastSignalKey.split('|');
+      if (sigKeyParts.length >= 3) {
+        var sig = detectLabSignal(candleData);
+        if (sig && sig.direction !== 'WAIT') {
+          renderPredictionZone(sig);
+          drawProjectionPath(sig);
+        }
+      }
+    }
+    renderConsolidationBox(candleData);
   });
-
   initCrosshair();
 }
 
@@ -1327,8 +1329,8 @@ function initCrosshair() {
     if (!chart) return;
 
     const chartRect = document.getElementById('chart-container').getBoundingClientRect();
-    crosshairCanvas.width = window.innerWidth;
-    crosshairCanvas.height = window.innerHeight;
+    crosshairCanvas.width = chartRect.width;
+    crosshairCanvas.height = chartRect.height;
 
     const price = candleSeries.coordinateToPrice(mouseY - chartRect.top);
     const time = chart.timeScale().coordinateToTime(mouseX - chartRect.left);
@@ -1339,13 +1341,13 @@ function initCrosshair() {
       ctx.lineWidth = 1;
 
       ctx.beginPath();
-      ctx.moveTo(0, mouseY);
-      ctx.lineTo(window.innerWidth, mouseY);
+      ctx.moveTo(0, mouseY - chartRect.top);
+      ctx.lineTo(chartRect.width, mouseY - chartRect.top);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(mouseX, 0);
-      ctx.lineTo(mouseX, window.innerHeight);
+      ctx.moveTo(mouseX - chartRect.left, 0);
+      ctx.lineTo(mouseX - chartRect.left, chartRect.height);
       ctx.stroke();
 
       ctx.setLineDash([]);
@@ -1607,8 +1609,9 @@ function drawProjectionPath(sig) {
     if (!canvas) return;
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    var chartRect = document.getElementById('chart-container').getBoundingClientRect();
+    canvas.width = chartRect.width;
+    canvas.height = chartRect.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
@@ -1621,9 +1624,9 @@ function drawProjectionPath(sig) {
     if (candleTime) {
       var timeScale = chart.timeScale();
       startX = timeScale.timeToCoordinate(candleTime);
-      if (startX === null) startX = chartRect.left + chartRect.width * 0.5;
+      if (startX === null) startX = chartRect.width * 0.5;
     } else {
-      startX = chartRect.left + chartRect.width * 0.5;
+      startX = chartRect.width * 0.5;
     }
 
     var entryY = candleSeries.priceToCoordinate(sig.entry);
