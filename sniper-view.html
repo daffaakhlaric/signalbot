@@ -570,8 +570,8 @@ function detectLabSignal(candles) {
   }
 
   var direction = 'WAIT';
-  if (score.long >= 4 && score.long > score.short) direction = 'LONG';
-  if (score.short >= 4 && score.short > score.long) direction = 'SHORT';
+  if (score.long >= 2 && score.long > score.short) direction = 'LONG';
+  if (score.short >= 2 && score.short > score.long) direction = 'SHORT';
 
   console.log('detectLabSignal: direction=', direction, 'score.long=', score.long, 'score.short=', score.short, 'bullTrend=', bullTrend, 'bearTrend=', bearTrend);
 
