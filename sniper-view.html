@@ -110,9 +110,27 @@ body {
   animation: pulse 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
+#live-dot.connected {
+  background: var(--neon-green);
+  box-shadow: 0 0 10px var(--neon-green);
+  animation: none;
+}
+
+#live-dot.disconnected {
+  background: var(--neon-red);
+  box-shadow: 0 0 10px var(--neon-red);
+  animation: none;
+}
+
+#live-dot.reconnecting {
+  background: var(--neon-gold);
+  box-shadow: 0 0 10px var(--neon-gold);
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.3; }
 }
 
 .mode-text {
@@ -637,7 +655,7 @@ body {
   </div>
 
   <div class="mode-indicator">
-    <div class="mode-dot"></div>
+    <div class="mode-dot" id="live-dot"></div>
     <span class="mode-text">SNIPER AI ACTIVE</span>
   </div>
 
@@ -755,6 +773,8 @@ let activeRequestId = 0;
 let candleData = [];
 let gridVisible = true;
 let chartInitialized = false;
+let lastLabSignal = null;
+let lastSignalKey = null;
 
 function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4}); }
 
@@ -1186,6 +1206,48 @@ function updatePrice(price, symbol) {
   }
 }
 
+function tickRealtimePrice() {
+  if (!activePair || !candleSeries || !candleData || candleData.length === 0) return;
+  var currentPrice = latestPrices[activePair];
+  if (!currentPrice) return;
+  var lastCandle = candleData[candleData.length - 1];
+  if (!lastCandle) return;
+
+  if (currentPrice !== lastCandle.close) {
+    var updated = {
+      time: lastCandle.time,
+      open: lastCandle.open,
+      high: Math.max(lastCandle.high, currentPrice),
+      low: Math.min(lastCandle.low, currentPrice),
+      close: currentPrice
+    };
+    candleSeries.update(updated);
+    lastCandle.high = updated.high;
+    lastCandle.low = updated.low;
+    lastCandle.close = updated.close;
+
+    if (activePair === 'LABUSDT' || activePair === 'LAB-USDT') {
+      var labSig = detectLabSignal(candleData);
+      if (labSig && labSig.direction !== 'WAIT') {
+        var sigKey = labSig.direction + '|' + labSig.entry.toFixed(4) + '|' + (labSig.signalType || '');
+        if (sigKey !== lastSignalKey) {
+          lastSignalKey = sigKey;
+          updateAIPanel(labSig);
+          updateSignalBadge(labSig);
+          updateLevelsPanel(labSig);
+          renderPredictionZone(labSig);
+          drawProjectionPath(labSig);
+          drawSignalArrow(labSig);
+        }
+      } else {
+        lastSignalKey = null;
+      }
+    }
+  }
+}
+
+setInterval(tickRealtimePrice, 1000);
+
 function switchPair(symbol) {
   activePair = symbol;
   var btns = document.querySelectorAll('.pair-btn');
@@ -1246,19 +1308,49 @@ function connect() {
     location.protocol === 'file:' ? 'ws://localhost:3001'
     : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
   );
-  ws.onopen = function() { console.log('ws connected'); };
+  ws.onopen = function() {
+    console.log('ws connected');
+    var dot = document.getElementById('live-dot');
+    if (dot) dot.className = 'mode-dot connected';
+  };
   ws.onmessage = function(e) {
     try {
       var msg = JSON.parse(e.data);
       if (msg.type === 'price_tick') {
         var pt = msg.data || {};
         var tickSymbol = pt.symbol || msg.pair || 'BTCUSDT';
-        if (pt.price) updatePrice(pt.price, tickSymbol);
+        if (pt.price) {
+          updatePrice(pt.price, tickSymbol);
+          var normTick = tickSymbol && tickSymbol.replace('-', '');
+          var normActive = activePair && activePair.replace('-', '');
+          if ((tickSymbol === activePair || normTick === normActive) && candleSeries && candleData && candleData.length > 0) {
+            var lastCandle = candleData[candleData.length - 1];
+            if (lastCandle) {
+              var updated = { time: lastCandle.time, open: lastCandle.open, high: Math.max(lastCandle.high, pt.price), low: Math.min(lastCandle.low, pt.price), close: pt.price };
+              candleSeries.update(updated);
+              lastCandle.high = updated.high;
+              lastCandle.low = updated.low;
+              lastCandle.close = updated.close;
+            }
+          }
+        }
       }
       if (msg.type === 'market_data') {
         var pd = msg.data;
         var mPair = msg.pair || 'BTCUSDT';
-        if (mPair === activePair && pd && pd.close) updatePrice(pd.close, mPair);
+        if (mPair === activePair && pd && pd.close) {
+          updatePrice(pd.close, mPair);
+          if (candleSeries) {
+            var lastCandle = candleData[candleData.length - 1];
+            if (lastCandle) {
+              var updated = { time: lastCandle.time, open: lastCandle.open, high: Math.max(lastCandle.high, pd.close), low: Math.min(lastCandle.low, pd.close), close: pd.close };
+              candleSeries.update(updated);
+              lastCandle.high = updated.high;
+              lastCandle.low = updated.low;
+              lastCandle.close = updated.close;
+            }
+          }
+        }
       }
       if (msg.type === 'lab_signal') {
         var lab = msg.data || {};
@@ -1284,7 +1376,11 @@ function connect() {
       }
     } catch(e) { }
   };
-  ws.onclose = function() { setTimeout(connect, 3000); };
+  ws.onclose = function() {
+    var dot = document.getElementById('live-dot');
+    if (dot) dot.className = 'mode-dot disconnected';
+    setTimeout(connect, 3000);
+  };
 }
 
 initChart();

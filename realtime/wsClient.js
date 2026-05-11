@@ -13,6 +13,7 @@ const ALL_SYMBOLS = ["btcusdt", "ethusdt", "solusdt", "labusdt"];
 function startStream(opts) {
   opts = opts || {};
   const symbols = opts.symbols || ALL_SYMBOLS;
+  const interval = opts.interval || currentInterval;
   klineCallback = opts.onKline || null;
   connectCallback = opts.onConnect || null;
   disconnectCallback = opts.onDisconnect || null;
@@ -24,6 +25,7 @@ function startStream(opts) {
   }
 
   currentSymbols = symbols;
+  currentInterval = interval;
 
   const streams = symbols.map(s => `${s.toLowerCase()}@kline_${currentInterval}`).join("/");
   const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
