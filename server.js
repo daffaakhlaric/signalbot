@@ -2826,7 +2826,7 @@ app.get("/candles", async (req, res) => {
   try {
     const tf = req.query.tf || "15m";
     const symbolParam = req.query.symbol || SYMBOLS[0];
-    const symbol = symbolParam.includes("-") ? symbolParam : symbolParam + "-USDT";
+    const symbol = symbolParam.includes("-") ? symbolParam : symbolParam.slice(0, -4) + "-USDT";
     const candles = await fetchKlines(symbol, tf, 200);
     if (!candles || !candles.length) return res.json({ candles: [] });
 

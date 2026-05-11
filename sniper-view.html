@@ -1253,7 +1253,7 @@ async function loadChart(symbol) {
     candleSeries.setData(cdata);
     chart.timeScale().fitContent();
     updateFibSRLevles(cdata);
-    if (symbol === 'LABUSDT') {
+    if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
       if (labSig) {
         updateLabUI(labSig);
