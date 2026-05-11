@@ -232,24 +232,28 @@ body {
 
 #prediction-zone-long {
   position: absolute;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0, 255, 170, 0.18) 0%, rgba(0, 255, 170, 0.06) 50%, transparent 100%);
+  left: 42%;
+  width: 18%;
+  background: linear-gradient(to top, rgba(0, 255, 170, 0.35) 0%, rgba(0, 255, 170, 0.12) 50%, transparent 100%);
+  border: 1px solid rgba(0, 255, 170, 0.45);
   border-top: 2px solid rgba(0, 255, 170, 0.5);
-  box-shadow: 0 0 50px rgba(0, 255, 170, 0.2);
+  box-shadow: 0 0 60px rgba(0, 255, 170, 0.25);
   display: none;
   overflow: visible;
+  backdrop-filter: blur(2px);
 }
 
 #prediction-zone-short {
   position: absolute;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to bottom, rgba(255, 77, 77, 0.18) 0%, rgba(255, 77, 77, 0.06) 50%, transparent 100%);
-  border-bottom: 2px solid rgba(255, 77, 77, 0.5);
-  box-shadow: 0 0 50px rgba(255, 77, 77, 0.2);
+  left: 42%;
+  width: 18%;
+  background: linear-gradient(to bottom, rgba(255, 50, 80, 0.25) 0%, rgba(255, 50, 80, 0.08) 50%, transparent 100%);
+  border: 1px solid rgba(255, 50, 80, 0.35);
+  border-bottom: 2px solid rgba(255, 50, 80, 0.5);
+  box-shadow: 0 0 50px rgba(255, 50, 80, 0.18);
   display: none;
   overflow: visible;
+  backdrop-filter: blur(2px);
 }
 
 .zone-label {
@@ -284,11 +288,11 @@ body {
   position: fixed;
   top: 70px;
   right: 16px;
-  width: 240px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  width: 260px;
+  background: linear-gradient(135deg, rgba(5, 8, 22, 0.95) 0%, rgba(10, 15, 30, 0.9) 100%);
+  border: 1px solid rgba(0, 255, 170, 0.2);
   border-radius: 16px;
-  padding: 18px;
+  padding: 16px;
   z-index: 50;
   backdrop-filter: blur(24px);
   box-shadow:
@@ -300,38 +304,61 @@ body {
 
 #ai-panel.visible { display: block; }
 
+#ai-panel.tier-elite {
+  border-color: rgba(0, 255, 170, 0.5);
+  box-shadow: 0 0 40px rgba(0, 255, 170, 0.3), 0 0 80px rgba(0, 255, 170, 0.1);
+}
+
+#ai-panel.tier-strong {
+  border-color: rgba(0, 212, 255, 0.5);
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.25), 0 0 80px rgba(0, 212, 255, 0.08);
+}
+
+#ai-panel.tier-valid {
+  border-color: rgba(250, 204, 21, 0.4);
+  box-shadow: 0 0 40px rgba(250, 204, 21, 0.2), 0 0 80px rgba(250, 204, 21, 0.08);
+}
+
+#ai-panel.tier-weak {
+  border-color: rgba(255, 77, 77, 0.3);
+  box-shadow: 0 0 40px rgba(255, 77, 77, 0.15), 0 0 80px rgba(255, 77, 77, 0.05);
+}
+
 .ai-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(0, 255, 170, 0.15);
 }
 
 .ai-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(0, 255, 170, 0.2), rgba(0, 212, 255, 0.1));
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0, 255, 170, 0.25), rgba(0, 212, 255, 0.15));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 18px;
+  box-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
 }
 
 .ai-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--neon-green);
   letter-spacing: 1px;
+  text-shadow: 0 0 15px rgba(0, 255, 170, 0.5);
 }
 
 .ai-subtitle {
-  font-size: 9px;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-  margin-top: 2px;
+  font-size: 8px;
+  color: var(--neon-cyan);
+  letter-spacing: 2px;
+  margin-top: 3px;
+  text-transform: uppercase;
 }
 
 .ai-metric {
@@ -345,9 +372,10 @@ body {
 .ai-metric:last-child { border-bottom: none; }
 
 .ai-metric-label {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted);
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .ai-metric-value {
@@ -650,15 +678,23 @@ body {
   </div>
 
   <div class="ai-metric">
+    <span class="ai-metric-label">SIGNAL TYPE</span>
+    <span class="ai-metric-value gold" id="ai-signal-type">--</span>
+  </div>
+  <div class="ai-metric">
     <span class="ai-metric-label">DIRECTION</span>
     <span class="ai-metric-value gold" id="ai-dir">--</span>
   </div>
   <div class="ai-metric">
-    <span class="ai-metric-label">AI CONFIDENCE</span>
+    <span class="ai-metric-label">AI SCORE</span>
     <span class="ai-metric-value cyan" id="ai-score">--%</span>
   </div>
   <div class="ai-metric">
-    <span class="ai-metric-label">SUCCESS RATE</span>
+    <span class="ai-metric-label">CONFIDENCE</span>
+    <span class="ai-metric-value green" id="ai-tier">--</span>
+  </div>
+  <div class="ai-metric">
+    <span class="ai-metric-label">WIN RATE</span>
     <span class="ai-metric-value green" id="ai-winrate">--%</span>
   </div>
   <div class="ai-metric">
@@ -919,14 +955,20 @@ function detectLabSignal(candles) {
   var trend = bullTrend ? 'BULLISH' : bearTrend ? 'BEARISH' : 'SIDEWAYS';
   var moveSize = tp && entry ? Math.abs(tp - entry) / entry * 100 : 0;
 
+  var aiScore = Math.min(100, score.long * 10);
+
   return {
     type: direction,
     direction: direction,
+    signalType: direction !== 'WAIT' ? 'SNIPER_SUPER' : 'WAIT',
+    signalName: direction !== 'WAIT' ? '🔥 SNIPER SUPER' : 'WAIT',
     entry: entry,
     tp: tp,
     sl: sl,
     rr: rr,
     score: direction === 'LONG' ? score.long : score.short,
+    aiScore: aiScore,
+    confidenceTier: aiScore >= 90 ? 'ELITE' : aiScore >= 75 ? 'STRONG' : aiScore >= 60 ? 'VALID' : 'WEAK',
     reasons: reasons,
     trend: trend,
     atr: atr,
@@ -942,6 +984,8 @@ function detectLabSignal(candles) {
     fakeBreakout: (upperWickPct > 0.4 && c.close < c.open) || (lowerWickPct > 0.4 && c.close > c.open),
     strongBull: strongBull,
     strongBear: strongBear,
+    marketMode: bullTrend ? 'TRENDING' : bearTrend ? 'SIDEWAYS' : 'CHOPPY',
+    predictedMovePct: moveSize.toFixed(2),
     candle: { time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }
   };
 }
@@ -950,28 +994,36 @@ function updateAIPanel(sig) {
   var panel = document.getElementById('ai-panel');
   if (!sig || sig.direction === 'WAIT') {
     panel.classList.remove('visible');
+    panel.classList.remove('tier-elite', 'tier-strong', 'tier-valid', 'tier-weak');
     return;
   }
   panel.classList.add('visible');
 
-  var score = sig.score || 0;
-  var winrate = Math.round(score * 18);
-  var rr = sig.rr || 0;
-  var moveSize = sig.moveSize || 0;
+  var tier = sig.confidenceTier || 'WEAK';
+  panel.classList.remove('tier-elite', 'tier-strong', 'tier-valid', 'tier-weak');
+  panel.classList.add('tier-' + tier.toLowerCase());
 
-  document.getElementById('ai-dir').textContent = sig.direction;
-  document.getElementById('ai-score').textContent = Math.min(99, score * 12) + '%';
+  var aiScore = sig.aiScore || 0;
+  var winrate = Math.round(aiScore * 0.9);
+  var rr = sig.rr || 0;
+  var moveSize = sig.predictedMovePct || sig.moveSize || 0;
+
+  document.getElementById('ai-signal-type').textContent = sig.signalName || 'SNIPER';
+  document.getElementById('ai-dir').textContent = sig.direction + ' ' + (sig.signalType === 'SNIPER_SUPER' ? '🔥' : '⚡');
+  document.getElementById('ai-score').textContent = aiScore + '%';
+  document.getElementById('ai-tier').textContent = tier;
+  document.getElementById('ai-tier').className = 'ai-metric-value ' + (tier === 'ELITE' ? 'green' : tier === 'STRONG' ? 'cyan' : tier === 'VALID' ? 'gold' : 'red');
   document.getElementById('ai-winrate').textContent = winrate + '%';
   document.getElementById('ai-rr').textContent = rr ? '1:' + rr.toFixed(1) : '--';
-  document.getElementById('ai-move').textContent = moveSize.toFixed(2) + '%';
-  document.getElementById('ai-mode').textContent = sig.trend || '--';
+  document.getElementById('ai-move').textContent = moveSize + '%';
+  document.getElementById('ai-mode').textContent = tier + ' / ' + (sig.marketMode || 'CHOPPY');
 
   var probUp = 50, probDown = 50;
   if (sig.direction === 'LONG') {
-    probUp = Math.min(95, 50 + score * 8);
+    probUp = Math.min(95, 50 + aiScore * 0.4);
     probDown = 100 - probUp;
   } else if (sig.direction === 'SHORT') {
-    probDown = Math.min(95, 50 + score * 8);
+    probDown = Math.min(95, 50 + aiScore * 0.4);
     probUp = 100 - probDown;
   }
   document.getElementById('prob-up').textContent = Math.round(probUp) + '%';
@@ -987,7 +1039,8 @@ function updateSignalBadge(sig) {
   badge.classList.add('visible');
   badge.className = 'visible ' + sig.direction.toLowerCase();
   var icon = sig.direction === 'LONG' ? '🚀' : '💥';
-  badge.querySelector('.signal-badge-text').textContent = icon + ' ' + sig.direction + ' SNIPER';
+  var tierBadge = sig.confidenceTier === 'ELITE' ? '💎' : sig.confidenceTier === 'STRONG' ? '🔥' : sig.confidenceTier === 'VALID' ? '✨' : '⚡';
+  badge.querySelector('.signal-badge-text').textContent = tierBadge + ' ' + icon + ' ' + sig.direction + ' ' + (sig.signalName || 'SNIPER');
 }
 
 function updateLevelsPanel(sig) {
@@ -1012,38 +1065,36 @@ function renderPredictionZone(sig) {
     return;
   }
 
-  var chartRect = document.getElementById('chart-container').getBoundingClientRect();
-  var priceToY = function(price) {
-    var minPrice = chartRect.bottom - 20;
-    var maxPrice = chartRect.top + 20;
-    var range = maxPrice - minPrice;
-    var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
-    var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
-    var ratio = (price - candleMin) / (candleMax - candleMin || 1);
-    return maxPrice - ratio * range;
-  };
+  if (!candleSeries) return;
 
-  var entryY = priceToY(sig.entry);
-  var tpY = priceToY(sig.tp);
-  var slY = priceToY(sig.sl);
+  var entryY = candleSeries.priceToCoordinate(sig.entry);
+  var tpY = candleSeries.priceToCoordinate(sig.tp);
+  var slY = candleSeries.priceToCoordinate(sig.sl);
 
+  var zoneTop, zoneHeight, otherTop, otherHeight;
   if (sig.direction === 'LONG') {
-    zoneLong.style.display = 'block';
-    zoneLong.style.top = (tpY - chartRect.top) + 'px';
-    zoneLong.style.height = (entryY - tpY + chartRect.top) + 'px';
-
-    zoneShort.style.display = 'block';
-    zoneShort.style.top = (slY - chartRect.top) + 'px';
-    zoneShort.style.height = (entryY - slY + chartRect.top) + 'px';
+    zoneTop = tpY;
+    zoneHeight = entryY - tpY;
+    otherTop = entryY;
+    otherHeight = slY - entryY;
   } else {
-    zoneShort.style.display = 'block';
-    zoneShort.style.top = (entryY - chartRect.top) + 'px';
-    zoneShort.style.height = (tpY - entryY + chartRect.top) + 'px';
-
-    zoneLong.style.display = 'block';
-    zoneLong.style.top = (entryY - chartRect.top) + 'px';
-    zoneLong.style.height = (slY - entryY + chartRect.top) + 'px';
+    zoneTop = entryY;
+    zoneHeight = tpY - entryY;
+    otherTop = slY;
+    otherHeight = entryY - slY;
   }
+
+  zoneLong.style.display = 'block';
+  zoneLong.style.left = '42%';
+  zoneLong.style.right = '40%';
+  zoneLong.style.top = (zoneTop - 56) + 'px';
+  zoneLong.style.height = (zoneHeight) + 'px';
+
+  zoneShort.style.display = 'block';
+  zoneShort.style.left = '42%';
+  zoneShort.style.right = '40%';
+  zoneShort.style.top = (otherTop - 56) + 'px';
+  zoneShort.style.height = (otherHeight) + 'px';
 }
 
 function drawProjectionPath(sig) {
@@ -1057,24 +1108,18 @@ function drawProjectionPath(sig) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
+    if (!candleSeries) return;
+
+    var entryY = candleSeries.priceToCoordinate(sig.entry);
+    var tpY = candleSeries.priceToCoordinate(sig.tp);
 
     var chartRect = document.getElementById('chart-container').getBoundingClientRect();
-    var priceToY = function(price) {
-      var minPrice = chartRect.bottom - 20;
-      var maxPrice = chartRect.top + 20;
-      var range = maxPrice - minPrice;
-      var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
-      var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
-      var ratio = (price - candleMin) / (candleMax - candleMin || 1);
-      return maxPrice - ratio * range;
-    };
-
     var startX = chartRect.left + chartRect.width * 0.5;
-    var startY = priceToY(sig.entry);
-    var endY = priceToY(sig.tp);
+    var endY = tpY;
     var steps = 20;
 
     var color = sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d';
+    var startY = entryY;
 
     for (var i = 0; i < steps; i++) {
       var t = i / steps;
@@ -1224,6 +1269,17 @@ function connect() {
           renderPredictionZone(lab);
           drawProjectionPath(lab);
           drawSignalArrow(lab);
+        }
+      }
+      if (msg.type === 'smart_money_overlay') {
+        var smo = msg.data || {};
+        if (smo.signal) {
+          updateAIPanel(smo.signal);
+          updateSignalBadge(smo.signal);
+          updateLevelsPanel(smo.signal);
+          renderPredictionZone(smo.signal);
+          drawProjectionPath(smo.signal);
+          drawSignalArrow(smo.signal);
         }
       }
     } catch(e) { }
