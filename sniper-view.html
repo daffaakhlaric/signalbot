@@ -573,6 +573,8 @@ function detectLabSignal(candles) {
   if (score.long >= 4 && score.long > score.short) direction = 'LONG';
   if (score.short >= 4 && score.short > score.long) direction = 'SHORT';
 
+  console.log('detectLabSignal: direction=', direction, 'score.long=', score.long, 'score.short=', score.short, 'bullTrend=', bullTrend, 'bearTrend=', bearTrend);
+
   var entry = c.close;
   var sl = null, tp = null;
   if (direction === 'LONG') {
@@ -1049,6 +1051,73 @@ function updateLabUI(lab) {
   document.getElementById('lab-power').textContent = power;
 document.getElementById('lab-power').className = 'lab-val ' + (power === 'STRONG' ? 'green' : power.includes('⚠️') ? 'red' : '');
 
+  document.getElementById('lab-e').textContent = fmt(lab.entry);
+  document.getElementById('lab-sl').textContent = fmt(lab.sl);
+  document.getElementById('lab-sup-val').textContent = fmt(lab.support);
+  document.getElementById('lab-res-val').textContent = fmt(lab.resistance);
+
+  var entryZone = '--';
+  var invalidVal = '--';
+  if (dir === 'LONG' && lab.entry && lab.support) {
+    entryZone = fmt(lab.support) + ' - ' + fmt(lab.entry);
+    invalidVal = fmt(lab.support * 0.998);
+  }
+  if (dir === 'SHORT' && lab.entry && lab.resistance) {
+    entryZone = fmt(lab.entry) + ' - ' + fmt(lab.resistance);
+    invalidVal = fmt(lab.resistance * 1.002);
+  }
+  document.getElementById('lab-entry-zone-val').textContent = entryZone;
+  document.getElementById('lab-invalid-val').textContent = invalidVal;
+
+  var tp1 = lab.tp || null;
+  var tp2 = null, tp3 = null;
+  if (lab.resistance && lab.atr) {
+    tp2 = lab.resistance + lab.atr;
+    tp3 = lab.resistance + lab.atr * 2;
+  }
+  if (dir === 'SHORT' && lab.resistance && lab.atr) {
+    tp1 = lab.resistance;
+    tp2 = lab.resistance - lab.atr;
+    tp3 = lab.resistance - lab.atr * 2;
+  }
+  document.getElementById('lab-tp1').textContent = fmt(tp1);
+  document.getElementById('lab-tp1-box').textContent = fmt(tp1);
+  document.getElementById('lab-tp2-box').textContent = fmt(tp2);
+  document.getElementById('lab-tp3-box').textContent = fmt(tp3);
+  document.getElementById('lab-rrr').textContent = lab.rr ? '1:' + lab.rr.toFixed(1) : '--';
+
+  var analysis = [];
+  if (lab.bullTrend) analysis.push('EMA bullish alignment');
+  if (lab.bearTrend) analysis.push('EMA bearish alignment');
+  if (lab.bullRejection) analysis.push('Lower wick rejection');
+  if (lab.bearRejection) analysis.push('Upper wick rejection');
+  if (lab.strongBull) analysis.push('Strong bullish candle');
+  if (lab.strongBear) analysis.push('Strong bearish candle');
+  if (lab.liqSweepShort) analysis.push('⚠️ STOP HUNT DETECTED');
+  if (lab.liqSweepLong) analysis.push('⚠️ LIQUIDITY SWEEP');
+  if (lab.fakeBreakout) analysis.push('⚠️ FAKE BREAKOUT');
+
+  var modeText = '📊 SCANNING MARKET...';
+  if (lab.trend === 'BULLISH') modeText = '🟢 TRENDING BULLISH';
+  else if (lab.trend === 'BEARISH') modeText = '🔴 TRENDING BEARISH';
+  else modeText = '🟡 CHOPPY / NO TRADE';
+
+  if (analysis.length > 0) {
+    modeText += '\n' + analysis.join('\n');
+  }
+  document.getElementById('lab-analysis-text').textContent = modeText;
+
+  var banner = document.getElementById('warning-banner');
+  if (lab.liqSweepShort || lab.liqSweepLong) {
+    banner.textContent = '⚠️ LIQUIDITY SWEEP DETECTED — WAIT FOR CONFIRMATION';
+    banner.className = 'sweep';
+  } else if (lab.fakeBreakout) {
+    banner.textContent = '⚠️ FAKE BREAKOUT DETECTED — AVOID ENTRY';
+    banner.className = 'fake';
+  } else {
+    banner.className = '';
+  }
+
   if (lab.entry && lab.tp && lab.sl) {
     renderPredictionZone(lab);
     drawProjectionPath(lab);
@@ -1143,48 +1212,52 @@ function renderPredictionZone(sig) {
 }
 
 function drawProjectionPath(sig) {
-  var canvas = document.getElementById('prediction-canvas');
-  var ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  try {
+    var canvas = document.getElementById('prediction-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
+    if (!sig || !sig.entry || !sig.tp || sig.direction === 'WAIT') return;
 
-  var chartRect = document.getElementById('chart-container').getBoundingClientRect();
-  var priceToY = function(price) {
-    var minPrice = chartRect.bottom - 50;
-    var maxPrice = chartRect.top + 50;
-    var range = maxPrice - minPrice;
-    var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
-    var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
-    var ratio = (price - candleMin) / (candleMax - candleMin || 1);
-    return maxPrice - ratio * range;
-  };
+    var chartRect = document.getElementById('chart-container').getBoundingClientRect();
+    var priceToY = function(price) {
+      var minPrice = chartRect.bottom - 50;
+      var maxPrice = chartRect.top + 50;
+      var range = maxPrice - minPrice;
+      var candleMin = candleData.length > 0 ? Math.min.apply(null, candleData.map(function(c) { return c.low; })) : 0;
+      var candleMax = candleData.length > 0 ? Math.max.apply(null, candleData.map(function(c) { return c.high; })) : 1;
+      var ratio = (price - candleMin) / (candleMax - candleMin || 1);
+      return maxPrice - ratio * range;
+    };
 
-  var startX = chartRect.left + chartRect.width * 0.5;
-  var startY = priceToY(sig.entry);
-  var endY = priceToY(sig.tp);
-  var steps = 15;
+    var startX = chartRect.left + chartRect.width * 0.5;
+    var startY = priceToY(sig.entry);
+    var endY = priceToY(sig.tp);
+    var steps = 15;
 
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
 
-  var color = sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d';
-  for (var i = 1; i <= steps; i++) {
-    var t = i / steps;
-    var x = startX + (sig.direction === 'LONG' ? 1 : -1) * (i * 25);
-    var y = startY + (endY - startY) * t + Math.sin(t * Math.PI) * 15 * (Math.random() - 0.5);
-    ctx.lineTo(x, y);
-  }
+    var color = sig.direction === 'LONG' ? '#00ffaa' : '#ff4d6d';
+    for (var i = 1; i <= steps; i++) {
+      var t = i / steps;
+      var x = startX + (sig.direction === 'LONG' ? 1 : -1) * (i * 25);
+      var y = startY + (endY - startY) * t + Math.sin(t * Math.PI) * 15 * (Math.random() - 0.5);
+      ctx.lineTo(x, y);
+    }
 
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = color;
-  ctx.globalAlpha = 0.6;
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  } catch(e) { console.log('drawProjectionPath error:', e.message); }
 }
 
 function updateSignalBadge(sig) {
@@ -1224,6 +1297,11 @@ function switchPair(symbol) {
 
 function updateBias(bias) {
   // deprecated, use updateMode
+}
+
+function updateMode(mode) {
+  if (!mode) return;
+  document.getElementById('mode-badge').textContent = 'MODE: ' + mode;
 }
 
 async function loadChart(symbol) {
