@@ -1305,14 +1305,12 @@ function initChart() {
 
   window.addEventListener('resize', () => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-    if (lastSignalKey) {
-      var sigKeyParts = lastSignalKey.split('|');
-      if (sigKeyParts.length >= 3) {
-        var sig = detectLabSignal(candleData);
-        if (sig && sig.direction !== 'WAIT') {
-          renderPredictionZone(sig);
-          drawProjectionPath(sig);
-        }
+    if (lastSignalKey && candleData && candleData.length >= 32) {
+      var sig = detectLabSignal(candleData);
+      if (sig && sig.direction !== 'WAIT') {
+        renderPredictionZone(sig);
+        drawProjectionPath(sig);
+        drawSignalArrow(sig);
       }
     }
     renderConsolidationBox(candleData);
@@ -1810,7 +1808,6 @@ if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
         drawProjectionPath(labSig);
         drawSignalArrow(labSig);
       }
-    }
     }
     updateAnalyticsHUD(cdata);
     renderConsolidationBox(cdata);
