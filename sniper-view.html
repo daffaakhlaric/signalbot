@@ -1735,29 +1735,31 @@ function tickRealtimePrice() {
     lastCandle.high = updated.high;
     lastCandle.low = updated.low;
     lastCandle.close = updated.close;
-
     updateAnalyticsHUD(candleData);
     renderConsolidationBox(candleData);
-
     if (activePair === 'LABUSDT' || activePair === 'LAB-USDT') {
       var labSig = detectLabSignal(candleData);
-      if (labSig && labSig.direction !== 'WAIT') {
-        var sigKey = labSig.direction + '|' + labSig.entry.toFixed(4) + '|' + (labSig.signalType || '');
-        if (sigKey !== lastSignalKey) {
-          lastSignalKey = sigKey;
-          updateAIPanel(labSig);
-          updateSignalBadge(labSig);
-          updateLevelsPanel(labSig);
-          renderPredictionZone(labSig);
-          drawProjectionPath(labSig);
-          drawSignalArrow(labSig);
+      if (labSig) {
+        updateAIPanel(labSig);
+        updateSignalBadge(labSig);
+        updateLevelsPanel(labSig);
+        if (labSig.direction !== 'WAIT') {
+          var sigKey = labSig.direction + '|' + labSig.entry.toFixed(4) + '|' + (labSig.signalType || '');
+          if (sigKey !== lastSignalKey) {
+            lastSignalKey = sigKey;
+            renderPredictionZone(labSig);
+            drawProjectionPath(labSig);
+            drawSignalArrow(labSig);
+          }
+        } else {
+          lastSignalKey = null;
         }
       }
     }
   }
 }
 
-setInterval(tickRealtimePrice, 1000);
+setInterval(tickRealtimePrice, 200);
 
 function switchPair(symbol) {
   activePair = symbol;
@@ -1799,14 +1801,16 @@ async function loadChart(symbol) {
 
 if (symbol === 'LABUSDT' || symbol === 'LAB-USDT') {
       var labSig = detectLabSignal(cdata);
-      console.log('labSig:', labSig ? labSig.direction : 'null');
-      if (labSig && labSig.direction !== 'WAIT') {
+      console.log('labSig:', labSig ? labSig.direction + ' aiScore:' + labSig.aiScore + ' tier:' + labSig.confidenceTier : 'null');
+      if (labSig) {
         updateAIPanel(labSig);
         updateSignalBadge(labSig);
         updateLevelsPanel(labSig);
-        renderPredictionZone(labSig);
-        drawProjectionPath(labSig);
-        drawSignalArrow(labSig);
+        if (labSig.direction !== 'WAIT') {
+          renderPredictionZone(labSig);
+          drawProjectionPath(labSig);
+          drawSignalArrow(labSig);
+        }
       }
     }
     updateAnalyticsHUD(cdata);
@@ -1844,6 +1848,27 @@ function connect() {
               lastCandle.high = updated.high;
               lastCandle.low = updated.low;
               lastCandle.close = updated.close;
+              updateAnalyticsHUD(candleData);
+              renderConsolidationBox(candleData);
+              if (activePair === 'LABUSDT' || activePair === 'LAB-USDT') {
+                var labSig = detectLabSignal(candleData);
+                if (labSig) {
+                  updateAIPanel(labSig);
+                  updateSignalBadge(labSig);
+                  updateLevelsPanel(labSig);
+                  if (labSig.direction !== 'WAIT') {
+                    var sigKey = labSig.direction + '|' + labSig.entry.toFixed(4) + '|' + (labSig.signalType || '');
+                    if (sigKey !== lastSignalKey) {
+                      lastSignalKey = sigKey;
+                      renderPredictionZone(labSig);
+                      drawProjectionPath(labSig);
+                      drawSignalArrow(labSig);
+                    }
+                  } else {
+                    lastSignalKey = null;
+                  }
+                }
+              }
             }
           }
         }
