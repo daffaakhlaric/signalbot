@@ -976,7 +976,7 @@ let chartInitialized = false;
 let lastLabSignal = null;
 let lastSignalKey = null;
 
-function fmt(v) { return v == null ? '--' : Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:4}); }
+function fmt(v) { return v == null ? '--' : Number(v).toFixed(4); }
 
 function calcEMA(values, period) {
   if (values.length < period) return null;
@@ -1712,7 +1712,7 @@ function updatePrice(price, symbol) {
   latestPrices[symbol || activePair] = price;
   var priceEl = document.getElementById('price-label');
   if (symbol === activePair || !symbol) {
-    priceEl.textContent = '$' + Number(price).toLocaleString(undefined, {minimumFractionDigits:4, maximumFractionDigits:4});
+    priceEl.textContent = '$' + Number(price).toFixed(4);
   }
 }
 
