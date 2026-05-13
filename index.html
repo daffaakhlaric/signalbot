@@ -747,7 +747,7 @@ header {
     </div>
     <div class="header-pill">
       <span class="lbl">MODE</span>
-      <span class="val" style="color:var(--green)">MULTI</span>
+      <span class="val" style="color:var(--cyan)">SINGLE</span>
     </div>
   </div>
 
@@ -760,6 +760,11 @@ header {
     <a class="header-btn" href="/sniper-view.html" target="_blank">🎯 SNIPER VIEW</a>
   </div>
 </header>
+
+<div id="pair-tabs-bar">
+  <button class="active" onclick="switchPairTab('BTCUSDT')">BTC</button>
+  <button onclick="switchPairTab('LABUSDT')">LAB</button>
+</div>
 
 <!-- ── DASHBOARD ── -->
 <div class="dashboard">
@@ -1735,6 +1740,15 @@ function renderTabs() {
   });
 }
 
+function switchPairTab(pair) {
+  activePair = pair;
+  document.querySelectorAll('#pair-tabs-bar button').forEach(b => {
+    b.classList.toggle('active', b.textContent === pair.replace('USDT',''));
+  });
+  if (pairState[pair]) applyPairState(pair);
+  el('hdr-pair').textContent = pair.replace('USDT', '/USDT');
+}
+
 function applyPairState(pair) {
   const d = pairState[pair];
   if (!d) return;
@@ -2142,10 +2156,9 @@ function connect() {
           pairState[k] = { signal, market, multi };
         });
         renderTabs();
-        // Render first pair
-        const first = Object.keys(pairState)[0];
-        if (first && pairState[first]) {
-          const p = pairState[first];
+        // Render only active pair
+        if (activePair && pairState[activePair]) {
+          const p = pairState[activePair];
           if (p.multi) renderMulti(p.multi);
           if (p.market) renderMarket(p.market);
           if (p.signal?.price) el('live-price').textContent = '$' + Number(p.signal.price).toLocaleString();
@@ -2180,6 +2193,9 @@ function connect() {
         const multi = data.multi;
 
         if (pairState[key]) pairState[key].latestSignal = data;
+
+        // Only process UI updates for the active pair
+        if (key !== activePair) return;
 
         const best = confirmed || sniper;
         if (best) {
