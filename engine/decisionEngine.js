@@ -143,7 +143,7 @@ function detectSniperSuper(context, candles) {
 function pickBestSignal(signals, context) {
   if (!signals || signals.length === 0) return null;
   var scoring = require("./aiScoring");
-  var scored = signals.map(function(s) {
+  var scored = signals.filter(Boolean).map(function(s) {
     var res = scoring.scoreSignal(s, context);
     return { ...s, score: res.score };
   });
@@ -756,7 +756,7 @@ function buildDecision(opts) {
     if (sniperSuper) {
       result.multi_signals.push(sniperSuper);
     }
-    result.multi_signals = result.multi_signals.map(function(s) {
+    result.multi_signals = result.multi_signals.filter(Boolean).map(function(s) {
       if (s.name === "SNIPER SUPER" || s.name === "LTF SNIPER") {
         s.score = (s.score || 30) + 30;
       }

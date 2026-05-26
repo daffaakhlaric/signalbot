@@ -1324,6 +1324,7 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure, patter
     bigBosSignal = bosSignal.detectBigBOSSignal(payload.candles || [], payload.ema50, payload.ema200, atrVal, null);
     if (bigBosSignal) {
       bigBosSignal.status = "ACTIVE";
+      console.log("💎 BIG BOS SIGNAL:", bigBosSignal.direction, "| Score:", bigBosSignal.score, "| Grade:", bigBosSignal.confidenceTier);
     }
   }
 
@@ -1340,15 +1341,17 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure, patter
   // Score each signal
   Object.keys(signals).forEach(key => {
     const sig = signals[key];
-    if (sig && sig.direction && sig.direction !== "WAIT") {
+    if (!sig) return;
+    if (sig.direction && sig.direction !== "WAIT") {
       sig.score = computeSignalScore(sig.direction, payload, htfBias, momFilter);
     } else {
       sig.score = 0;
     }
   });
 
-  // Global plan-mode fix ΓÇö ensure every signal has entry/tp/sl even if WAIT
+  // Global plan-mode fix — ensure every signal has entry/tp/sl even if WAIT
   Object.values(signals).forEach(sig => {
+    if (!sig) return;
     if (!sig.entry && sig.direction !== "WAIT") {
       sig.entry = payload.close;
     }
