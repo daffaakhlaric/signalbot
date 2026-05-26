@@ -963,6 +963,23 @@ header {
         <div class="sig-score" id="sig-structure_flip-score"></div>
       </div>
 
+      <!-- 7. BIG BOS SIGNAL -->
+      <div class="card sig-card" id="sig-big_bos">
+        <div class="sig-top">
+          <span class="sig-name">💎 BIG BOS</span>
+          <span class="sig-status WAIT" id="sig-big_bos-status">WAIT</span>
+        </div>
+        <div class="sig-dir WAIT" id="sig-big_bos-dir">——</div>
+        <div class="sig-reason" id="sig-big_bos-reason">—</div>
+        <div class="sig-levels">
+          <div class="sig-lvl"><span class="sig-lbl">Entry</span><span class="sig-val y" id="sig-big_bos-entry">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">TP</span><span class="sig-val g" id="sig-big_bos-tp">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">SL</span><span class="sig-val r" id="sig-big_bos-sl">—</span></div>
+          <div class="sig-lvl"><span class="sig-lbl">RR</span><span class="sig-val" id="sig-big_bos-rr">—</span></div>
+        </div>
+        <div class="sig-score" id="sig-big_bos-score"></div>
+      </div>
+
     </div><!-- /signal-grid -->
 
     <!-- SNIPER CHART -->
@@ -1761,7 +1778,7 @@ function applyPairState(pair) {
 }
 
 // ── Render multi-strategy signals ─────────────────────────────
-const SIGNAL_KEYS = ['precision_entry','quick_strike','trend_rider','momentum_break','liquidity_sweep','structure_flip'];
+const SIGNAL_KEYS = ['precision_entry','quick_strike','trend_rider','momentum_break','liquidity_sweep','structure_flip','big_bos'];
 
 function renderMulti(multi) {
   if (!multi) return;
@@ -1876,10 +1893,36 @@ function renderMulti(multi) {
   }
 
   // SNIPER SUPER card update
-  if (multi.signals) {
-    var sniperSig = multi.signals ? Object.values(multi.signals).find(function(s) { return s && s.name === "SNIPER SUPER"; }) : null;
+  if (multi) {
+    var sniperSig = null;
+    // Check in signals object (buildMultiSignals format from server.js buildMultiSignals)
+    if (multi.signals) {
+      if (Array.isArray(multi.signals)) {
+        sniperSig = multi.signals.find(function(s) { return s && (s.name === "SNIPER SUPER" || s.signalName === "SNIPER SUPER"); });
+      } else {
+        sniperSig = Object.values(multi.signals).find(function(s) { return s && (s.name === "SNIPER SUPER" || s.signalName === "SNIPER SUPER"); });
+      }
+    }
+    // Also check in multi_signals array (buildDecision format from decisionEngine.js) - embedded in multi object
+    if (!sniperSig && multi.multi_signals) {
+      if (Array.isArray(multi.multi_signals)) {
+        sniperSig = multi.multi_signals.find(function(s) { return s && (s.name === "SNIPER SUPER" || s.signalName === "SNIPER SUPER"); });
+      } else {
+        sniperSig = Object.values(multi.multi_signals).find(function(s) { return s && (s.name === "SNIPER SUPER" || s.signalName === "SNIPER SUPER"); });
+      }
+    }
+    // Fallback: if still nothing, use best_signal if available
+    if (!sniperSig && multi.best_signal) {
+      sniperSig = multi.best_signal;
+    }
     updateSniperSuper(sniperSig || null);
   }
+}
+
+// Also handle lab_signal type for LAB tab
+function handleLabSignal(data) {
+  if (!data) return;
+  renderMulti(data);
 }
 
 function renderSniperSignal(s) {
@@ -1910,7 +1953,8 @@ function renderSniperSignal(s) {
 }
 
 function updateSniperSuper(sig) {
-  if (!sig || sig.name !== "SNIPER SUPER") {
+  var isSniperSuper = sig && (sig.name === "SNIPER SUPER" || sig.signalName === "SNIPER SUPER");
+  if (!isSniperSuper) {
     const card = el("sniper-card");
     if (card) { card.className = "card sniper-super WAIT"; }
     el("sniper-dir").textContent = "——";
@@ -2338,6 +2382,19 @@ var ms = data.multi_signals || (data.decision && data.decision.multi_signals) ||
           candleSeries.setMarkers(markers);
         }
 
+        return;
+      }
+
+      // ── LAB SIGNAL (LABUSDT dedicated signal) ──
+      if (msg.type === 'lab_signal') {
+        var labData = msg.data || {};
+        var labKey = (msg.pair || 'LABUSDT').replace('-', '').toUpperCase();
+        if (pairState[labKey]) {
+          pairState[labKey].latestSignal = labData;
+        }
+        if (labKey === activePair || activePair === 'LABUSDT') {
+          handleLabSignal(labData);
+        }
         return;
       }
       if (msg.type === 'price_update') {

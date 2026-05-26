@@ -99,6 +99,10 @@ SYMBOLS.forEach(symbol => {
 var labSniper;
 try { labSniper = require("./engine/labSniper"); } catch(e) { labSniper = null; }
 
+// ΓöÇΓöÇ BOS Signal Engine (BIG BOS detection) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+var bosSignal;
+try { bosSignal = require("./engine/bosSignal"); } catch(e) { bosSignal = null; }
+
 // Legacy state (keep for backward compatibility)
 let signalHistory = [];
 let latestSignal = null;
@@ -1314,6 +1318,15 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure, patter
   const liquidity_sweep = getLiquiditySweepSignal(payload);
   const structure_flip  = getStructureFlipSignal(payload, prevStructure);
 
+  var bigBosSignal = null;
+  if (bosSignal && bosSignal.detectBigBOSSignal) {
+    var atrVal = (payload.high - payload.low) * 0.02;
+    bigBosSignal = bosSignal.detectBigBOSSignal(payload.candles || [], payload.ema50, payload.ema200, atrVal, null);
+    if (bigBosSignal) {
+      bigBosSignal.status = "ACTIVE";
+    }
+  }
+
   const signals = {
     precision_entry,
     quick_strike,
@@ -1321,6 +1334,7 @@ function buildMultiSignals(payload, htfBias, sniperSignal, prevStructure, patter
     momentum_break,
     liquidity_sweep,
     structure_flip,
+    big_bos: bigBosSignal,
   };
 
   // Score each signal

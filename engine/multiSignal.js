@@ -2,6 +2,7 @@ const { scoreSignal } = require("./aiScoring");
 
 function getPriority(sig) {
   if (sig.name === "SNIPER SUPER") return 5;
+  if (sig.name === "BOS") return 5;
   if (sig.name === "SMC") return 4;
   if (sig.name === "LTF SNIPER") return 5;
   if (sig.name === "ORDER BLOCK") return 3;

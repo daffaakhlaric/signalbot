@@ -36,6 +36,12 @@ try { htf = require("./htf"); } catch(e) {
   htf = { getHTFBias: function(){ return "NEUTRAL"; }, getStructure: function(){ return "NA"; } };
 }
 
+// ── Import BOS Signal engine ─────────────────────────────────────
+var bosSignal;
+try { bosSignal = require("./bosSignal"); } catch(e) {
+  bosSignal = { detectBOSSignal: function(){ return null; } };
+}
+
 var multiSignal;
 try { multiSignal = require("./multiSignal"); } catch(e) {
   multiSignal = { generateMultiSignals: function(){ return []; } };
@@ -692,6 +698,17 @@ function buildDecision(opts) {
   }
   console.log("MULTI after sniper:", result.multi_signals ? result.multi_signals.length : 0);
 
+  // 🔥 BOS SIGNAL (Break of Structure — Institutional Elite)
+  var ema50 = context.ema50;
+  var ema200 = context.ema200;
+  var atrVal = context.atr || (payload.high - payload.low) * 0.02;
+  var bosSignalResult = bosSignal.detectBOSSignal(candles, ema50, ema200, atrVal, null);
+  if (bosSignalResult) {
+    bosSignalResult.status = "ACTIVE";
+    result.multi_signals.push(bosSignalResult);
+    console.log("BOS SIGNAL:", bosSignalResult.direction, "| Score:", bosSignalResult.score, "| Grade:", bosSignalResult.confidenceTier);
+  }
+
   // 🔥 FORCE SIGNAL (ANTI KOSONG)
   if (!result.multi_signals || result.multi_signals.length === 0) {
     result.multi_signals = [{
@@ -879,4 +896,4 @@ function pickBestLongShort(signals) {
   return result;
 }
 
-module.exports = { buildDecision: buildDecision };
+module.exports = { buildDecision: buildDecision, detectSniperSuper: detectSniperSuper };
